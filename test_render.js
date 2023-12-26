@@ -2,92 +2,97 @@ var canvas = document.getElementById('webgl-canvas');
 var gl = canvas.getContext('webgl');
 
 // Vertex shader program
-// var vsSource = `#version 100
-// precision mediump float;
-// attribute vec3 a_position;
-// attribute vec3 a_normal;
+var vsSource = `#version 100
+precision mediump float;
+attribute vec3 a_position;
+attribute vec3 a_normal;
 
-// uniform mat4 u_modelViewMatrix; // Model-View matrix
-// uniform mat4 u_projectionMatrix; // Projection matrix
-// uniform mat3 u_normalMatrix; // Normal matrix (for transforming normals)
+uniform mat4 u_modelViewMatrix; // Model-View matrix
+uniform mat4 u_projectionMatrix; // Projection matrix
+uniform mat3 u_normalMatrix; // Normal matrix (for transforming normals)
 
-// varying vec3 v_normal;
-// varying vec3 v_fragPos;
+varying vec3 v_normal;
+varying vec3 v_fragPos;
 
-// void main() {
-//     // Transform the position
-//     v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));
+void main() {
+    // Transform the position
+    v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));
 
-//     // Transform the normal
-//     v_normal = u_normalMatrix * a_normal;
+    // Transform the normal
+    v_normal = u_normalMatrix * a_normal;
 
-//     // Set the position
-//     gl_Position = u_projectionMatrix * vec4(v_fragPos, 1.0);
-// }
-// `;
-
-// // Fragment shader program
-// var fsSource = `#version 100
-// precision mediump float;
-
-// varying vec3 v_normal;
-// varying vec3 v_fragPos;
-
-// uniform vec3 u_lightPos; // Position of the light
-// uniform vec3 u_viewPos; // Position of the camera
-// uniform vec4 u_lightColor; // Color of the light
-// uniform vec4 u_objectColor; // Color of the object
-
-// void main() {
-//     // Normalize the normal
-//     vec3 normal = normalize(v_normal);
-
-//     // Calculate ambient light
-//     float ambientStrength = 0.1;
-//     vec4 ambient = ambientStrength * u_lightColor;
-
-//     // Calculate diffuse light
-//     vec3 lightDir = normalize(u_lightPos - v_fragPos);
-//     float diff = max(dot(normal, lightDir), 0.0);
-//     vec4 diffuse = diff * u_lightColor;
-
-//     // Calculate specular light
-//     float specularStrength = 0.5;
-//     vec3 viewDir = normalize(u_viewPos - v_fragPos);
-//     vec3 reflectDir = reflect(-lightDir, normal);
-//     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-//     vec4 specular = specularStrength * spec * u_lightColor;
-
-//     // Combine results
-//     vec4 color = (ambient + diffuse + specular) * u_objectColor;
-    
-//     gl_FragColor = color;
-// }
-// `;
-
-var vsSource = `
-    attribute vec4 aVertexPosition;
-    uniform mat4 uModelViewMatrix;
-    uniform mat4 uProjectionMatrix;
-    void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-    }
+    // Set the position
+    gl_Position = u_projectionMatrix * vec4(v_fragPos, 1.0);
+}
 `;
 
 // Fragment shader program
-var fsSource = `
-    void main() {
-        gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // blue color
-    }
+var fsSource = `#version 100
+precision mediump float;
+
+varying vec3 v_normal;
+varying vec3 v_fragPos;
+
+uniform vec3 u_lightPos; // Position of the light
+uniform vec3 u_viewPos; // Position of the camera
+uniform vec4 u_lightColor; // Color of the light
+uniform vec4 u_objectColor; // Color of the object
+
+void main() {
+    // Normalize the normal
+    vec3 normal = normalize(v_normal);
+
+    // Calculate ambient light
+    float ambientStrength = 0.1;
+    vec4 ambient = ambientStrength * u_lightColor;
+
+    // Calculate diffuse light
+    vec3 lightDir = normalize(u_lightPos - v_fragPos);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec4 diffuse = diff * u_lightColor;
+
+    // Calculate specular light
+    float specularStrength = 0.5;
+    vec3 viewDir = normalize(u_viewPos - v_fragPos);
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec4 specular = specularStrength * spec * u_lightColor;
+
+    // Combine results
+    vec4 color = (ambient + diffuse + specular) * u_objectColor;
+    
+    gl_FragColor = color;
+}
 `;
 
+// var vsSource = `
+//     attribute vec4 aVertexPosition;
+//     uniform mat4 uModelViewMatrix;
+//     uniform mat4 uProjectionMatrix;
+//     void main() {
+//         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+//     }
+// `;
+
+// // Fragment shader program
+// var fsSource = `
+//     void main() {
+//         gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // blue color
+//     }
+// `;
+
 class Mesh {
-    constructor(vertices, indices = null) {
+    constructor(vertices, normals, indices = null) {
         this.vertices = vertices;
+        this.normals = normals;
         this.indices = indices;
         this.vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+        this.normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
         if (indices != null){
             this.indexBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -277,12 +282,12 @@ gl.linkProgram(shaderProgram);
 var programInfo = {
     program: shaderProgram,
     attribLocations: {
-        vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-        normalPosition: gl.getAttribLocation(shaderProgram, 'a_normal'),
+        vertexPosition: gl.getAttribLocation(shaderProgram, 'a_position'),
+        vertexNormal: gl.getAttribLocation(shaderProgram, 'a_normal'),
     },
     uniformLocations: {
-        projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-        modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+        projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
         lightPos: gl.getUniformLocation(shaderProgram, 'u_lightPos'),
         viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
@@ -298,9 +303,9 @@ var lastMouseX = null;
 var lastMouseY = null;
 
 // Camera control parameters
-var horizontalAngle = 0;
-var verticalAngle = 0;
-var distanceFromOrigin = 6; // Adjust as necessary
+var horizontalAngle = Math.PI;
+var verticalAngle = Math.PI/2;
+var distanceFromOrigin = 20; // Adjust as necessary
 
 // Event listeners
 canvas.onmousedown = function(event) {
@@ -325,6 +330,10 @@ document.onmousemove = function(event) {
 
     horizontalAngle += deltaX * 0.005; // Adjust sensitivity
     verticalAngle += deltaY * 0.005; // Adjust sensitivity
+    console.log("hello")
+    if (verticalAngle<0){
+      verticalAngle=0
+    }
 
     updateCamera();
     
@@ -339,7 +348,7 @@ canvas.addEventListener('wheel', function(event) {
 
     // Adjust zoom level
     distanceFromOrigin += delta * 0.5; // Adjust zoom speed as necessary
-    //distanceFromOrigin = Math.max(0.1, distanceFromOrigin); // Prevents zooming too close, adjust as necessary
+    distanceFromOrigin = Math.max(0.1, distanceFromOrigin); // Prevents zooming too close, adjust as necessary
 
     // Update camera
     updateCamera();
@@ -347,7 +356,7 @@ canvas.addEventListener('wheel', function(event) {
 
 function updateCamera() {
     // Ensure the vertical angle is within limits
-    //verticalAngle = Math.max(-Math.PI/2, Math.min(Math.PI/2, verticalAngle));
+    verticalAngle = Math.max(-Math.PI/2, Math.min(Math.PI/2, verticalAngle));
 
     // Calculate camera position using spherical coordinates
     var x = distanceFromOrigin * Math.sin(verticalAngle) * Math.cos(horizontalAngle);
@@ -362,10 +371,27 @@ var currentScene = {
 
 }
 
+function calculateNormalMatrix(modelViewMatrix){
+  // Create a new 3x3 matrix as a subset of the model-view matrix
+  var normalMatrix = mat3.create(); // Using glMatrix library for matrix operations
+  mat3.fromMat4(normalMatrix, modelViewMatrix); // Extract the upper-left 3x3 part
+
+  // Invert and transpose the matrix
+  mat3.invert(normalMatrix, normalMatrix);
+  mat3.transpose(normalMatrix, normalMatrix);
+
+  return normalMatrix;
+}
+
 function drawScene(){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for(const object of currentScene.objects){
         gl.useProgram(object.shaderProgram)
+        
+        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 0, 3);
+        gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
+        gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
+        gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
         let modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, object.modelMatrix, programInfo.viewMatrix);
         
@@ -374,13 +400,19 @@ function drawScene(){
             programInfo.uniformLocations.projectionMatrix,
             false,
             programInfo.projectionMatrix);
+        let normalMatrix = calculateNormalMatrix(modelViewMatrix);
+        gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
         
         for(const mesh of object.meshes){
+            //vertices
             gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-            if (object.indices === null){
-            }
+            //normals
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
 
         }
@@ -411,7 +443,7 @@ async function main(){
 
     meshes = []
     for(const geometry of meshData.geometries){
-        meshes.push(new Mesh(geometry.data.position));
+        meshes.push(new Mesh(geometry.data.position, geometry.data.normal));
     }
     let newObject = new RenderableObject(meshes, programInfo.program);
     mat4.translate(newObject.modelMatrix, newObject.modelMatrix, [0.0, 0.0, -6.0])
