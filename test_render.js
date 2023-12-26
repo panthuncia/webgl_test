@@ -6,6 +6,7 @@ var vsSource = `#version 100
 precision mediump float;
 attribute vec3 a_position;
 attribute vec3 a_normal;
+attribute vec2 a_texCoord;
 
 uniform mat4 u_modelViewMatrix; // Model-View matrix
 uniform mat4 u_projectionMatrix; // Projection matrix
@@ -13,6 +14,7 @@ uniform mat3 u_normalMatrix; // Normal matrix (for transforming normals)
 
 varying vec3 v_normal;
 varying vec3 v_fragPos;
+varying vec2 v_texCoord;
 
 void main() {
     // Transform the position
@@ -20,6 +22,9 @@ void main() {
 
     // Transform the normal
     v_normal = u_normalMatrix * a_normal;
+
+    //pass texcoord to fs
+    v_texCoord = a_texCoord;
 
     // Set the position
     gl_Position = u_projectionMatrix * vec4(v_fragPos, 1.0);
@@ -32,6 +37,10 @@ precision mediump float;
 
 varying vec3 v_normal;
 varying vec3 v_fragPos;
+varying vec2 v_texCoord;  // Received from vertex shader
+
+uniform sampler2D u_baseColorTexture;
+uniform sampler2D u_normalMap;
 
 uniform vec3 u_lightPos; // Position of the light
 uniform vec3 u_viewPos; // Position of the camera
@@ -39,8 +48,10 @@ uniform vec4 u_lightColor; // Color of the light
 uniform vec4 u_objectColor; // Color of the object
 
 void main() {
+    vec4 baseColor = texture2D(u_baseColorTexture, v_texCoord);
+
     // Normalize the normal
-    vec3 normal = normalize(v_normal);
+    vec3 normal = normalize(v_normal + texture2D(u_normalMap, v_texCoord).rgb);
 
     // Calculate ambient light
     float ambientStrength = 0.1;
@@ -59,30 +70,14 @@ void main() {
     vec4 specular = specularStrength * spec * u_lightColor;
 
     // Combine results
-    vec4 color = (ambient + diffuse + specular) * u_objectColor;
+    vec4 color = (ambient + diffuse + specular) * baseColor;
     
     gl_FragColor = color;
 }
 `;
 
-// var vsSource = `
-//     attribute vec4 aVertexPosition;
-//     uniform mat4 uModelViewMatrix;
-//     uniform mat4 uProjectionMatrix;
-//     void main() {
-//         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-//     }
-// `;
-
-// // Fragment shader program
-// var fsSource = `
-//     void main() {
-//         gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0); // blue color
-//     }
-// `;
-
 class Mesh {
-    constructor(vertices, normals, indices = null) {
+    constructor(vertices, normals, texcoords, indices = null) {
         this.vertices = vertices;
         this.normals = normals;
         this.indices = indices;
@@ -93,6 +88,11 @@ class Mesh {
         this.normalBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+        this.texCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+
         if (indices != null){
             this.indexBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -101,10 +101,12 @@ class Mesh {
       }
 }
 class RenderableObject {
-    constructor(meshes, shaderProgram){
+    constructor(meshes, shaderProgram, texture, normal){
         this.shaderProgram = shaderProgram;
         this.meshes = meshes;
         this.modelMatrix = mat4.create();
+        this.texture = texture;
+        this.normal = normal
     }
 }
 
@@ -284,6 +286,7 @@ var programInfo = {
     attribLocations: {
         vertexPosition: gl.getAttribLocation(shaderProgram, 'a_position'),
         vertexNormal: gl.getAttribLocation(shaderProgram, 'a_normal'),
+        texCoord: gl.getAttribLocation(shaderProgram, 'a_texCoord')
     },
     uniformLocations: {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
@@ -293,6 +296,8 @@ var programInfo = {
         viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         objectColor: gl.getUniformLocation(shaderProgram, 'u_objectColor'),
+        objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
+        normalTexture: gl.getUniformLocation(shaderProgram, 'u_normalMap')
     },
     viewMatrix: mat4.create(),
     projectionMatrix: mat4.create()
@@ -391,7 +396,7 @@ function drawScene(){
     for(const object of currentScene.objects){
         gl.useProgram(object.shaderProgram)
         
-        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 1, 0);
+        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 10, 0);
         gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
         gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
         gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
@@ -415,10 +420,22 @@ function drawScene(){
             gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
             gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+            //texcoords
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
+            //base texture
+            gl.activeTexture(gl.TEXTURE0); // e.g., gl.TEXTURE0
+            gl.bindTexture(gl.TEXTURE_2D, object.texture);
+            gl.uniform1i(programInfo.uniformLocations.objectTexture, 0);
+            //normal texture
+            gl.activeTexture(gl.TEXTURE1); // e.g., gl.TEXTURE0
+            gl.bindTexture(gl.TEXTURE_2D, object.normal);
+            gl.uniform1i(programInfo.uniformLocations.normalTexture, 1);
 
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
         }
-        console.log("done with object")
+        //console.log("done with object")
     }
     updateCamera();
     requestAnimationFrame(drawScene);
@@ -433,12 +450,34 @@ async function getObj(filename){
     })
 }
 
-function getRenderableFromData(data){
+function getRenderableFromData(data, texture = null, normal=null){
   meshes = []
     for(const geometry of data.geometries){
-        meshes.push(new Mesh(geometry.data.position, geometry.data.normal));
+        meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord));
     }
-    return new RenderableObject(meshes, programInfo.program);
+    return new RenderableObject(meshes, programInfo.program, texture, normal);
+}
+
+async function loadTexture(url) {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return createImageBitmap(blob);
+}
+
+function createWebGLTexture(gl, image) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the parameters so we can render any size image
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  // Upload the image into the texture
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+  return texture;
 }
 
 async function main(){
@@ -453,13 +492,21 @@ async function main(){
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
 
-    let dragonData = await(getObj('dragon.obj'));
-    let dragonObject = getRenderableFromData(dragonData);
+    let houseImage = await(loadTexture("textures/Cottage_Clean_Base_Color.png"));
+    let houseTexture = createWebGLTexture(gl, houseImage);
 
+    let houseNormalImage = await(loadTexture("textures/Cottage_Clean_Normal.png"));
+    let houseNormalTexture = createWebGLTexture(gl, houseNormalImage);
+
+    let dragonData = await(getObj('cottage_FREE.obj'));
+    console.log(dragonData);
+    let dragonObject = getRenderableFromData(dragonData, houseTexture, houseNormalTexture);
+
+    
     let sphereData = await(getObj('sphere.obj'));
     let sphereObject = getRenderableFromData(sphereData);
 
-    mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 1.0, 0.0])
+    mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
     mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
 
     currentScene.objects = [dragonObject, sphereObject];
