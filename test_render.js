@@ -303,9 +303,9 @@ var lastMouseX = null;
 var lastMouseY = null;
 
 // Camera control parameters
-var horizontalAngle = Math.PI;
+var horizontalAngle = Math.PI/2;
 var verticalAngle = Math.PI/2;
-var distanceFromOrigin = 20; // Adjust as necessary
+var distanceFromOrigin = 5; // Adjust as necessary
 
 // Event listeners
 canvas.onmousedown = function(event) {
@@ -329,10 +329,13 @@ document.onmousemove = function(event) {
     var deltaY = newY - lastMouseY;
 
     horizontalAngle += deltaX * 0.005; // Adjust sensitivity
-    verticalAngle += deltaY * 0.005; // Adjust sensitivity
-    console.log("hello")
-    if (verticalAngle<0){
-      verticalAngle=0
+    verticalAngle -= deltaY * 0.005; // Adjust sensitivity
+    //console.log(verticalAngle)
+    if (verticalAngle<0.0000001){
+      verticalAngle=0.0000001
+    }
+    if(verticalAngle>Math.PI){
+      verticalAngle=Math.PI
     }
 
     updateCamera();
@@ -356,7 +359,7 @@ canvas.addEventListener('wheel', function(event) {
 
 function updateCamera() {
     // Ensure the vertical angle is within limits
-    verticalAngle = Math.max(-Math.PI/2, Math.min(Math.PI/2, verticalAngle));
+    verticalAngle = Math.max(0, Math.min(Math.PI, verticalAngle));
 
     // Calculate camera position using spherical coordinates
     var x = distanceFromOrigin * Math.sin(verticalAngle) * Math.cos(horizontalAngle);
@@ -388,12 +391,12 @@ function drawScene(){
     for(const object of currentScene.objects){
         gl.useProgram(object.shaderProgram)
         
-        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 0, 3);
+        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 1, 0);
         gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
         gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
         gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
         let modelViewMatrix = mat4.create();
-        mat4.multiply(modelViewMatrix, object.modelMatrix, programInfo.viewMatrix);
+        mat4.multiply(modelViewMatrix, programInfo.viewMatrix, object.modelMatrix);
         
         gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
         gl.uniformMatrix4fv(
@@ -414,12 +417,28 @@ function drawScene(){
             gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
 
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
-
         }
-
+        console.log("done with object")
     }
     updateCamera();
     requestAnimationFrame(drawScene);
+}
+
+async function getObj(filename){
+  return await fetch(filename)
+    .then(response => response.text())
+    .then(data => {
+        console.log("found file")
+        return parseOBJ(data)
+    })
+}
+
+function getRenderableFromData(data){
+  meshes = []
+    for(const geometry of data.geometries){
+        meshes.push(new Mesh(geometry.data.position, geometry.data.normal));
+    }
+    return new RenderableObject(meshes, programInfo.program);
 }
 
 async function main(){
@@ -431,23 +450,19 @@ async function main(){
     mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
     programInfo.projectionMatrix = projectionMatrix
 
-    let meshData = null;
-    await fetch('Chair.obj')
-    .then(response => response.text())
-    .then(data => {
-        console.log("found file")
-        meshData = parseOBJ(data)
-    })
-    .catch(error => console.error('Error:', error));
-    console.log(meshData);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
 
-    meshes = []
-    for(const geometry of meshData.geometries){
-        meshes.push(new Mesh(geometry.data.position, geometry.data.normal));
-    }
-    let newObject = new RenderableObject(meshes, programInfo.program);
-    mat4.translate(newObject.modelMatrix, newObject.modelMatrix, [0.0, 0.0, -6.0])
-    currentScene.objects = [newObject];
+    let dragonData = await(getObj('dragon.obj'));
+    let dragonObject = getRenderableFromData(dragonData);
+
+    let sphereData = await(getObj('sphere.obj'));
+    let sphereObject = getRenderableFromData(sphereData);
+
+    mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 1.0, 0.0])
+    mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
+
+    currentScene.objects = [dragonObject, sphereObject];
 
     requestAnimationFrame(drawScene)
 }
