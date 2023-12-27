@@ -42,18 +42,48 @@ varying vec2 v_texCoord;  // Received from vertex shader
 uniform sampler2D u_baseColorTexture;
 uniform sampler2D u_normalMap;
 uniform sampler2D u_aoMap;
+uniform sampler2D u_heightMap;
 
 uniform vec3 u_lightPos; // Position of the light
 uniform vec3 u_viewPos; // Position of the camera
 uniform vec4 u_lightColor; // Color of the light
 uniform vec4 u_objectColor; // Color of the object
 
+vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
+  float heightScale = 0.02;
+  float numLayers = 200.0;
+  float layerDepth = 1.0 / numLayers;
+  
+  float currentLayerDepth = 0.0;
+  vec2 P = viewDir.xy / viewDir.z * heightScale;
+
+  vec2 deltaTexCoords = P / numLayers;
+  vec2 currentTexCoords = texCoords;
+
+  float currentDepthMapValue = texture2D(u_heightMap, currentTexCoords).r;
+
+  for (int i = 0; i < 20; ++i) {
+      if (currentLayerDepth >= currentDepthMapValue) {
+          break;
+      }
+
+      currentTexCoords -= deltaTexCoords;
+      currentDepthMapValue = texture2D(u_heightMap, currentTexCoords).r;
+      currentLayerDepth += layerDepth;
+  }
+
+  return currentTexCoords;
+}
+
+
 void main() {
-    vec4 baseColor = texture2D(u_baseColorTexture, v_texCoord);
-    vec4 aoColor = texture2D(u_aoMap, v_texCoord);
+    vec3 viewDir = normalize(u_viewPos - v_fragPos);
+    vec2 uv = getParallaxCoords(v_texCoord, viewDir);
+    vec4 baseColor = texture2D(u_baseColorTexture, uv);
+    vec4 aoColor = texture2D(u_aoMap, uv);
 
     // Normalize the normal
-    vec3 normal = normalize(v_normal + texture2D(u_normalMap, v_texCoord).rgb);
+    vec3 normal = normalize(v_normal + texture2D(u_normalMap, uv).rgb);
 
     // Calculate ambient light
     float ambientStrength = 0.1;
@@ -66,7 +96,6 @@ void main() {
 
     // Calculate specular light
     float specularStrength = 0.5;
-    vec3 viewDir = normalize(u_viewPos - v_fragPos);
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     vec4 specular = specularStrength * spec * u_lightColor;
@@ -104,13 +133,14 @@ class Mesh {
       }
 }
 class RenderableObject {
-  constructor(meshes, shaderProgram, textures, normals, aomaps){
+  constructor(meshes, shaderProgram, textures, normals, aoMaps, heightMaps){
     this.shaderProgram = shaderProgram;
     this.meshes = meshes;
     this.modelMatrix = mat4.create();
     this.textures = [];
     this.normals = [];
-    this.aomaps = [];
+    this.aoMaps = [];
+    this.heightMaps = [];
     for (let i=0; i<meshes.length; i++){
       if(textures.length>=i+1){
           this.textures.push(textures[i]);
@@ -124,11 +154,16 @@ class RenderableObject {
       else{
         this.normals.push(null);
       }
-      if(aomaps.length>=i+1){
-        this.aomaps.push(aomaps[i]);
+      if(aoMaps.length>=i+1){
+        this.aoMaps.push(aoMaps[i]);
       }
       else{
-        this.aomaps.push(null);
+        this.aoMaps.push(null);
+      }
+      if(heightMaps.length >= i + 1){
+          this.heightMaps.push(heightMaps[i]);
+      } else {
+          this.heightMaps.push(null);
       }
     }
   }
@@ -297,6 +332,16 @@ function compileShader(gl, shaderSource, shaderType) {
     return shader;
 }
 
+async function loadShaders(){
+  let fsSource = null;
+  await fetch("shaders/fragment.glsl")
+    .then(response => fsSource=response.text())
+    .then(data => {
+        //console.log("found fragment shader")
+    })
+
+}
+loadShaders()
 // Initialize shaders
 let vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
 let fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
@@ -323,7 +368,8 @@ var programInfo = {
         objectColor: gl.getUniformLocation(shaderProgram, 'u_objectColor'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
         normalTexture: gl.getUniformLocation(shaderProgram, 'u_normalMap'),
-        aoTexture: gl.getUniformLocation(shaderProgram, 'u_aoMap')
+        aoTexture: gl.getUniformLocation(shaderProgram, 'u_aoMap'),
+        heightMap: gl.getUniformLocation(shaderProgram, 'u_heightMap')
     },
     viewMatrix: mat4.create(),
     projectionMatrix: mat4.create()
@@ -451,17 +497,22 @@ function drawScene(){
             gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
             //base texture
-            gl.activeTexture(gl.TEXTURE0); // e.g., gl.TEXTURE0
+            gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
             gl.uniform1i(programInfo.uniformLocations.objectTexture, 0);
             //normal texture
-            gl.activeTexture(gl.TEXTURE1); // e.g., gl.TEXTURE0
+            gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
             gl.uniform1i(programInfo.uniformLocations.normalTexture, 1);
             //ao texture
             gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, object.aomaps[i]);
+            gl.bindTexture(gl.TEXTURE_2D, object.aoMaps[i]);
             gl.uniform1i(programInfo.uniformLocations.aoTexture, 2);
+            //height texture
+            gl.activeTexture(gl.TEXTURE3);
+            gl.bindTexture(gl.TEXTURE_2D, object.heightMaps[i]);
+            gl.uniform1i(programInfo.uniformLocations.heightMap, 3);
+
 
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
 
@@ -482,12 +533,12 @@ async function getObj(filename){
     })
 }
 
-function getRenderableFromData(data, textures = [], normals = [], aomaps = []){
+function getRenderableFromData(data, textures = [], normals = [], aoMaps = [], heightMaps = []){
   meshes = []
     for(const geometry of data.geometries){
         meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord));
     }
-    return new RenderableObject(meshes, programInfo.program, textures, normals, aomaps);
+    return new RenderableObject(meshes, programInfo.program, textures, normals, aoMaps, heightMaps);
 }
 
 async function loadTexture(url) {
@@ -526,7 +577,8 @@ async function main(){
 
     let textures = []
     let normals = []
-    let aomaps = []
+    let aoMaps = []
+    let heightMaps = []
 
     let houseImage = await(loadTexture("textures/Cottage_Clean_Base_Color.png"));
     let houseTexture = createWebGLTexture(gl, houseImage);
@@ -534,15 +586,19 @@ async function main(){
 
     let houseNormalImage = await(loadTexture("textures/Cottage_Clean_Normal.png"));
     let houseNormalTexture = createWebGLTexture(gl, houseNormalImage);
-    normals.push(houseNormalTexture)
+    normals.push(houseNormalTexture);
 
     let houseAoImage = await(loadTexture("textures/Cottage_Clean_AO.png"));
     let houseAoTexture = createWebGLTexture(gl, houseAoImage);
-    aomaps.push(houseAoTexture)
+    aoMaps.push(houseAoTexture);
+
+    let heightMapImage = await loadTexture("textures/Cottage_Clean_Height.png");
+    let heightMapTexture = createWebGLTexture(gl, heightMapImage);
+    heightMaps.push(heightMapTexture);
 
     let mainData = await(getObj('objects/Cottage_FREE.obj'));
     console.log(mainData);
-    let mainObject = getRenderableFromData(mainData, textures, normals, aomaps);
+    let mainObject = getRenderableFromData(mainData, textures, normals, aoMaps, heightMaps);
 
     
     let sphereData = await(getObj('objects/sphere.obj'));
