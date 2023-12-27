@@ -73,7 +73,7 @@ void main() {
 
     // Combine results
     vec4 color = (ambient + diffuse + specular) * baseColor;
-    //color = color * aoColor.r;
+    color.xyz *= aoColor.r;
 
     gl_FragColor = color;
 }
