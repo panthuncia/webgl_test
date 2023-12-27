@@ -207,7 +207,8 @@ function parseOBJ(text) {
       },
       vt(parts) {
         // should check for missing v and extra w?
-        objTexcoords.push(parts.map(parseFloat));
+        const [u, v] = parts.map(parseFloat)
+        objTexcoords.push([u, 1-v]);
       },
       f(parts) {
         setGeometry();
