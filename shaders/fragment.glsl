@@ -13,7 +13,6 @@ uniform sampler2D u_heightMap;
 uniform vec3 u_lightPos; // Position of the light
 uniform vec3 u_viewPos; // Position of the camera
 uniform vec4 u_lightColor; // Color of the light
-uniform vec4 u_objectColor; // Color of the object
 
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
   float heightScale = 0.01; // This value can be adjusted for more/less depth
