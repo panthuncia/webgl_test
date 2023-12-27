@@ -101,12 +101,26 @@ class Mesh {
       }
 }
 class RenderableObject {
-    constructor(meshes, shaderProgram, texture, normal){
+    constructor(meshes, shaderProgram, textures, normals){
         this.shaderProgram = shaderProgram;
         this.meshes = meshes;
         this.modelMatrix = mat4.create();
-        this.texture = texture;
-        this.normal = normal
+        this.textures = [];
+        this.normals = [];
+        for (let i=0; i<meshes.length; i++){
+          if(textures.length>=i+1){
+              this.textures.push(textures[i]);
+          }
+          else{
+            this.textures.push(null);
+          }
+          if(normals.length>=i+1){
+            this.normals.push(normals[i]);
+        }
+        else{
+          this.normals.push(null);
+        }
+        }
     }
 }
 
@@ -410,7 +424,7 @@ function drawScene(){
             programInfo.projectionMatrix);
         let normalMatrix = calculateNormalMatrix(modelViewMatrix);
         gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
-        
+        let i=0;
         for(const mesh of object.meshes){
             //vertices
             gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
@@ -426,14 +440,16 @@ function drawScene(){
             gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
             //base texture
             gl.activeTexture(gl.TEXTURE0); // e.g., gl.TEXTURE0
-            gl.bindTexture(gl.TEXTURE_2D, object.texture);
+            gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
             gl.uniform1i(programInfo.uniformLocations.objectTexture, 0);
             //normal texture
             gl.activeTexture(gl.TEXTURE1); // e.g., gl.TEXTURE0
-            gl.bindTexture(gl.TEXTURE_2D, object.normal);
+            gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
             gl.uniform1i(programInfo.uniformLocations.normalTexture, 1);
 
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
+
+            i+=1;
         }
         //console.log("done with object")
     }
@@ -450,12 +466,12 @@ async function getObj(filename){
     })
 }
 
-function getRenderableFromData(data, texture = null, normal=null){
+function getRenderableFromData(data, textures = [], normals = []){
   meshes = []
     for(const geometry of data.geometries){
         meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord));
     }
-    return new RenderableObject(meshes, programInfo.program, texture, normal);
+    return new RenderableObject(meshes, programInfo.program, textures, normals);
 }
 
 async function loadTexture(url) {
@@ -492,24 +508,29 @@ async function main(){
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
 
+    let textures = []
+    let normals = []
+
     let houseImage = await(loadTexture("textures/Cottage_Clean_Base_Color.png"));
     let houseTexture = createWebGLTexture(gl, houseImage);
+    textures.push(houseTexture);
 
     let houseNormalImage = await(loadTexture("textures/Cottage_Clean_Normal.png"));
     let houseNormalTexture = createWebGLTexture(gl, houseNormalImage);
+    normals.push(houseNormalTexture)
 
-    let dragonData = await(getObj('cottage_FREE.obj'));
-    console.log(dragonData);
-    let dragonObject = getRenderableFromData(dragonData, houseTexture, houseNormalTexture);
+    let mainData = await(getObj('objects/Cottage_FREE.obj'));
+    console.log(mainData);
+    let mainObject = getRenderableFromData(mainData, textures, normals);
 
     
-    let sphereData = await(getObj('sphere.obj'));
+    let sphereData = await(getObj('objects/sphere.obj'));
     let sphereObject = getRenderableFromData(sphereData);
 
     mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
     mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
 
-    currentScene.objects = [dragonObject, sphereObject];
+    currentScene.objects = [mainObject, sphereObject];
 
     requestAnimationFrame(drawScene)
 }
