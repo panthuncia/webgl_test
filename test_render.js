@@ -41,6 +41,7 @@ varying vec2 v_texCoord;  // Received from vertex shader
 
 uniform sampler2D u_baseColorTexture;
 uniform sampler2D u_normalMap;
+uniform sampler2D u_aoMap;
 
 uniform vec3 u_lightPos; // Position of the light
 uniform vec3 u_viewPos; // Position of the camera
@@ -49,6 +50,7 @@ uniform vec4 u_objectColor; // Color of the object
 
 void main() {
     vec4 baseColor = texture2D(u_baseColorTexture, v_texCoord);
+    vec4 aoColor = texture2D(u_aoMap, v_texCoord);
 
     // Normalize the normal
     vec3 normal = normalize(v_normal + texture2D(u_normalMap, v_texCoord).rgb);
@@ -71,7 +73,8 @@ void main() {
 
     // Combine results
     vec4 color = (ambient + diffuse + specular) * baseColor;
-    
+    //color = color * aoColor.r;
+
     gl_FragColor = color;
 }
 `;
@@ -101,27 +104,34 @@ class Mesh {
       }
 }
 class RenderableObject {
-    constructor(meshes, shaderProgram, textures, normals){
-        this.shaderProgram = shaderProgram;
-        this.meshes = meshes;
-        this.modelMatrix = mat4.create();
-        this.textures = [];
-        this.normals = [];
-        for (let i=0; i<meshes.length; i++){
-          if(textures.length>=i+1){
-              this.textures.push(textures[i]);
-          }
-          else{
-            this.textures.push(null);
-          }
-          if(normals.length>=i+1){
-            this.normals.push(normals[i]);
-        }
-        else{
-          this.normals.push(null);
-        }
-        }
+  constructor(meshes, shaderProgram, textures, normals, aomaps){
+    this.shaderProgram = shaderProgram;
+    this.meshes = meshes;
+    this.modelMatrix = mat4.create();
+    this.textures = [];
+    this.normals = [];
+    this.aomaps = [];
+    for (let i=0; i<meshes.length; i++){
+      if(textures.length>=i+1){
+          this.textures.push(textures[i]);
+      }
+      else{
+        this.textures.push(null);
+      }
+      if(normals.length>=i+1){
+        this.normals.push(normals[i]);
+      }
+      else{
+        this.normals.push(null);
+      }
+      if(aomaps.length>=i+1){
+        this.aomaps.push(aomaps[i]);
+      }
+      else{
+        this.aomaps.push(null);
+      }
     }
+  }
 }
 
 //https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html
@@ -312,7 +322,8 @@ var programInfo = {
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         objectColor: gl.getUniformLocation(shaderProgram, 'u_objectColor'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
-        normalTexture: gl.getUniformLocation(shaderProgram, 'u_normalMap')
+        normalTexture: gl.getUniformLocation(shaderProgram, 'u_normalMap'),
+        aoTexture: gl.getUniformLocation(shaderProgram, 'u_aoMap')
     },
     viewMatrix: mat4.create(),
     projectionMatrix: mat4.create()
@@ -447,6 +458,10 @@ function drawScene(){
             gl.activeTexture(gl.TEXTURE1); // e.g., gl.TEXTURE0
             gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
             gl.uniform1i(programInfo.uniformLocations.normalTexture, 1);
+            //ao texture
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, object.aomaps[i]);
+            gl.uniform1i(programInfo.uniformLocations.aoTexture, 2);
 
             gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
 
@@ -467,12 +482,12 @@ async function getObj(filename){
     })
 }
 
-function getRenderableFromData(data, textures = [], normals = []){
+function getRenderableFromData(data, textures = [], normals = [], aomaps = []){
   meshes = []
     for(const geometry of data.geometries){
         meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord));
     }
-    return new RenderableObject(meshes, programInfo.program, textures, normals);
+    return new RenderableObject(meshes, programInfo.program, textures, normals, aomaps);
 }
 
 async function loadTexture(url) {
@@ -511,6 +526,7 @@ async function main(){
 
     let textures = []
     let normals = []
+    let aomaps = []
 
     let houseImage = await(loadTexture("textures/Cottage_Clean_Base_Color.png"));
     let houseTexture = createWebGLTexture(gl, houseImage);
@@ -520,9 +536,13 @@ async function main(){
     let houseNormalTexture = createWebGLTexture(gl, houseNormalImage);
     normals.push(houseNormalTexture)
 
+    let houseAoImage = await(loadTexture("textures/Cottage_Clean_AO.png"));
+    let houseAoTexture = createWebGLTexture(gl, houseAoImage);
+    aomaps.push(houseAoTexture)
+
     let mainData = await(getObj('objects/Cottage_FREE.obj'));
     console.log(mainData);
-    let mainObject = getRenderableFromData(mainData, textures, normals);
+    let mainObject = getRenderableFromData(mainData, textures, normals, aomaps);
 
     
     let sphereData = await(getObj('objects/sphere.obj'));
