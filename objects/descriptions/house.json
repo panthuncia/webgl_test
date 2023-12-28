@@ -1,0 +1,16 @@
+{
+  "model": "Cottage_FREE.obj",
+  "matfile": "Cottage_FREE.mtl",
+  "textures": [
+    "Cottage_Clean_Base_Color.png"
+  ],
+  "normals": [
+    "Cottage_Clean_Normal.png"
+  ],
+  "aoMaps": [
+    "Cottage_Clean_AO.png"
+  ],
+  "heightMaps": [
+    "Cottage_Clean_Height.png"
+  ]
+}

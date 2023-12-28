@@ -182,12 +182,12 @@ async function getObj(filename){
       })
   }
   
-  function createRenderable(data, programInfo, textures = [], normals = [], aoMaps = [], heightMaps = []){
+  function createRenderable(data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = []){
     meshes = []
       for(const geometry of data.geometries){
           meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord));
       }
-      return new RenderableObject(meshes, programInfo, textures, normals, aoMaps, heightMaps);
+      return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps);
   }
   
   async function loadTexture(url) {
@@ -219,6 +219,19 @@ async function getObj(filename){
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.text();
+        return data;
+      } catch (error) {
+        console.error('Error fetching file:', error);
+      }
+  }
+
+  async function loadJson(url){
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
         return data;
       } catch (error) {
         console.error('Error fetching file:', error);

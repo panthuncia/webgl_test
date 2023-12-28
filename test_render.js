@@ -1,22 +1,39 @@
-async function createProgram(vsPath, fsPath){
-  let fsSource = await(loadText(fsPath));
-  let vsSource = await(loadText(vsPath));
+var shaderVariantNormalMap = 0b1;
+var shaderVariantBakedAO = 0b10;
+var shaderVariantParallax = 0b100;
+var shaderVariantsToCompile = [0b000, 0b001, 0b010, 0b100, 0b011, 0b101, 0b111, 0b110];
+var globalShaderProgramVariants = {}
+async function createProgramVariants(vsPath, fsPath) {
+  let fsSource = await (loadText(fsPath));
+  let vsSource = await (loadText(vsPath));
 
-  let vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
-  let fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
 
-  let shaderProgram = gl.createProgram();
-  gl.attachShader(shaderProgram, vertexShader);
-  gl.attachShader(shaderProgram, fragmentShader);
-  gl.linkProgram(shaderProgram);
-  programInfo = {
-    program: shaderProgram,
-    attribLocations: {
+  for (const variantID of shaderVariantsToCompile) {
+    let defines = "";
+    if (variantID & shaderVariantNormalMap) {
+      defines += "#define USE_NORMAL_MAP\n";
+    }
+    if (variantID & shaderVariantBakedAO) {
+      defines += "#define USE_BAKED_AO\n";
+    }
+    if (variantID & shaderVariantParallax) {
+      defines += "#define USE_PARALLAX\n";
+    }
+    let vertexShader = compileShader(gl, defines+vsSource, gl.VERTEX_SHADER);
+    let fragmentShader = compileShader(gl, defines+fsSource, gl.FRAGMENT_SHADER);
+
+    let shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+    let programInfo = {
+      program: shaderProgram,
+      attribLocations: {
         vertexPosition: gl.getAttribLocation(shaderProgram, 'a_position'),
         vertexNormal: gl.getAttribLocation(shaderProgram, 'a_normal'),
         texCoord: gl.getAttribLocation(shaderProgram, 'a_texCoord')
-    },
-    uniformLocations: {
+      },
+      uniformLocations: {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
@@ -24,135 +41,198 @@ async function createProgram(vsPath, fsPath){
         viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
-        normalTexture: gl.getUniformLocation(shaderProgram, 'u_normalMap'),
-        aoTexture: gl.getUniformLocation(shaderProgram, 'u_aoMap'),
-        heightMap: gl.getUniformLocation(shaderProgram, 'u_heightMap')
-    },
+      },
+    }
+    if (variantID & shaderVariantNormalMap) {
+      programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, 'u_normalMap');
+    }
+    if (variantID & shaderVariantBakedAO) {
+      programInfo.uniformLocations.aoTexture = gl.getUniformLocation(shaderProgram, 'u_aoMap');
+    }
+    if (variantID & shaderVariantParallax) {
+      programInfo.uniformLocations.heightMap = gl.getUniformLocation(shaderProgram, 'u_heightMap');
+    }
+    globalShaderProgramVariants[variantID] = programInfo;
   }
-  return programInfo;
 }
 
 var globalMatrices = {
-    viewMatrix: mat4.create(),
-    projectionMatrix: mat4.create()
+  viewMatrix: mat4.create(),
+  projectionMatrix: mat4.create()
 };
 
 var currentScene = {
 
 }
 
-function drawScene(){
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    for(const object of currentScene.objects){
-        programInfo = object.programInfo
-        gl.useProgram(programInfo.program)
-        
-        gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 10, 0);
-        gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
-        gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
-        gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
-        let modelViewMatrix = mat4.create();
-        mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
-        
-        gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-        gl.uniformMatrix4fv(
-            programInfo.uniformLocations.projectionMatrix,
-            false,
-            globalMatrices.projectionMatrix);
-        let normalMatrix = calculateNormalMatrix(modelViewMatrix);
-        gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
-        let i=0;
-        for(const mesh of object.meshes){
-            //vertices
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-            //normals
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
-            gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-            //texcoords
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
-            gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
-            //base texture
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
-            gl.uniform1i(programInfo.uniformLocations.objectTexture, 0);
-            //normal texture
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
-            gl.uniform1i(programInfo.uniformLocations.normalTexture, 1);
-            //ao texture
-            gl.activeTexture(gl.TEXTURE2);
-            gl.bindTexture(gl.TEXTURE_2D, object.aoMaps[i]);
-            gl.uniform1i(programInfo.uniformLocations.aoTexture, 2);
-            //height texture
-            gl.activeTexture(gl.TEXTURE3);
-            gl.bindTexture(gl.TEXTURE_2D, object.heightMaps[i]);
-            gl.uniform1i(programInfo.uniformLocations.heightMap, 3);
+function drawScene() {
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  for (const object of currentScene.objects) {
+    programInfo = globalShaderProgramVariants[object.shaderVariant]
+    gl.useProgram(programInfo.program)
 
+    gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 10, 0);
+    gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
+    gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
+    gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
+    let modelViewMatrix = mat4.create();
+    mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
 
-            gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length/3);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
+    gl.uniformMatrix4fv(
+      programInfo.uniformLocations.projectionMatrix,
+      false,
+      globalMatrices.projectionMatrix);
+    let normalMatrix = calculateNormalMatrix(modelViewMatrix);
+    gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
+    let i = 0;
+    for (const mesh of object.meshes) {
+      //vertices
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+      //normals
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
+      gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+      //texcoords
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+      gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
 
-            i+=1;
-        }
-        //console.log("done with object")
+      let textureUnit = 0
+      //base texture
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
+      gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
+      textureUnit += 1;
+      //normal texture
+      if (object.shaderVariant & shaderVariantNormalMap) {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
+        gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
+        textureUnit += 1;
+      }
+      //ao texture
+      if (object.shaderVariant & shaderVariantBakedAO) {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, object.aoMaps[i]);
+        gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
+        textureUnit += 1;
+      }
+      //height texture
+      if (object.shaderVariant & shaderVariantParallax) {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, object.heightMaps[i]);
+        gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
+        textureUnit += 1;
+      }
+
+      gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
+
+      i += 1;
     }
-    updateCamera();
-    requestAnimationFrame(drawScene);
+    //console.log("done with object")
+  }
+  updateCamera();
+  requestAnimationFrame(drawScene);
 }
 
-async function main(){
+// var houseObjectDescription = {
+//   model: "Cottage_FREE.obj",
+//   matfile: "Cottage_FREE.mtl",
+//   textures: [
+//     "Cottage_Clean_Base_Color.png"
+//   ],
+//   normals: [
+//     "Cottage_Clean_Normal.png"
+//   ],
+//   aoMaps: [
+//     "Cottage_Clean_AO.png"
+//   ],
+//   heightMaps: [
+//     "Cottage_Clean_Height.png"
+//   ]
+// }
 
-    let programInfo = await createProgram("shaders/vertex.glsl", "shaders/fragment.glsl");
+async function loadModel(modelDescription) {
+  let textures = []
+  let normals = []
+  let aoMaps = []
+  let heightMaps = []
+  shaderVariant = 0
+  try {
+    for (const textureName of modelDescription.textures) {
+      let textureImage = await (loadTexture("textures/" + textureName));
+      let texture = createWebGLTexture(gl, textureImage);
+      textures.push(texture);
+    }
+  } catch {
+    console.log("Object " + modelDescription.model + " has no texture")
+  }
 
-    let fieldOfView = 45 * Math.PI / 180; // in radians
-    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    let zNear = 0.1;
-    let zFar = 100.0;
-    let projectionMatrix = mat4.create();
-    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-    globalMatrices.projectionMatrix = projectionMatrix
+  try {
+    for (const textureName of modelDescription.normals) {
+      let normalImage = await (loadTexture("textures/" + textureName));
+      let normalTexture = createWebGLTexture(gl, normalImage);
+      normals.push(normalTexture);
+    }
+    shaderVariant |= shaderVariantNormalMap;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no normals")
+  }
 
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LESS);
+  try {
+    for (const textureName of modelDescription.aoMaps) {
+      let aoImage = await (loadTexture("textures/" + textureName));
+      let aoTexture = createWebGLTexture(gl, aoImage);
+      aoMaps.push(aoTexture);
+    }
+    shaderVariant |= shaderVariantBakedAO;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no ao maps")
+  }
 
-    let textures = []
-    let normals = []
-    let aoMaps = []
-    let heightMaps = []
+  try {
+    for (const textureName of modelDescription.heightMaps) {
+      let heightMapImage = await loadTexture("textures/" + textureName);
+      let heightMapTexture = createWebGLTexture(gl, heightMapImage);
+      heightMaps.push(heightMapTexture);
+    }
+    shaderVariant |= shaderVariantParallax;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no height maps")
+  }
 
-    let houseImage = await(loadTexture("textures/Cottage_Clean_Base_Color.png"));
-    let houseTexture = createWebGLTexture(gl, houseImage);
-    textures.push(houseTexture);
+  let objectData = await (getObj('objects/' + modelDescription.model));
+  console.log(objectData);
+  return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps);
+}
 
-    let houseNormalImage = await(loadTexture("textures/Cottage_Clean_Normal.png"));
-    let houseNormalTexture = createWebGLTexture(gl, houseNormalImage);
-    normals.push(houseNormalTexture);
+async function main() {
 
-    let houseAoImage = await(loadTexture("textures/Cottage_Clean_AO.png"));
-    let houseAoTexture = createWebGLTexture(gl, houseAoImage);
-    aoMaps.push(houseAoTexture);
+  let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
 
-    let heightMapImage = await loadTexture("textures/Cottage_Clean_Height.png");
-    let heightMapTexture = createWebGLTexture(gl, heightMapImage);
-    heightMaps.push(heightMapTexture);
+  let fieldOfView = 45 * Math.PI / 180; // in radians
+  let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  let zNear = 0.1;
+  let zFar = 100.0;
+  let projectionMatrix = mat4.create();
+  mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+  globalMatrices.projectionMatrix = projectionMatrix
 
-    let mainData = await(getObj('objects/Cottage_FREE.obj'));
-    console.log(mainData);
-    let mainObject = createRenderable(mainData, programInfo, textures, normals, aoMaps, heightMaps);
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LESS);
 
-    
-    let sphereData = await(getObj('objects/sphere.obj'));
-    let sphereObject = createRenderable(sphereData, programInfo);
+  let mainObject = await (loadModel(await (loadJson("objects/descriptions/house.json"))));
+  let sphereObject = await (loadModel(await (loadJson("objects/descriptions/sphere.json"))));
 
-    mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
-    mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
+  mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
+  mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
 
-    currentScene.objects = [mainObject, sphereObject];
+  currentScene.objects = [mainObject, sphereObject];
 
-    requestAnimationFrame(drawScene)
+  requestAnimationFrame(drawScene)
 }
 
 main()

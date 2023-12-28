@@ -23,8 +23,8 @@ class Mesh {
       }
 }
 class RenderableObject {
-  constructor(meshes, programInfo, textures, normals, aoMaps, heightMaps){
-    this.programInfo = programInfo;
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps){
+    this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.modelMatrix = mat4.create();
     this.textures = [];

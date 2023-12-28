@@ -1,12 +1,11 @@
-#version 100
 precision mediump float;
 attribute vec3 a_position;
 attribute vec3 a_normal;
 attribute vec2 a_texCoord;
 
-uniform mat4 u_modelViewMatrix; // Model-View matrix
-uniform mat4 u_projectionMatrix; // Projection matrix
-uniform mat3 u_normalMatrix; // Normal matrix (for transforming normals)
+uniform mat4 u_modelViewMatrix;
+uniform mat4 u_projectionMatrix;
+uniform mat3 u_normalMatrix;
 
 varying vec3 v_normal;
 varying vec3 v_fragPos;
