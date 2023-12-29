@@ -69,17 +69,18 @@ var currentScene = {
 }
 
 function drawScene() {
+  gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   for (const object of currentScene.objects) {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    let lightPosWorld = [0, 10, 0];
-    let lightPosView = vec3.create();
+    let lightPosWorld = [0, -4, 0];
+    let lightPosView = vec3.create();//test
     vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
-    gl.uniform3f(programInfo.uniformLocations.lightPosViewSpace, 0, 10, 0);
+    gl.uniform3f(programInfo.uniformLocations.lightPosViewSpace, lightPosView[0], lightPosView[1], lightPosView[2]);
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
-    gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
+    gl.uniform4f(programInfo.uniformLocations.lightColor, 1.0, 1.0, 1.0, 1); //white
     gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
@@ -123,10 +124,10 @@ function drawScene() {
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
         gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(programInfo.attribLocations.vertexTangent);
-        // //bitangent
-        // gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
-        // gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
-        // gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
+        //bitangent
+        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
         //normal map
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
@@ -244,7 +245,7 @@ async function main() {
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LESS);
 
-  let mainObject = await (loadModel(await (loadJson("objects/descriptions/house.json"))));
+  let mainObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/sphere.json"))));
 
   mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])

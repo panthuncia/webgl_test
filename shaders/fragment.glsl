@@ -2,9 +2,9 @@ precision mediump float;
 
 //if we're not using normal mapping, 
 //we want the view-space normals from the vertex shader
-#ifndef USE_NORMAL_MAP
+//#ifndef USE_NORMAL_MAP
 varying vec3 v_normal;
-#endif
+//#endif
 
 varying vec3 v_fragPos;
 varying vec2 v_texCoord;  // Received from vertex shader
@@ -73,31 +73,39 @@ void main() {
     vec3 normal = texture2D(u_normalMap, uv).rgb;
     normal = normalize(normal*2.0-1.0);
     normal = normalize(m_TBN * normal);
+    //normal = normalize(v_normal + texture2D(u_normalMap, uv).rgb);
     #else
     vec3 normal = normalize(v_normal);
     #endif
     // Calculate ambient light
     float ambientStrength = 0.1;
-    vec4 ambient = ambientStrength * u_lightColor;
+    vec3 ambient = ambientStrength * u_lightColor.xyz;
 
     // Calculate diffuse light
     vec3 lightDir = normalize(u_lightPosViewSpace - v_fragPos);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec4 diffuse = diff * u_lightColor;
+    vec3 diffuse = diff * u_lightColor.xyz;
 
     // Calculate specular light
     float specularStrength = 0.5;
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-    vec4 specular = specularStrength * spec * u_lightColor;
+    vec3 specular = specularStrength * spec * u_lightColor.xyz;
 
+    //attenuate
+    float constantAttenuation = 1.0;
+    float linearAttenuation = 0.09;
+    float quadraticAttenuation = 0.032;
+    float distance = length(u_lightPosViewSpace - v_fragPos);
+    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    vec3 lighting = (ambient + diffuse + specular) * attenuation;
     // Combine results
-    vec4 color = (ambient + diffuse + specular) * baseColor;
+    vec3 color = lighting * baseColor.xyz;
 
     #ifdef USE_BAKED_AO
     vec4 aoColor = texture2D(u_aoMap, uv);
     color.xyz *= aoColor.r;
     #endif
 
-    gl_FragColor = color;
+    gl_FragColor = vec4(color, 1.0);
 }

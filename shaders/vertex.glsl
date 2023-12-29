@@ -12,23 +12,29 @@ uniform mat4 u_modelViewMatrix;
 uniform mat4 u_projectionMatrix;
 uniform mat3 u_normalMatrix;
 
-#ifndef USE_NORMAL_MAP
+//#ifndef USE_NORMAL_MAP
 varying vec3 v_normal;
-#endif
+//#endif
 varying vec3 v_fragPos;
 varying vec2 v_texCoord;
 #ifdef USE_NORMAL_MAP
 varying mat3 m_TBN;
 #endif
-
+mat3 transposeMat3(mat3 m) {
+    return mat3(
+        vec3(m[0][0], m[1][0], m[2][0]),
+        vec3(m[0][1], m[1][1], m[2][1]),
+        vec3(m[0][2], m[1][2], m[2][2])
+    );
+}
 void main() {
     // Transform the position into view space
     v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));
 
     // Transform the normal
-    #ifndef USE_NORMAL_MAP
+    //#ifndef USE_NORMAL_MAP
     v_normal = u_normalMatrix * a_normal;
-    #endif
+    //#endif
 
     //pass texcoord to fs
     v_texCoord = a_texCoord;
@@ -36,9 +42,9 @@ void main() {
     //calculate TBN matrix, for transforming tangent-space coordinates to view space
     //used in normal mapping
     #ifdef USE_NORMAL_MAP
-    vec3 T = normalize(vec3(u_modelMatrix * vec4(normalize(a_tangent), 0.0)));
-    vec3 B = normalize(vec3(u_modelMatrix * vec4(normalize(a_bitangent), 0.0)));
-    vec3 N = normalize(vec3(u_modelMatrix * vec4(a_normal, 0.0)));
+    vec3 T = normalize(u_normalMatrix * a_tangent);
+    vec3 B = normalize(u_normalMatrix * a_bitangent);
+    vec3 N = normalize(u_normalMatrix * a_normal);
     m_TBN = mat3(T, B, N);
     #endif
 

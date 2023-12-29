@@ -161,16 +161,17 @@ function parseOBJ(text) {
 function calculateTangentsBitangents(positions, normals, uvs) {
   let tangents = [];
   let bitangents = [];
-
+  let j=0;
   for (let i = 0; i < positions.length; i += 9) {
+
       // Extract vertices and UVs for the current triangle
       let v0 = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
       let v1 = { x: positions[i + 3], y: positions[i + 4], z: positions[i + 5] };
       let v2 = { x: positions[i + 6], y: positions[i + 7], z: positions[i + 8] };
 
-      let uv0 = { u: uvs[i / 3], v: uvs[i / 3 + 1] };
-      let uv1 = { u: uvs[i / 3 + 2], v: uvs[i / 3 + 3] };
-      let uv2 = { u: uvs[i / 3 + 4], v: uvs[i / 3 + 5] };
+      let uv0 = { u: uvs[j], v: uvs[j + 1] };
+      let uv1 = { u: uvs[j + 2], v: uvs[j + 3] };
+      let uv2 = { u: uvs[j + 4], v: uvs[j + 5] };
 
       // Calculate the deltas
       let deltaPos1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
@@ -200,6 +201,7 @@ function calculateTangentsBitangents(positions, normals, uvs) {
       bitangents.push(bitangent.x, bitangent.y, bitangent.z);
       bitangents.push(bitangent.x, bitangent.y, bitangent.z);
       //bitangents.push(...Array(9).fill(bitangent));
+      j+=6;
   }
 
   return { tangents: tangents, bitangents: bitangents };
