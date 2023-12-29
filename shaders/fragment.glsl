@@ -1,8 +1,16 @@
 precision mediump float;
 
+//if we're not using normal mapping, 
+//we want the view-space normals from the vertex shader
+#ifndef USE_NORMAL_MAP
 varying vec3 v_normal;
+#endif
+
 varying vec3 v_fragPos;
 varying vec2 v_texCoord;  // Received from vertex shader
+#ifdef USE_NORMAL_MAP
+varying mat3 m_TBN; //received from vertex shader
+#endif
 
 uniform sampler2D u_baseColorTexture;
 #ifdef USE_NORMAL_MAP
@@ -15,13 +23,13 @@ uniform sampler2D u_aoMap;
 uniform sampler2D u_heightMap;
 #endif
 
-uniform vec3 u_lightPos; // Position of the light
-uniform vec3 u_viewPos; // Position of the camera
+uniform vec3 u_lightPosViewSpace; // Position of the light
+//uniform vec3 u_viewPos; // Position of the camera
 uniform vec4 u_lightColor; // Color of the light
 
 #ifdef USE_PARALLAX
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
-  float heightScale = 0.01; // This value can be adjusted for more/less depth
+  float heightScale = 1.0; // This value can be adjusted for more/less depth
   float numLayers = 200.0; // Number of layers for the POM effect
   float layerDepth = 1.0 / numLayers;
   
@@ -48,8 +56,9 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
 #endif
 
 void main() {
-    vec3 viewDir = normalize(u_viewPos - v_fragPos);
-    
+    //vec3 viewDir = normalize(u_viewPos - v_fragPos);
+    vec3 viewDir = -normalize(v_fragPos); // view-space
+
     #ifdef USE_PARALLAX
     vec2 uv = getParallaxCoords(v_texCoord, viewDir);
     #else
@@ -58,9 +67,12 @@ void main() {
     
     vec4 baseColor = texture2D(u_baseColorTexture, uv);
 
-    // Normalize the normal
+    //if normal mapping, transform tangent space
+    //to view space using TBN matrix. Else, just normalize v_normal.
     #ifdef USE_NORMAL_MAP
-    vec3 normal = normalize(v_normal + texture2D(u_normalMap, uv).rgb);
+    vec3 normal = texture2D(u_normalMap, uv).rgb;
+    normal = normalize(normal*2.0-1.0);
+    normal = normalize(m_TBN * normal);
     #else
     vec3 normal = normalize(v_normal);
     #endif
@@ -69,7 +81,7 @@ void main() {
     vec4 ambient = ambientStrength * u_lightColor;
 
     // Calculate diffuse light
-    vec3 lightDir = normalize(u_lightPos - v_fragPos);
+    vec3 lightDir = normalize(u_lightPosViewSpace - v_fragPos);
     float diff = max(dot(normal, lightDir), 0.0);
     vec4 diffuse = diff * u_lightColor;
 

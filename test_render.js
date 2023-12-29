@@ -37,13 +37,16 @@ async function createProgramVariants(vsPath, fsPath) {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
-        lightPos: gl.getUniformLocation(shaderProgram, 'u_lightPos'),
-        viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
+        lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
+        //viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
       },
     }
     if (variantID & shaderVariantNormalMap) {
+      programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
+      programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, 'a_tangent');
+      programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, 'a_bitangent');
       programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, 'u_normalMap');
     }
     if (variantID & shaderVariantBakedAO) {
@@ -71,8 +74,11 @@ function drawScene() {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 10, 0);
-    gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
+    let lightPosWorld = [0, 10, 0];
+    let lightPosView = vec3.create();
+    vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
+    gl.uniform3f(programInfo.uniformLocations.lightPosViewSpace, 0, 10, 0);
+    //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
     gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
     gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
     let modelViewMatrix = mat4.create();
@@ -85,6 +91,10 @@ function drawScene() {
       globalMatrices.projectionMatrix);
     let normalMatrix = calculateNormalMatrix(modelViewMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+    if (object.shaderVariant & shaderVariantNormalMap) {
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.modelMatrix);
+    }
     let i = 0;
     for (const mesh of object.meshes) {
       //vertices
@@ -106,8 +116,18 @@ function drawScene() {
       gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
       gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
       textureUnit += 1;
-      //normal texture
+
+      //if we have a normal map for this mesh
       if (object.shaderVariant & shaderVariantNormalMap) {
+        //tangent
+        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexTangent);
+        // //bitangent
+        // gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
+        // gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
+        // gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
+        //normal map
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
         gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
