@@ -84,7 +84,7 @@ function drawScene() {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.1);
+    gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.01);
     gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
 
 
@@ -251,7 +251,7 @@ async function main() {
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LESS);
 
-  let mainObject = await (loadModel(await (loadJson("objects/descriptions/iron_sphere.json"))));
+  let mainObject = await (loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
   mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
@@ -261,7 +261,7 @@ async function main() {
 
   let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 6, Math.PI / 4);
+  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 8);
 
   currentScene.lights = [light1, light2, light3];
   initLightVectors();

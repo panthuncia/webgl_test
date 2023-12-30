@@ -1,0 +1,11 @@
+{
+    "model": "sphere.obj",
+    "matfile": "",
+    "textures": [
+      "rustediron2_basecolor.png"
+    ],
+    "normals": [
+      "rustediron2_normal.png"
+    ],
+    "invertRoughness": false
+  }

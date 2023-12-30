@@ -1,0 +1,17 @@
+{
+    "model": "sphere.obj",
+    "matfile": "",
+    "textures": [
+      "oxidized-copper-albedo.png"
+    ],
+    "normals": [
+      "oxidized-copper-normal-ogl.png"
+    ],
+    "metallic": [
+        "oxidized-copper-metal.png"
+    ],
+    "roughness": [
+        "oxidized-copper-roughness.png"
+    ],
+    "invertRoughness": false
+  }

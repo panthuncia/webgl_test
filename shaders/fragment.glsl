@@ -131,6 +131,7 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
     vec3 lightDir = normalize(lightPos - fragPos);
     float distance = length(lightPos - fragPos);
     float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    
     #ifdef USE_PBR
     vec3 H = normalize(viewDir + lightDir);
     vec3 radiance = lightColor * attenuation;
@@ -147,8 +148,8 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
     vec3 specular     = numerator / denominator;  
     float NdotL = max(dot(normal, lightDir), 0.0);
     vec3 lighting = (kD * albedo / PI + specular) * radiance * NdotL;
+    
     #else
-    vec3 ambient = u_ambientStrength * lightColor.xyz;
 
     // Calculate diffuse light
     float diff = max(dot(normal, lightDir), 0.0);
@@ -160,7 +161,7 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
     vec3 specular = u_specularStrength * spec * lightColor;
 
     //attenuate
-    vec3 lighting = (ambient + diffuse + specular) * attenuation;
+    vec3 lighting = (diffuse + specular) * attenuation;
     #endif
     // For spotlights, apply extra attenuation based on the angle
     if (lightType == 1) {
@@ -215,13 +216,21 @@ void main() {
         float innerConeCos = u_lightProperties[i].y;
         lighting += calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
     }
-    
     // Combine results
-    vec3 color = baseColor.xyz*lighting;
 
     #ifdef USE_BAKED_AO
-    vec4 aoColor = texture2D(u_aoMap, uv);
-    color.xyz *= aoColor.r;
+    vec3 ambient = u_ambientStrength * baseColor.xyz*texture2D(u_aoMap, uv).r;
+    // color.xyz *= aoColor.r;
+    #else
+    vec3 ambient = u_ambientStrength * baseColor.xyz;
+    #endif
+    lighting+=ambient;
+    vec3 color = baseColor.xyz*lighting;
+    //reinhard tonemapping
+    color = color / (color + vec3(1.0));
+    #ifdef USE_PBR
+    //gamma correction
+    color = pow(color, vec3(1.0/2.2));
     #endif
 
     gl_FragColor = vec4(color, 1.0);
