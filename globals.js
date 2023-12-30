@@ -13,3 +13,5 @@ for (var i = 0; i < 16; i++) {
 }
 
 var globalShaderProgramVariants = {}
+
+var srgb_ext = gl.getExtension('EXT_sRGB');

@@ -246,7 +246,7 @@ async function loadTexture(url) {
   return createImageBitmap(blob);
 }
 
-function createWebGLTexture(gl, image, repeated = false) {
+function createWebGLTexture(gl, image, srgb=false, repeated = false) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -263,8 +263,11 @@ function createWebGLTexture(gl, image, repeated = false) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   // Upload the image into the texture
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-
+  if (srgb && srgb_ext){
+    gl.texImage2D(gl.TEXTURE_2D, 0, srgb_ext.SRGB_ALPHA_EXT, srgb_ext.SRGB_ALPHA_EXT, gl.UNSIGNED_BYTE, image);
+  } else {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  }
   return texture;
 }
 
@@ -305,7 +308,7 @@ async function loadModel(modelDescription) {
   try {
     for (const textureName of modelDescription.textures) {
       let textureImage = await (loadTexture("textures/" + textureName));
-      let texture = createWebGLTexture(gl, textureImage);
+      let texture = createWebGLTexture(gl, textureImage, true, false);
       textures.push(texture);
     }
   } catch {
