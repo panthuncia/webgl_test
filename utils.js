@@ -231,13 +231,13 @@ async function getObj(filename) {
     })
 }
 
-function createRenderable(data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = []) {
+function createRenderable(data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = []) {
   meshes = []
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
     meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord, tanbit.tangents, tanbit.bitangents));
   }
-  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps);
+  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness);
 }
 
 async function loadTexture(url) {
@@ -246,7 +246,7 @@ async function loadTexture(url) {
   return createImageBitmap(blob);
 }
 
-function createWebGLTexture(gl, image, repeated = false) {
+function createWebGLTexture(gl, image, srgb=false, repeated = false) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -263,8 +263,11 @@ function createWebGLTexture(gl, image, repeated = false) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   // Upload the image into the texture
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-
+  if (srgb && srgb_ext){
+    gl.texImage2D(gl.TEXTURE_2D, 0, srgb_ext.SRGB_ALPHA_EXT, srgb_ext.SRGB_ALPHA_EXT, gl.UNSIGNED_BYTE, image);
+  } else {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  }
   return texture;
 }
 
@@ -292,4 +295,82 @@ async function loadJson(url) {
   } catch (error) {
     console.error('Error fetching file:', error);
   }
+}
+
+async function loadModel(modelDescription) {
+  let textures = []
+  let normals = []
+  let aoMaps = []
+  let heightMaps = []
+  let metallic = []
+  let roughness = []
+  shaderVariant = 0
+  try {
+    for (const textureName of modelDescription.textures) {
+      let textureImage = await (loadTexture("textures/" + textureName));
+      let texture = createWebGLTexture(gl, textureImage, true, false);
+      textures.push(texture);
+    }
+  } catch {
+    console.log("Object " + modelDescription.model + " has no texture")
+  }
+
+  try {
+    for (const textureName of modelDescription.normals) {
+      let normalImage = await (loadTexture("textures/" + textureName));
+      let normalTexture = createWebGLTexture(gl, normalImage);
+      normals.push(normalTexture);
+    }
+    shaderVariant |= shaderVariantNormalMap;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no normals")
+  }
+
+  try {
+    for (const textureName of modelDescription.aoMaps) {
+      let aoImage = await (loadTexture("textures/" + textureName));
+      let aoTexture = createWebGLTexture(gl, aoImage);
+      aoMaps.push(aoTexture);
+    }
+    shaderVariant |= shaderVariantBakedAO;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no ao maps")
+  }
+
+  try {
+    for (const textureName of modelDescription.heightMaps) {
+      let heightMapImage = await loadTexture("textures/" + textureName);
+      let heightMapTexture = createWebGLTexture(gl, heightMapImage);
+      heightMaps.push(heightMapTexture);
+    }
+    shaderVariant |= shaderVariantParallax;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no height maps")
+  }
+
+  try {
+    for (const textureName of modelDescription.metallic) {
+      let metallicImage = await loadTexture("textures/" + textureName);
+      let metallicTexture = createWebGLTexture(gl, metallicImage);
+      metallic.push(metallicTexture);
+    }
+    shaderVariant |= shaderVariantPBR;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no metallic texture")
+  }
+
+  try {
+    for (const textureName of modelDescription.roughness) {
+      let roughnessImage = await loadTexture("textures/" + textureName);
+      let roughnessTexture = createWebGLTexture(gl, roughnessImage);
+      roughness.push(roughnessTexture);
+    }
+    shaderVariant |= shaderVariantPBR;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no roughness texture")
+  }
+
+  let objectData = await (getObj('objects/' + modelDescription.model));
+  console.log(objectData);
+  return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness);
 }

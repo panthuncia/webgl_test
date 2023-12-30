@@ -34,7 +34,7 @@ class Mesh {
       }
 }
 class RenderableObject {
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps){
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness){
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.modelMatrix = mat4.create();
@@ -42,29 +42,38 @@ class RenderableObject {
     this.normals = [];
     this.aoMaps = [];
     this.heightMaps = [];
+    this.metallic = [];
+    this.roughness = [];
     for (let i=0; i<meshes.length; i++){
-      if(textures.length>=i+1){
-          this.textures.push(textures[i]);
-      }
-      else{
+      if (textures.length >= i + 1) {
+        this.textures.push(textures[i]);
+      } else {
         this.textures.push(null);
       }
-      if(normals.length>=i+1){
+      if (normals.length >= i + 1) {
         this.normals.push(normals[i]);
-      }
-      else{
+      } else {
         this.normals.push(null);
       }
-      if(aoMaps.length>=i+1){
+      if (aoMaps.length >= i + 1) {
         this.aoMaps.push(aoMaps[i]);
-      }
-      else{
+      } else {
         this.aoMaps.push(null);
       }
-      if(heightMaps.length >= i + 1){
-          this.heightMaps.push(heightMaps[i]);
+      if (heightMaps.length >= i + 1) {
+        this.heightMaps.push(heightMaps[i]);
       } else {
-          this.heightMaps.push(null);
+        this.heightMaps.push(null);
+      }
+      if (metallic.length >= i + 1) {
+        this.metallic.push(metallic[i]);
+      } else {
+        this.metallic.push(null);
+      }
+      if (roughness.length >= i + 1) {
+        this.roughness.push(roughness[i]);
+      } else {
+        this.roughness.push(null);
       }
     }
   }
