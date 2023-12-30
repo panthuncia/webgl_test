@@ -64,33 +64,6 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
 }
 #endif
 
-vec3 calculateLightContribution(vec3 lightColor, vec3 lightPos, vec3 fragPos, vec3 viewDir, vec3 normal, float constantAttenuation, float linearAttenuation, float quadraticAttenuation){
-    // Calculate ambient light
-    //float ambientStrength = 0.1;
-    vec3 ambient = u_ambientStrength * lightColor.xyz;
-
-    // Calculate diffuse light
-    vec3 lightDir = normalize(lightPos - fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-
-    // Calculate specular light
-    //float specularStrength = 0.5;
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
-    vec3 specular = u_specularStrength * spec * lightColor;
-
-    //attenuate
-    // float constantAttenuation = 1.0;
-    // float linearAttenuation = 0.09;
-    // float quadraticAttenuation = 0.032;
-    float distance = length(lightPos - fragPos);
-    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
-    vec3 lighting = (ambient + diffuse + specular) * attenuation;
-    return lighting;
-}
-
-
 //https://github.com/panthuncia/TressFXShaders/blob/main/TressFXLighting.hlsl
 // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
 float SpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos, float innerConeCos)
@@ -105,6 +78,34 @@ float SpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos,
         return 1.0;
     }
     return 0.0;
+}
+
+vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, vec3 dir, vec3 fragPos, vec3 viewDir, vec3 normal, float constantAttenuation, float linearAttenuation, float quadraticAttenuation, float outerConeCos, float innerConeCos) {    // Calculate ambient light
+    vec3 ambient = u_ambientStrength * lightColor.xyz;
+
+    // Calculate diffuse light
+    vec3 lightDir = normalize(lightPos - fragPos);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+
+    // Calculate specular light
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    vec3 specular = u_specularStrength * spec * lightColor;
+
+    //attenuate
+    float distance = length(lightPos - fragPos);
+    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    vec3 lighting = (ambient + diffuse + specular) * attenuation;
+    
+    // For spotlights, apply extra attenuation based on the angle
+    if (lightType == 1) {
+        //vec3 pointToLight = fragPos - lightPos;
+        float spotEffect = SpotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
+        lighting *= spotEffect;
+    }
+
+    return lighting;
 }
 
 void main() {
@@ -133,7 +134,12 @@ void main() {
     vec3 lighting = vec3(0.0, 0.0, 0.0);
     for (int i=0; i<MAX_LIGHTS; i++){
         if (i >= u_numLights){break;}
-        lighting+=calculateLightContribution(u_lightColor[i].xyz, u_lightPosViewSpace[i].xyz, v_fragPos, viewDir, normal, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z);
+        int lightType = int(u_lightProperties[i].x);
+        vec3 lightPos = u_lightPosViewSpace[i].xyz;
+        vec3 lightDir = u_lightDirViewSpace[i].xyz;
+        float outerConeCos = u_lightProperties[i].z;
+        float innerConeCos = u_lightProperties[i].y;
+        lighting += calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
     }
     
     // Combine results

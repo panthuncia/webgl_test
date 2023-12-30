@@ -43,6 +43,8 @@ async function createProgramVariants(vsPath, fsPath) {
         lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         lightAttenuation: gl.getUniformLocation(shaderProgram, 'u_lightAttenuation'),
+        lightProperties: gl.getUniformLocation(shaderProgram, 'u_lightProperties'),
+        lightDirection: gl.getUniformLocation(shaderProgram, 'u_lightDirViewSpace'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
         ambientLightStrength: gl.getUniformLocation(shaderProgram, 'u_ambientStrength'),
         specularLightStrength: gl.getUniformLocation(shaderProgram, 'u_specularStrength'),
@@ -90,6 +92,10 @@ function drawScene() {
     gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
     gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
     gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
+    gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
+    gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
+
+
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
@@ -242,7 +248,7 @@ async function loadModel(modelDescription) {
 function updateLights(){
   currentScene.numLights = currentScene.lights.length;
   for (let i=0; i<currentScene.lights.length; i++){
-    currentScene.lightTypesData[i] = currentScene.lights[i].type;
+
     let lightPosWorld = currentScene.lights[i].position;
     let lightPosView = vec3.create();
     vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
@@ -262,14 +268,32 @@ function updateLights(){
     currentScene.lightColorsData[i*4+1] = lightColor[1];
     currentScene.lightColorsData[i*4+2] = lightColor[2];
     currentScene.lightColorsData[i*4+3] = 1.0;
+
+    let lightDirWorld = currentScene.lights[i].direction;
+    let lightDirView = vec3.create();
+    viewMatrix3x3 = mat3.create();
+    mat3.fromMat4(viewMatrix3x3, globalMatrices.viewMatrix); // Extract the upper-left 3x3 part
+    vec3.transformMat3(lightDirView, lightDirWorld, viewMatrix3x3);
+
+    currentScene.lightDirectionsData[i*4] = lightDirView[0];
+    currentScene.lightDirectionsData[i*4+1] = lightDirView[1];
+    currentScene.lightDirectionsData[i*4+2] = lightDirView[2];
+
+    currentScene.lightPropertiesData[i*4] = currentScene.lights[i].type;
+    if (currentScene.lights[i].type == LightType.SPOT){
+      currentScene.lightPropertiesData[i*4+1] = Math.cos(currentScene.lights[i].innerConeAngle);
+      currentScene.lightPropertiesData[i*4+2] = Math.cos(currentScene.lights[i].outerConeAngle);
+    }
   }
 }
 
 function initLightVectors(){
-  currentScene.lightTypesData = new Int8Array(GLOBAL_MAX_LIGHTS);
-  currentScene.lightPositionsData = new Float32Array(GLOBAL_MAX_LIGHTS * 3);
-  currentScene.lightColorsData = new Float32Array(GLOBAL_MAX_LIGHTS * 3);
+  currentScene.lightPositionsData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
+  currentScene.lightColorsData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
   currentScene.lightAttenuationsData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
+  currentScene.lightDirectionsData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
+  currentScene.lightPropertiesData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
+
 }
 
 async function main() {
@@ -295,9 +319,11 @@ async function main() {
 
   currentScene.objects = [mainObject, sphereObject];
 
-  let light1 = new Light(LightType.SPOT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
-  let light2 = new Light(LightType.SPOT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
-  currentScene.lights = [light1, light2];
+  let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.POINT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
+  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI/6, Math.PI/4);
+
+  currentScene.lights = [light1, light2, light3];
   initLightVectors();
   updateLights();
 
