@@ -23,9 +23,17 @@ uniform sampler2D u_aoMap;
 uniform sampler2D u_heightMap;
 #endif
 
-uniform vec3 u_lightPosViewSpace; // Position of the light
-//uniform vec3 u_viewPos; // Position of the camera
-uniform vec4 u_lightColor; // Color of the light
+#define MAX_LIGHTS 128
+//light attributes: x=type (0=point, 1=spot, 2=directional)
+//x=point -> 
+//x=spot -> y= cone angle
+uniform vec4 u_lightProperties[MAX_LIGHTS];
+uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
+uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
+uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
+uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
+uniform int u_numLights;
+uniform vec3 padding;
 
 #ifdef USE_PARALLAX
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
@@ -55,6 +63,32 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
 }
 #endif
 
+vec3 calculateLightContribution(float ambientStrength, float specularStrength, vec3 lightColor, vec3 lightPos, vec3 fragPos, vec3 viewDir, vec3 normal, float constantAttenuation, float linearAttenuation, float quadraticAttenuation){
+    // Calculate ambient light
+    //float ambientStrength = 0.1;
+    vec3 ambient = ambientStrength * lightColor.xyz;
+
+    // Calculate diffuse light
+    vec3 lightDir = normalize(lightPos - fragPos);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+
+    // Calculate specular light
+    //float specularStrength = 0.5;
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec3 specular = specularStrength * spec * lightColor;
+
+    //attenuate
+    // float constantAttenuation = 1.0;
+    // float linearAttenuation = 0.09;
+    // float quadraticAttenuation = 0.032;
+    float distance = length(lightPos - fragPos);
+    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    vec3 lighting = (ambient + diffuse + specular) * attenuation;
+    return lighting;
+}
+
 void main() {
     //vec3 viewDir = normalize(u_viewPos - v_fragPos);
     vec3 viewDir = -normalize(v_fragPos); // view-space
@@ -77,30 +111,18 @@ void main() {
     #else
     vec3 normal = normalize(v_normal);
     #endif
-    // Calculate ambient light
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * u_lightColor.xyz;
 
-    // Calculate diffuse light
-    vec3 lightDir = normalize(u_lightPosViewSpace - v_fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * u_lightColor.xyz;
-
-    // Calculate specular light
+    float ambientStrength = 0.1; //TODO: make variable
     float specularStrength = 0.5;
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-    vec3 specular = specularStrength * spec * u_lightColor.xyz;
 
-    //attenuate
-    float constantAttenuation = 1.0;
-    float linearAttenuation = 0.09;
-    float quadraticAttenuation = 0.032;
-    float distance = length(u_lightPosViewSpace - v_fragPos);
-    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
-    vec3 lighting = (ambient + diffuse + specular) * attenuation;
+    vec3 lighting = vec3(0.0, 0.0, 0.0);
+    for (int i=0; i<MAX_LIGHTS; i++){
+        if (i >= u_numLights){break;}
+        lighting+=calculateLightContribution(ambientStrength, specularStrength, u_lightColor[i].xyz, u_lightPosViewSpace[i].xyz, v_fragPos, viewDir, normal, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z);
+    }
+    
     // Combine results
-    vec3 color = lighting * baseColor.xyz;
+    vec3 color = baseColor.xyz*lighting;
 
     #ifdef USE_BAKED_AO
     vec4 aoColor = texture2D(u_aoMap, uv);

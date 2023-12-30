@@ -69,3 +69,18 @@ class RenderableObject {
     }
   }
 }
+const LightType = {
+  POINT: 0,
+  SPOT: 1,
+  DIRECTIONAL: 2
+}
+class Light {
+  constructor(type, position, color, constantAttenuation, linearAttenuation, quadraticAttenuation){
+    this.type = type;
+    this.position = position;
+    this.color = color;
+    this.constantAttenuation = constantAttenuation;
+    this.linearAttenuation = linearAttenuation;
+    this.quadraticAttenuation = quadraticAttenuation;
+  }
+}
