@@ -1,0 +1,9 @@
+{
+    "model": "sphere.obj",
+    "textures": [
+      "brickwall.jpg"
+    ],
+    "normals": [
+      "brickwall_normal.jpg"
+    ]
+  }

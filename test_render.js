@@ -1,3 +1,5 @@
+var GLOBAL_MAX_LIGHTS = 128;
+
 var shaderVariantNormalMap = 0b1;
 var shaderVariantBakedAO = 0b10;
 var shaderVariantParallax = 0b100;
@@ -37,13 +39,17 @@ async function createProgramVariants(vsPath, fsPath) {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
-        lightPos: gl.getUniformLocation(shaderProgram, 'u_lightPos'),
-        viewPos: gl.getUniformLocation(shaderProgram, 'u_viewPos'),
+        numLights: gl.getUniformLocation(shaderProgram, 'u_numLights'),
+        lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
+        lightAttenuation: gl.getUniformLocation(shaderProgram, 'u_lightAttenuation'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
       },
     }
     if (variantID & shaderVariantNormalMap) {
+      programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
+      programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, 'a_tangent');
+      programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, 'a_bitangent');
       programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, 'u_normalMap');
     }
     if (variantID & shaderVariantBakedAO) {
@@ -66,15 +72,21 @@ var currentScene = {
 }
 
 function drawScene() {
+  updateLights();
+  gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   for (const object of currentScene.objects) {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    gl.uniform3f(programInfo.uniformLocations.lightPos, 0, 10, 0);
-    gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
-    gl.uniform4f(programInfo.uniformLocations.lightColor, 1, 1, 1, 1); //white
-    gl.uniform4f(programInfo.uniformLocations.objectColor, 0, 0, 1, 1); //blue
+    //let lightPosWorld = [0, 0, 5];
+    //let lightPosView = vec3.create();//test
+    //vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
+    gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
+    gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
+    gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
+    gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
+    //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
 
@@ -85,6 +97,10 @@ function drawScene() {
       globalMatrices.projectionMatrix);
     let normalMatrix = calculateNormalMatrix(modelViewMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+    if (object.shaderVariant & shaderVariantNormalMap) {
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.modelMatrix);
+    }
     let i = 0;
     for (const mesh of object.meshes) {
       //vertices
@@ -106,8 +122,18 @@ function drawScene() {
       gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
       gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
       textureUnit += 1;
-      //normal texture
+
+      //if we have a normal map for this mesh
       if (object.shaderVariant & shaderVariantNormalMap) {
+        //tangent
+        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexTangent);
+        //bitangent
+        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
+        gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
+        //normal map
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
         gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
@@ -209,6 +235,39 @@ async function loadModel(modelDescription) {
   return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps);
 }
 
+function updateLights(){
+  currentScene.numLights = currentScene.lights.length;
+  for (let i=0; i<currentScene.lights.length; i++){
+    currentScene.lightTypesData[i] = currentScene.lights[i].type;
+    let lightPosWorld = currentScene.lights[i].position;
+    let lightPosView = vec3.create();
+    vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
+
+    currentScene.lightPositionsData[i*4] = lightPosView[0];
+    currentScene.lightPositionsData[i*4+1] = lightPosView[1];
+    currentScene.lightPositionsData[i*4+2] = lightPosView[2];
+    currentScene.lightPositionsData[i*4+3] = 0; //padding for uniform block alignment, unused in shader
+
+
+    currentScene.lightAttenuationsData[i*4] = currentScene.lights[i].constantAttenuation;
+    currentScene.lightAttenuationsData[i*4+1] = currentScene.lights[i].linearAttenuation;
+    currentScene.lightAttenuationsData[i*4+2] = currentScene.lights[i].quadraticAttenuation;
+
+    let lightColor = currentScene.lights[i].color;
+    currentScene.lightColorsData[i*4] = lightColor[0];
+    currentScene.lightColorsData[i*4+1] = lightColor[1];
+    currentScene.lightColorsData[i*4+2] = lightColor[2];
+    currentScene.lightColorsData[i*4+3] = 1.0;
+  }
+}
+
+function initLightVectors(){
+  currentScene.lightTypesData = new Int8Array(GLOBAL_MAX_LIGHTS);
+  currentScene.lightPositionsData = new Float32Array(GLOBAL_MAX_LIGHTS * 3);
+  currentScene.lightColorsData = new Float32Array(GLOBAL_MAX_LIGHTS * 3);
+  currentScene.lightAttenuationsData = new Float32Array(GLOBAL_MAX_LIGHTS * 4);
+}
+
 async function main() {
 
   let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
@@ -225,12 +284,18 @@ async function main() {
   gl.depthFunc(gl.LESS);
 
   let mainObject = await (loadModel(await (loadJson("objects/descriptions/house.json"))));
-  let sphereObject = await (loadModel(await (loadJson("objects/descriptions/sphere.json"))));
+  let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
   mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
   mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
 
   currentScene.objects = [mainObject, sphereObject];
+
+  let light1 = new Light(LightType.SPOT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.SPOT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
+  currentScene.lights = [light1, light2];
+  initLightVectors();
+  updateLights();
 
   requestAnimationFrame(drawScene)
 }

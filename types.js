@@ -1,8 +1,10 @@
 class Mesh {
-    constructor(vertices, normals, texcoords, indices = null) {
+    constructor(vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
         this.vertices = vertices;
         this.normals = normals;
         this.indices = indices;
+        this.tangents = tangents;
+        this.bitangents = bitangents;
         this.vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
@@ -14,6 +16,15 @@ class Mesh {
         this.texCoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+
+        if (tangents != null){
+          this.tangentBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
+          this.bitangentBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
+        }
 
         if (indices != null){
             this.indexBuffer = gl.createBuffer();
@@ -56,5 +67,20 @@ class RenderableObject {
           this.heightMaps.push(null);
       }
     }
+  }
+}
+const LightType = {
+  POINT: 0,
+  SPOT: 1,
+  DIRECTIONAL: 2
+}
+class Light {
+  constructor(type, position, color, constantAttenuation, linearAttenuation, quadraticAttenuation){
+    this.type = type;
+    this.position = position;
+    this.color = color;
+    this.constantAttenuation = constantAttenuation;
+    this.linearAttenuation = linearAttenuation;
+    this.quadraticAttenuation = quadraticAttenuation;
   }
 }
