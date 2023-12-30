@@ -44,6 +44,9 @@ async function createProgramVariants(vsPath, fsPath) {
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         lightAttenuation: gl.getUniformLocation(shaderProgram, 'u_lightAttenuation'),
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
+        ambientLightStrength: gl.getUniformLocation(shaderProgram, 'u_ambientStrength'),
+        specularLightStrength: gl.getUniformLocation(shaderProgram, 'u_specularStrength'),
+
       },
     }
     if (variantID & shaderVariantNormalMap) {
@@ -79,9 +82,10 @@ function drawScene() {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    //let lightPosWorld = [0, 0, 5];
-    //let lightPosView = vec3.create();//test
-    //vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
+    gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.1);
+    gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
+
+    
     gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
     gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
     gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);

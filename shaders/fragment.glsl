@@ -26,14 +26,15 @@ uniform sampler2D u_heightMap;
 #define MAX_LIGHTS 128
 //light attributes: x=type (0=point, 1=spot, 2=directional)
 //x=point -> 
-//x=spot -> y= cone angle
+//x=spot -> y= inner cone angle, z= outer cone angle
 uniform vec4 u_lightProperties[MAX_LIGHTS];
 uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
 uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
 uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
 uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 uniform int u_numLights;
-uniform vec3 padding;
+uniform float u_ambientStrength;
+uniform float u_specularStrength;
 
 #ifdef USE_PARALLAX
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
@@ -63,10 +64,10 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
 }
 #endif
 
-vec3 calculateLightContribution(float ambientStrength, float specularStrength, vec3 lightColor, vec3 lightPos, vec3 fragPos, vec3 viewDir, vec3 normal, float constantAttenuation, float linearAttenuation, float quadraticAttenuation){
+vec3 calculateLightContribution(vec3 lightColor, vec3 lightPos, vec3 fragPos, vec3 viewDir, vec3 normal, float constantAttenuation, float linearAttenuation, float quadraticAttenuation){
     // Calculate ambient light
     //float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * lightColor.xyz;
+    vec3 ambient = u_ambientStrength * lightColor.xyz;
 
     // Calculate diffuse light
     vec3 lightDir = normalize(lightPos - fragPos);
@@ -75,9 +76,9 @@ vec3 calculateLightContribution(float ambientStrength, float specularStrength, v
 
     // Calculate specular light
     //float specularStrength = 0.5;
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-    vec3 specular = specularStrength * spec * lightColor;
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    vec3 specular = u_specularStrength * spec * lightColor;
 
     //attenuate
     // float constantAttenuation = 1.0;
@@ -87,6 +88,23 @@ vec3 calculateLightContribution(float ambientStrength, float specularStrength, v
     float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
     vec3 lighting = (ambient + diffuse + specular) * attenuation;
     return lighting;
+}
+
+
+//https://github.com/panthuncia/TressFXShaders/blob/main/TressFXLighting.hlsl
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
+float SpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos, float innerConeCos)
+{
+    float actualCos = dot(normalize(spotDirection), normalize(-pointToLight));
+    if (actualCos > outerConeCos)
+    {
+        if (actualCos < innerConeCos)
+        {
+            return smoothstep(outerConeCos, innerConeCos, actualCos);
+        }
+        return 1.0;
+    }
+    return 0.0;
 }
 
 void main() {
@@ -112,13 +130,10 @@ void main() {
     vec3 normal = normalize(v_normal);
     #endif
 
-    float ambientStrength = 0.1; //TODO: make variable
-    float specularStrength = 0.5;
-
     vec3 lighting = vec3(0.0, 0.0, 0.0);
     for (int i=0; i<MAX_LIGHTS; i++){
         if (i >= u_numLights){break;}
-        lighting+=calculateLightContribution(ambientStrength, specularStrength, u_lightColor[i].xyz, u_lightPosViewSpace[i].xyz, v_fragPos, viewDir, normal, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z);
+        lighting+=calculateLightContribution(u_lightColor[i].xyz, u_lightPosViewSpace[i].xyz, v_fragPos, viewDir, normal, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z);
     }
     
     // Combine results
