@@ -1,4 +1,4 @@
-async function createProgramVariants(vsPath, fsPath) {
+async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
   let fsSource = await (loadText(fsPath));
   let vsSource = await (loadText(vsPath));
 
@@ -82,11 +82,16 @@ var currentScene = {
 
 }
 
-function drawScene() {
+async function drawScene() {
   updateLights();
   gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   for (const object of currentScene.objects) {
+
+    //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
+    if(!globalShaderProgramVariants[object.shaderVariant]){
+      await(createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl", [object.shaderVariant]));
+    }
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
@@ -251,7 +256,7 @@ function initLightVectors() {
 
 async function main() {
 
-  let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
+  //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
 
   let fieldOfView = 45 * Math.PI / 180; // in radians
   let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;

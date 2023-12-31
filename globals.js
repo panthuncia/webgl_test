@@ -6,12 +6,12 @@ var shaderVariantParallax = 0b100;
 var shaderVariantPBR = 0b1000;
 var ShaderVariantOpacityMap = 0b10000;
 
-var shaderVariantsToCompile = [];
+// var shaderVariantsToCompile = [];
 
-//build list of shader variants to compile
-for (var i = 0; i < 32; i++) {
-    shaderVariantsToCompile.push(i);
-}
+// //build list of shader variants to compile
+// for (var i = 0; i < 32; i++) {
+//     shaderVariantsToCompile.push(i);
+// }
 
 var globalShaderProgramVariants = {}
 
