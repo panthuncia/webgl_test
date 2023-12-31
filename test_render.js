@@ -282,11 +282,12 @@ async function main() {
   currentScene.objects = [mainObject];
 
   let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
-  let light2 = new Light(LightType.POINT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [1,1,1], 0, 0, 0, [1, 1, 1]);
 
-  currentScene.lights = [light1, light2, light3, light4];
+  currentScene.lights = [light5];
   initLightVectors();
   updateLights();
 

@@ -90,7 +90,7 @@ const LightType = {
   DIRECTIONAL: 2
 }
 class Light {
-  constructor(type, position, color, constantAttenuation, linearAttenuation, quadraticAttenuation, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
+  constructor(type, position, color, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
     this.type = type;
     this.position = position;
     this.color = color;

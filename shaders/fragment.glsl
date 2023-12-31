@@ -132,9 +132,18 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }  
 vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, vec3 dir, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0, float constantAttenuation, float linearAttenuation, float quadraticAttenuation, float outerConeCos, float innerConeCos) {    // Calculate ambient light
-    vec3 lightDir = normalize(lightPos - fragPos);
-    float distance = length(lightPos - fragPos);
-    float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    vec3 lightDir;
+    float distance;
+    float attenuation;
+    //for directional lights, use light dir directly, with zero attenuation
+    if(lightType == 2) {
+        lightDir = dir;
+        attenuation = 1.0;
+    } else {
+        lightDir = normalize(lightPos - fragPos);
+        distance = length(lightPos - fragPos);
+        attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+    }
     
     //PBR lighting
     //https://learnopengl.com/PBR/Lighting
