@@ -17,6 +17,9 @@ async function createProgramVariants(vsPath, fsPath) {
     if (variantID & shaderVariantPBR){
       defines += "#define USE_PBR\n";
     }
+    if (variantID & ShaderVariantOpacityMap){
+      defines += "#define USE_OPACITY_MAP\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -63,6 +66,9 @@ async function createProgramVariants(vsPath, fsPath) {
       programInfo.uniformLocations.metallic = gl.getUniformLocation(shaderProgram, 'u_metallic');
       programInfo.uniformLocations.roughness = gl.getUniformLocation(shaderProgram, 'u_roughness');
     }
+    if (variantID & ShaderVariantOpacityMap) {
+      programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, 'u_opacity');
+    }
     globalShaderProgramVariants[variantID] = programInfo;
   }
 }
@@ -84,7 +90,7 @@ function drawScene() {
     programInfo = globalShaderProgramVariants[object.shaderVariant]
     gl.useProgram(programInfo.program)
 
-    gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.01);
+    gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
     gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
 
 
@@ -174,6 +180,13 @@ function drawScene() {
         gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
         textureUnit += 1;
       }
+      //Opacity texture, if object uses one
+      if (object.shaderVariant & ShaderVariantOpacityMap) {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, object.opacity[i]);
+        gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
+        textureUnit += 1;
+      }
 
       gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
 
@@ -251,19 +264,24 @@ async function main() {
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LESS);
 
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.blendEquation(gl.FUNC_ADD);
+
   let mainObject = await (loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
   mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
   mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
 
-  currentScene.objects = [mainObject, sphereObject];
+  currentScene.objects = [mainObject];
 
   let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [7, 0, 0], [1, 1, 1], 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 8);
+  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 6);
+  let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
 
-  currentScene.lights = [light1, light2, light3];
+  currentScene.lights = [light1, light2, light3, light4];
   initLightVectors();
   updateLights();
 

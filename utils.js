@@ -231,13 +231,13 @@ async function getObj(filename) {
     })
 }
 
-function createRenderable(data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = []) {
+function createRenderable(data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = []) {
   meshes = []
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
     meshes.push(new Mesh(geometry.data.position, geometry.data.normal, geometry.data.texcoord, tanbit.tangents, tanbit.bitangents));
   }
-  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness);
+  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
 }
 
 async function loadTexture(url) {
@@ -304,11 +304,12 @@ async function loadModel(modelDescription) {
   let heightMaps = []
   let metallic = []
   let roughness = []
+  let opacity = []
   shaderVariant = 0
   try {
     for (const textureName of modelDescription.textures) {
       let textureImage = await (loadTexture("textures/" + textureName));
-      let texture = createWebGLTexture(gl, textureImage, true, false);
+      let texture = createWebGLTexture(gl, textureImage, false, false);
       textures.push(texture);
     }
   } catch {
@@ -369,8 +370,18 @@ async function loadModel(modelDescription) {
   } catch {
     console.log("Object " + modelDescription.model + " has no roughness texture")
   }
+  try {
+    for (const textureName of modelDescription.opacity) {
+      let opacityImage = await loadTexture("textures/" + textureName);
+      let opacityTexture = createWebGLTexture(gl, opacityImage);
+      opacity.push(opacityTexture);
+    }
+    shaderVariant |= ShaderVariantOpacityMap;
+  } catch {
+    console.log("Object " + modelDescription.model + " has no opacity texture")
+  }
 
   let objectData = await (getObj('objects/' + modelDescription.model));
   console.log(objectData);
-  return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness);
+  return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
 }

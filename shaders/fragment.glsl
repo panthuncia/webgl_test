@@ -27,6 +27,9 @@ uniform sampler2D u_heightMap;
 uniform sampler2D u_metallic;
 uniform sampler2D u_roughness;
 #endif
+#ifdef USE_OPACITY_MAP
+uniform sampler2D u_opacity;
+#endif
 
 
 
@@ -43,9 +46,10 @@ uniform int u_numLights;
 uniform float u_ambientStrength;
 uniform float u_specularStrength;
 
+//POM. WIP.
 #ifdef USE_PARALLAX
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
-  float heightScale = 1.0; // This value can be adjusted for more/less depth
+  float heightScale = 0.02; // This value can be adjusted for more/less depth
   float numLayers = 200.0; // Number of layers for the POM effect
   float layerDepth = 1.0 / numLayers;
   
@@ -132,6 +136,8 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
     float distance = length(lightPos - fragPos);
     float attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
     
+    //PBR lighting
+    //https://learnopengl.com/PBR/Lighting
     #ifdef USE_PBR
     vec3 H = normalize(viewDir + lightDir);
     vec3 radiance = lightColor * attenuation;
@@ -149,7 +155,7 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
     float NdotL = max(dot(normal, lightDir), 0.0);
     vec3 lighting = (kD * albedo / PI + specular) * radiance * NdotL;
     
-    #else
+    #else //Non-PBR lighting
 
     // Calculate diffuse light
     float diff = max(dot(normal, lightDir), 0.0);
@@ -174,9 +180,10 @@ vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, v
 }
 
 void main() {
-    //vec3 viewDir = normalize(u_viewPos - v_fragPos);
+    //we're doing light calculations in view space
     vec3 viewDir = -normalize(v_fragPos); // view-space
 
+    //Parallax occlusion mapping. WIP.
     #ifdef USE_PARALLAX
     vec2 uv = getParallaxCoords(v_texCoord, viewDir);
     #else
@@ -185,7 +192,7 @@ void main() {
     
     vec4 baseColor = texture2D(u_baseColorTexture, uv);
 
-    //if normal mapping, transform tangent space
+    //if normal mapping, transform tangent space normal
     //to view space using TBN matrix. Else, just normalize v_normal.
     #ifdef USE_NORMAL_MAP
     vec3 normal = texture2D(u_normalMap, uv).rgb;
@@ -205,6 +212,7 @@ void main() {
     roughness = texture2D(u_roughness, uv).r;
     F0 = mix(F0, baseColor.xyz, metallic);
     #endif
+
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
     for (int i=0; i<MAX_LIGHTS; i++){
@@ -218,6 +226,7 @@ void main() {
     }
     // Combine results
 
+    //ambient lighting, use AO map here if we have one
     #ifdef USE_BAKED_AO
     vec3 ambient = u_ambientStrength * baseColor.xyz*texture2D(u_aoMap, uv).r;
     // color.xyz *= aoColor.r;
@@ -233,5 +242,10 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
     #endif
 
-    gl_FragColor = vec4(color, 1.0);
+    //apply opacity
+    float opacity = baseColor.a;
+    #ifdef USE_OPACITY_MAP
+    opacity = 1.0-texture2D(u_opacity, uv).r;
+    #endif
+    gl_FragColor = vec4(color, opacity);
 }

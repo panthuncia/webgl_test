@@ -34,7 +34,7 @@ class Mesh {
       }
 }
 class RenderableObject {
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness){
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity){
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.modelMatrix = mat4.create();
@@ -44,6 +44,7 @@ class RenderableObject {
     this.heightMaps = [];
     this.metallic = [];
     this.roughness = [];
+    this.opacity = [];
     for (let i=0; i<meshes.length; i++){
       if (textures.length >= i + 1) {
         this.textures.push(textures[i]);
@@ -74,6 +75,11 @@ class RenderableObject {
         this.roughness.push(roughness[i]);
       } else {
         this.roughness.push(null);
+      }
+      if (opacity.length >= i + 1) {
+        this.opacity.push(opacity[i]);
+      } else {
+        this.opacity.push(null);
       }
     }
   }

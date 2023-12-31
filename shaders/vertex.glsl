@@ -20,13 +20,13 @@ varying vec2 v_texCoord;
 #ifdef USE_NORMAL_MAP
 varying mat3 m_TBN;
 #endif
-mat3 transposeMat3(mat3 m) {
-    return mat3(
-        vec3(m[0][0], m[1][0], m[2][0]),
-        vec3(m[0][1], m[1][1], m[2][1]),
-        vec3(m[0][2], m[1][2], m[2][2])
-    );
-}
+// mat3 transposeMat3(mat3 m) {
+//     return mat3(
+//         vec3(m[0][0], m[1][0], m[2][0]),
+//         vec3(m[0][1], m[1][1], m[2][1]),
+//         vec3(m[0][2], m[1][2], m[2][2])
+//     );
+// }
 void main() {
     // Transform the position into view space
     v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));

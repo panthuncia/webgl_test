@@ -4,11 +4,12 @@ var shaderVariantNormalMap = 0b1;
 var shaderVariantBakedAO = 0b10;
 var shaderVariantParallax = 0b100;
 var shaderVariantPBR = 0b1000;
+var ShaderVariantOpacityMap = 0b10000;
 
 var shaderVariantsToCompile = [];
 
 //build list of shader variants to compile
-for (var i = 0; i < 16; i++) {
+for (var i = 0; i < 32; i++) {
     shaderVariantsToCompile.push(i);
 }
 

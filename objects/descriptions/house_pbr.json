@@ -10,10 +10,16 @@
     "aoMaps": [
       "Cottage_Clean_AO.png"
     ],
+    "heightMaps": [
+        "Cottage_Clean_Height.png"
+    ],
     "metallic": [
         "Cottage_Clean_Metallic.png"
     ],
     "roughness": [
         "Cottage_Clean_Roughness.png"
+    ],
+    "opacity": [
+        "Cottage_Clean_Opacity.png"
     ]
   }
