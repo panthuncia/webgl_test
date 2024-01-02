@@ -82,7 +82,14 @@ var currentScene = {
 
 }
 
+function updateScene(){
+  for(entity of currentScene.objects){
+    entity.updateSelfAndChildren();
+  }
+}
+
 async function drawScene() {
+  updateScene();
   updateLights();
   gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -109,7 +116,7 @@ async function drawScene() {
 
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
     let modelViewMatrix = mat4.create();
-    mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.modelMatrix);
+    mat4.multiply(modelViewMatrix, globalMatrices.viewMatrix, object.transform.modelMatrix);
 
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
     gl.uniformMatrix4fv(
@@ -120,7 +127,7 @@ async function drawScene() {
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
     if (object.shaderVariant & shaderVariantNormalMap) {
-      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.modelMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
     }
     let i = 0;
     for (const mesh of object.meshes) {
@@ -254,6 +261,29 @@ function initLightVectors() {
 
 }
 
+function shadowPass(){
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer);
+  gl.viewport(0, 0, shadowWidth, shadowHeight);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+
+  // Use a shader program that outputs depth
+  gl.useProgram(shadowProgram);
+
+  // Set up the light's view and projection matrices
+  let lightDir = vec3.fromValues(currentScene.lights[0].position)
+  //let lightProjectionMatrix = ...; // Typically an orthographic projection for directional lights
+  //let lightViewMatrix = ...; // Look-at matrix from the light's position
+
+  // Set uniforms for the light's projection and view matrices
+  gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "uProjection"), false, lightProjectionMatrix);
+  gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "uView"), false, lightViewMatrix);
+
+  // Render the scene
+  // ...
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
 async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
@@ -276,10 +306,10 @@ async function main() {
   let mainObject = await (loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
-  mat4.translate(sphereObject.modelMatrix, sphereObject.modelMatrix, [0.0, 10.0, 0.0])
-  mat4.scale(sphereObject.modelMatrix, sphereObject.modelMatrix, vec3.fromValues(.1, .1, .1))
+  sphereObject.transform.setLocalPosition([0, 10, 0]);
+  sphereObject.transform.setLocalScale([.1, .1, .1]);
 
-  currentScene.objects = [mainObject];
+  currentScene.objects = [mainObject, sphereObject];
 
   let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 0.09, 0.032);
@@ -287,7 +317,7 @@ async function main() {
   let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [1,1,1], 0, 0, 0, [1, 1, 1]);
 
-  currentScene.lights = [light5];
+  currentScene.lights = [light1, light2, light3, light4];
   initLightVectors();
   updateLights();
 

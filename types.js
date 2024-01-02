@@ -33,11 +33,86 @@ class Mesh {
         }
       }
 }
-class RenderableObject {
+
+class Transform {
+  constructor(pos = [0.0, 0.0, 0.0], rot = [0.0, 0.0, 0.0], scale = [1.0, 1.0, 1.0],){
+    this.pos = pos; 
+    this.rot = quat.create();
+    quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
+    this.scale = scale;
+    this.isDirty = false;
+    this.modelMatrix = mat4.create();
+  }
+  getLocalModelMatrix(){
+    let matRotation = mat4.create();
+    mat4.fromQuat(matRotation, this.rot);
+
+    let matTranslation = mat4.create();
+    mat4.fromTranslation(matTranslation, this.pos);
+
+    let matScale = mat4.create();
+    mat4.fromScaling(matScale, this.scale);
+
+    let localMatrix = mat4.create();
+    mat4.multiply(localMatrix, matTranslation, matRotation);
+    mat4.multiply(localMatrix, localMatrix, matScale);
+    return localMatrix;
+  }
+  computeLocalModelMatrix(){
+    this.modelMatrix = this.getLocalModelMatrix();
+    this.isDirty = false;
+  }
+  computeModelMatrixFromParent(parentGlobalModelMatrix){
+    mat4.multiply(this.modelMatrix, parentGlobalModelMatrix, this.getLocalModelMatrix());
+    this.isDirty = false;
+  }
+  setLocalPosition(newPosition){
+    this.pos = newPosition;
+		this.isDirty = true;
+  }
+  setLocalRotation(newRotation){
+    quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
+    this.isDirty = true;
+  }
+  setLocalScale(newScale){
+    this.scale = newScale;
+    this.isDirty = true;
+  }
+}
+
+class SceneNode {
+  constructor(){
+    this.children = [];
+    this.parent = null;
+    this.transform = new Transform(); 
+  }
+  addChild(node){
+    this.children.push(node);
+    node.parent = this;
+  }
+  updateSelfAndChildren(){
+    if(this.transform.isDirty){
+      this.forceUpdateSelfAndChildren();
+      return;
+    }
+    for(child of this.children){
+      child.updateSelfAndChildren();
+    }
+  }
+  forceUpdateSelfAndChildren(){
+    if(this.parent){
+      this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
+    } else {
+      this.transform.computeLocalModelMatrix();
+    }
+  }
+}
+
+class RenderableObject extends SceneNode{
   constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity){
+    super();
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
-    this.modelMatrix = mat4.create();
     this.textures = [];
     this.normals = [];
     this.aoMaps = [];
@@ -89,8 +164,9 @@ const LightType = {
   SPOT: 1,
   DIRECTIONAL: 2
 }
-class Light {
+class Light extends SceneNode{
   constructor(type, position, color, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
+    super();
     this.type = type;
     this.position = position;
     this.color = color;
