@@ -168,13 +168,35 @@ class Light extends SceneNode{
   constructor(type, position, color, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
     super();
     this.type = type;
-    this.position = position;
+    this.position = vec3.fromValues(position[0], position[1], position[2]);
     this.color = color;
     this.constantAttenuation = constantAttenuation;
     this.linearAttenuation = linearAttenuation;
     this.quadraticAttenuation = quadraticAttenuation;
-    this.direction = direction;
+    this.direction = vec3.fromValues(direction[0], direction[1], direction[2]);
+    vec3.normalize(this.direction, this.direction);
     this.innerConeAngle = innerConeAngle;
     this.outerConeAngle = outerConeAngle;
+  }
+  //TODO: don't calculate every time
+  getLightViewMatrix(){
+    let lightPos = vec3.scale(vec3.create(), this.direction, 10);
+    let target = vec3.fromValues(0.0, 0.0, 0.0);
+    let up = vec3.fromValues(0.0, 1.0, 0.0);
+    let lightViewMatrix = mat4.create();
+    mat4.lookAt(lightViewMatrix, lightPos, target, up);
+    return lightViewMatrix;
+  }
+  getLightProjectionMatrix(){
+    let left = -10;
+    let right = 10;
+    let bottom = -10;
+    let top = 10;
+    let near = 1.0;
+    let far = 20.0;
+
+    let lightProjectionMatrix = mat4.create();
+    mat4.ortho(lightProjectionMatrix, left, right, bottom, top, near, far);
+    return lightProjectionMatrix;
   }
 }

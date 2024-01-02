@@ -79,7 +79,7 @@ var globalMatrices = {
 };
 
 var currentScene = {
-
+  shadowScene: {}
 }
 
 function updateScene(){
@@ -91,8 +91,11 @@ function updateScene(){
 async function drawScene() {
   updateScene();
   updateLights();
+  shadowPass();
   gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  drawFullscreenQuad(currentScene.shadowScene.shadowMap);
+  return;
   for (const object of currentScene.objects) {
 
     //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
@@ -261,29 +264,6 @@ function initLightVectors() {
 
 }
 
-function shadowPass(){
-  gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer);
-  gl.viewport(0, 0, shadowWidth, shadowHeight);
-  gl.clear(gl.DEPTH_BUFFER_BIT);
-
-  // Use a shader program that outputs depth
-  gl.useProgram(shadowProgram);
-
-  // Set up the light's view and projection matrices
-  let lightDir = vec3.fromValues(currentScene.lights[0].position)
-  //let lightProjectionMatrix = ...; // Typically an orthographic projection for directional lights
-  //let lightViewMatrix = ...; // Look-at matrix from the light's position
-
-  // Set uniforms for the light's projection and view matrices
-  gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "uProjection"), false, lightProjectionMatrix);
-  gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "uView"), false, lightViewMatrix);
-
-  // Render the scene
-  // ...
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-
 async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
@@ -317,10 +297,11 @@ async function main() {
   let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [1,1,1], 0, 0, 0, [1, 1, 1]);
 
-  currentScene.lights = [light1, light2, light3, light4];
+  currentScene.lights = [light5];
   initLightVectors();
   updateLights();
-
+  await(initShadowScene());
+  await(createDebugQuad());
   requestAnimationFrame(drawScene)
 }
 
