@@ -39,6 +39,7 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
         numLights: gl.getUniformLocation(shaderProgram, 'u_numLights'),
+        numShadowCastingLights: gl.getUniformLocation(shaderProgram, 'u_numShadowCastingLights'),
         lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
         lightAttenuation: gl.getUniformLocation(shaderProgram, 'u_lightAttenuation'),
@@ -47,7 +48,6 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
         objectTexture: gl.getUniformLocation(shaderProgram, 'u_baseColorTexture'),
         ambientLightStrength: gl.getUniformLocation(shaderProgram, 'u_ambientStrength'),
         specularLightStrength: gl.getUniformLocation(shaderProgram, 'u_specularStrength'),
-
       },
     }
     if (variantID & shaderVariantNormalMap) {
@@ -69,6 +69,12 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
     if (variantID & ShaderVariantOpacityMap) {
       programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, 'u_opacity');
     }
+    //shadow map samplers
+    let shadowMapUniformLocations = [];
+    for (let i = 0; i < GLOBAL_MAX_LIGHTS; i++) {
+      shadowMapUniformLocations[i] = gl.getUniformLocation(shaderProgram, 'u_shadowMaps[' + i + ']');
+    }
+    programInfo.uniformLocations.shadowMapUniformLocations = shadowMapUniformLocations;
     globalShaderProgramVariants[variantID] = programInfo;
   }
 }
@@ -86,6 +92,9 @@ function updateScene(){
   for(entity of currentScene.objects){
     entity.updateSelfAndChildren();
   }
+  for(entity of currentScene.lights){
+    entity.updateSelfAndChildren();
+  }
 }
 
 async function drawScene() {
@@ -95,6 +104,8 @@ async function drawScene() {
   gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   drawFullscreenQuad(currentScene.shadowScene.shadowMap);
+  updateCamera();
+  requestAnimationFrame(drawScene);
   return;
   for (const object of currentScene.objects) {
 
@@ -116,6 +127,15 @@ async function drawScene() {
     gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
     gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
 
+    //bind shadow maps
+    gl.uniform1i(programInfo.uniformLocations.numShadowCastingLights, 1);
+    textureUnitAfterShadowMaps = 0;
+    for (let i = 0; i < 1; i++) {
+      gl.activeTexture(gl.TEXTURE0 + i); // Activate proper texture unit
+      gl.bindTexture(gl.TEXTURE_2D, currentScene.shadowScene.shadowMap); // Bind shadow map texture
+      gl.uniform1i(programInfo.uniformLocations.shadowMapUniformLocations[i], i); // Set the sampler to the correct texture unit
+      textureUnitAfterShadowMaps+=1;
+    }
 
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
     let modelViewMatrix = mat4.create();
@@ -147,7 +167,7 @@ async function drawScene() {
       gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
       gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
 
-      let textureUnit = 0
+      let textureUnit = textureUnitAfterShadowMaps
       //base texture
       gl.activeTexture(gl.TEXTURE0 + textureUnit);
       gl.bindTexture(gl.TEXTURE_2D, object.textures[i]);
@@ -217,7 +237,7 @@ function updateLights() {
   currentScene.numLights = currentScene.lights.length;
   for (let i = 0; i < currentScene.lights.length; i++) {
 
-    let lightPosWorld = currentScene.lights[i].position;
+    let lightPosWorld = currentScene.lights[i].transform.pos;
     let lightPosView = vec3.create();
     vec3.transformMat4(lightPosView, lightPosWorld, globalMatrices.viewMatrix);
 
@@ -237,7 +257,7 @@ function updateLights() {
     currentScene.lightColorsData[i * 4 + 2] = lightColor[2];
     currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
-    let lightDirWorld = currentScene.lights[i].direction;
+    let lightDirWorld = currentScene.lights[i].transform.rot;
     let lightDirView = vec3.create();
     viewMatrix3x3 = mat3.create();
     mat3.fromMat4(viewMatrix3x3, globalMatrices.viewMatrix); // Extract the upper-left 3x3 part
@@ -286,17 +306,18 @@ async function main() {
   let mainObject = await (loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
+  mainObject.transform.setLocalRotation([0, 0, 0]);
+
   sphereObject.transform.setLocalPosition([0, 10, 0]);
   sphereObject.transform.setLocalScale([.1, .1, .1]);
 
   currentScene.objects = [mainObject, sphereObject];
 
-  let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
-  let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 6);
-  let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
+  // let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
+  // let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 0.09, 0.032);
+  // let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 6);
+  // let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [1,1,1], 0, 0, 0, [1, 1, 1]);
-
   currentScene.lights = [light5];
   initLightVectors();
   updateLights();

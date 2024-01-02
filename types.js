@@ -70,14 +70,45 @@ class Transform {
     this.pos = newPosition;
 		this.isDirty = true;
   }
-  setLocalRotation(newRotation){
-    quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
+  setLocalRotation(rot){
+    //Why TF does quat.fromEuler use degrees
+    //Who uses degrees
+    quat.fromEuler(this.rot, rot[0]*(180/Math.PI), rot[1]*(180/Math.PI), rot[2]*(180/Math.PI));
+    //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
+  }
+  setDirection(dir){
+    let targetDirection = vec3.fromValues(dir[0], dir[1], dir[2])
+    vec3.normalize(targetDirection, targetDirection);
+    let axis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
+    let angle = Math.acos(vec3.dot(defaultDirection, targetDirection));
+
+    // Calculate the rotation quaternion
+    let rotationQuat = quat.create();
+    if (vec3.dot(defaultDirection, targetDirection) < 0.9999) {
+      let rotationAxis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
+      vec3.normalize(rotationAxis, rotationAxis);
+      let rotationAngle = Math.acos(vec3.dot(defaultDirection, targetDirection));
+      quat.setAxisAngle(rotationQuat, rotationAxis, rotationAngle);
+    } else {
+      // If the target direction is very close to the default, no rotation is needed
+      quat.identity(rotationQuat);
+    }
+    this.rot = rotationQuat;
   }
   setLocalScale(newScale){
     this.scale = newScale;
     this.isDirty = true;
   }
+  // getLocalRotationEuler(){
+  //   //let rotationMatrix3x3 = mat3.fromMat4(mat3.create(), this.modelMatrix);
+
+  //   // Decompose to Euler angles
+  //   //let rot = decomposeRotationMatrixToEuler(rotationMatrix3x3);
+  //   let eulerFromQuaternion = vec3.create();
+  //   quat.getEuler(eulerFromQuaternion, this.rot);
+  //   return eulerFromQuaternion;
+  // }
 }
 
 class SceneNode {
@@ -168,19 +199,22 @@ class Light extends SceneNode{
   constructor(type, position, color, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
     super();
     this.type = type;
-    this.position = vec3.fromValues(position[0], position[1], position[2]);
+    this.transform.setLocalPosition(vec3.fromValues(position[0], position[1], position[2]));
     this.color = color;
     this.constantAttenuation = constantAttenuation;
     this.linearAttenuation = linearAttenuation;
     this.quadraticAttenuation = quadraticAttenuation;
-    this.direction = vec3.fromValues(direction[0], direction[1], direction[2]);
-    vec3.normalize(this.direction, this.direction);
+    //let direction_vec = vec3.fromValues(direction[0], direction[1], direction[2]);
+    // vec3.normalize(direction_vec, direction_vec);
+    this.transform.setDirection(direction);
     this.innerConeAngle = innerConeAngle;
     this.outerConeAngle = outerConeAngle;
   }
   //TODO: don't calculate every time
   getLightViewMatrix(){
-    let lightPos = vec3.scale(vec3.create(), this.direction, 10);
+    const lightDirection = vec3.create();
+    vec3.transformQuat(lightDirection, defaultDirection, this.transform.rot);
+    let lightPos = vec3.scale(vec3.create(), lightDirection, 10);
     let target = vec3.fromValues(0.0, 0.0, 0.0);
     let up = vec3.fromValues(0.0, 1.0, 0.0);
     let lightViewMatrix = mat4.create();

@@ -13,6 +13,26 @@ varying vec2 v_texCoord;  // Received from vertex shader
 varying mat3 m_TBN; //received from vertex shader
 #endif
 
+#define MAX_LIGHTS 5
+//light attributes: x=type (0=point, 1=spot, 2=directional)
+//x=point -> 
+//x=spot -> y= inner cone angle, z= outer cone angle
+uniform vec4 u_lightProperties[MAX_LIGHTS];
+uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
+uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
+uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
+uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
+
+//these two have u_numShadowCastingLights elements
+uniform sampler2D u_shadowMaps[MAX_LIGHTS]; 
+uniform mat4 u_lightSpaceMatrices[MAX_LIGHTS]; // for transforming fragments to light-space for shadow sampling
+
+uniform int u_numLights;
+uniform int u_numShadowCastingLights;
+
+uniform float u_ambientStrength;
+uniform float u_specularStrength;
+
 uniform sampler2D u_baseColorTexture;
 #ifdef USE_NORMAL_MAP
 uniform sampler2D u_normalMap;
@@ -30,21 +50,6 @@ uniform sampler2D u_roughness;
 #ifdef USE_OPACITY_MAP
 uniform sampler2D u_opacity;
 #endif
-
-
-
-#define MAX_LIGHTS 128
-//light attributes: x=type (0=point, 1=spot, 2=directional)
-//x=point -> 
-//x=spot -> y= inner cone angle, z= outer cone angle
-uniform vec4 u_lightProperties[MAX_LIGHTS];
-uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
-uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
-uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
-uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
-uniform int u_numLights;
-uniform float u_ambientStrength;
-uniform float u_specularStrength;
 
 //POM. WIP.
 #ifdef USE_PARALLAX

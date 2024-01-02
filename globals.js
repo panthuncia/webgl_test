@@ -1,4 +1,4 @@
-var GLOBAL_MAX_LIGHTS = 128;
+var GLOBAL_MAX_LIGHTS = 5;
 
 var shaderVariantNormalMap = 0b1;
 var shaderVariantBakedAO = 0b10;
@@ -20,3 +20,11 @@ var depth_ext = gl.getExtension('WEBGL_depth_texture');
 
 let shadowWidth = 1024;
 let shadowHeight = 1024;
+
+const mat4 = glMatrix.mat4;
+const mat3 = glMatrix.mat3;
+const quat = glMatrix.quat;
+const vec3 = glMatrix.vec3;
+
+let defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
+vec3.normalize(defaultDirection, defaultDirection);
