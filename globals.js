@@ -28,3 +28,13 @@ const vec3 = glMatrix.vec3;
 
 let defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
 vec3.normalize(defaultDirection, defaultDirection);
+
+var globalMatrices = {
+    viewMatrix: mat4.create(),
+    projectionMatrix: mat4.create(),
+    viewMatrixInverse: mat4.create()
+};
+
+var currentScene = {
+    shadowScene: {}
+}

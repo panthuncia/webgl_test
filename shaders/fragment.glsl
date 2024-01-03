@@ -24,14 +24,16 @@ uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadrat
 uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 
 //these two have u_numShadowCastingLights elements
-uniform sampler2D u_shadowMaps[MAX_LIGHTS]; 
 uniform mat4 u_lightSpaceMatrices[MAX_LIGHTS]; // for transforming fragments to light-space for shadow sampling
+uniform mat4 u_viewMatrixInverse;
 
 uniform int u_numLights;
 uniform int u_numShadowCastingLights;
 
 uniform float u_ambientStrength;
 uniform float u_specularStrength;
+
+uniform sampler2D u_shadowMaps[MAX_LIGHTS]; 
 
 uniform sampler2D u_baseColorTexture;
 #ifdef USE_NORMAL_MAP

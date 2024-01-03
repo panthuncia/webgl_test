@@ -39,6 +39,8 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
         numLights: gl.getUniformLocation(shaderProgram, 'u_numLights'),
+        lightSpaceMatrices: gl.getUniformLocation(shaderProgram, 'u_lightSpaceMatrices'),
+        viewMatrixInverse: gl.getUniformLocation(shaderProgram, 'u_viewMatrixInverse'),
         numShadowCastingLights: gl.getUniformLocation(shaderProgram, 'u_numShadowCastingLights'),
         lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
         lightColor: gl.getUniformLocation(shaderProgram, 'u_lightColor'),
@@ -79,15 +81,6 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
   }
 }
 
-var globalMatrices = {
-  viewMatrix: mat4.create(),
-  projectionMatrix: mat4.create()
-};
-
-var currentScene = {
-  shadowScene: {}
-}
-
 function updateScene(){
   for(entity of currentScene.objects){
     entity.updateSelfAndChildren();
@@ -103,10 +96,10 @@ async function drawScene() {
   shadowPass();
   gl.clearColor(0.0, 0.0, 1.0, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  drawFullscreenQuad(currentScene.shadowScene.shadowMap);
-  updateCamera();
-  requestAnimationFrame(drawScene);
-  return;
+  // drawFullscreenQuad(currentScene.shadowScene.shadowMap);
+  // updateCamera();
+  // requestAnimationFrame(drawScene);
+  // return;
   for (const object of currentScene.objects) {
 
     //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
@@ -135,6 +128,10 @@ async function drawScene() {
       gl.bindTexture(gl.TEXTURE_2D, currentScene.shadowScene.shadowMap); // Bind shadow map texture
       gl.uniform1i(programInfo.uniformLocations.shadowMapUniformLocations[i], i); // Set the sampler to the correct texture unit
       textureUnitAfterShadowMaps+=1;
+
+      let lightSpaceMatrix = mat4.create();
+      mat4.multiply(lightSpaceMatrix, currentScene.lights[i].getLightProjectionMatrix(), currentScene.lights[i].getLightViewMatrix()); // Note the order is important
+      //gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[i], false, lightSpaceMatrix);
     }
 
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
@@ -146,6 +143,10 @@ async function drawScene() {
       programInfo.uniformLocations.projectionMatrix,
       false,
       globalMatrices.projectionMatrix);
+    
+    gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrixInverse, false, globalMatrices.viewMatrixInverse);
+
+    
     let normalMatrix = calculateNormalMatrix(modelViewMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
@@ -257,7 +258,7 @@ function updateLights() {
     currentScene.lightColorsData[i * 4 + 2] = lightColor[2];
     currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
-    let lightDirWorld = currentScene.lights[i].transform.rot;
+    let lightDirWorld = currentScene.lights[i].getLightDir();
     let lightDirView = vec3.create();
     viewMatrix3x3 = mat3.create();
     mat3.fromMat4(viewMatrix3x3, globalMatrices.viewMatrix); // Extract the upper-left 3x3 part

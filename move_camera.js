@@ -68,4 +68,5 @@ function updateCamera() {
 
     // Update view matrix
     mat4.lookAt(globalMatrices.viewMatrix, [x, y, z], [0, 0, 0], [0, 1, 0]); // Adjust up vector as needed
+    mat4.invert(globalMatrices.viewMatrixInverse, globalMatrices.viewMatrix);
 }
