@@ -39,7 +39,6 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
         normalMatrix: gl.getUniformLocation(shaderProgram, 'u_normalMatrix'),
         numLights: gl.getUniformLocation(shaderProgram, 'u_numLights'),
-        lightSpaceMatrices: gl.getUniformLocation(shaderProgram, 'u_lightSpaceMatrices'),
         viewMatrixInverse: gl.getUniformLocation(shaderProgram, 'u_viewMatrixInverse'),
         numShadowCastingLights: gl.getUniformLocation(shaderProgram, 'u_numShadowCastingLights'),
         lightPosViewSpace: gl.getUniformLocation(shaderProgram, 'u_lightPosViewSpace'),
@@ -53,7 +52,7 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
       },
     }
     if (variantID & shaderVariantNormalMap) {
-      programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
+      //programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
       programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, 'a_tangent');
       programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, 'a_bitangent');
       programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, 'u_normalMap');
@@ -73,10 +72,13 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
     }
     //shadow map samplers
     let shadowMapUniformLocations = [];
+    let lightSpaceMatrices = [];
     for (let i = 0; i < GLOBAL_MAX_LIGHTS; i++) {
       shadowMapUniformLocations[i] = gl.getUniformLocation(shaderProgram, 'u_shadowMaps[' + i + ']');
+      lightSpaceMatrices[i] = gl.getUniformLocation(shaderProgram, 'u_lightSpaceMatrices['+ i + ']');
     }
     programInfo.uniformLocations.shadowMapUniformLocations = shadowMapUniformLocations;
+    programInfo.uniformLocations.lightSpaceMatrices = lightSpaceMatrices;
     globalShaderProgramVariants[variantID] = programInfo;
   }
 }
@@ -131,7 +133,7 @@ async function drawScene() {
 
       let lightSpaceMatrix = mat4.create();
       mat4.multiply(lightSpaceMatrix, currentScene.lights[i].getLightProjectionMatrix(), currentScene.lights[i].getLightViewMatrix()); // Note the order is important
-      //gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[i], false, lightSpaceMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[i], false, lightSpaceMatrix);
     }
 
     //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);

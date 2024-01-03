@@ -15,8 +15,9 @@ varying mat3 m_TBN; //received from vertex shader
 
 #define MAX_LIGHTS 5
 //light attributes: x=type (0=point, 1=spot, 2=directional)
-//x=point -> 
-//x=spot -> y= inner cone angle, z= outer cone angle
+//x=point -> w = shadow caster
+//x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
+//x=directional => w= shadow caster
 uniform vec4 u_lightProperties[MAX_LIGHTS];
 uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
 uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
@@ -28,7 +29,7 @@ uniform mat4 u_lightSpaceMatrices[MAX_LIGHTS]; // for transforming fragments to 
 uniform mat4 u_viewMatrixInverse;
 
 uniform int u_numLights;
-uniform int u_numShadowCastingLights;
+//uniform int u_numShadowCastingLights;
 
 uniform float u_ambientStrength;
 uniform float u_specularStrength;
@@ -138,7 +139,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }  
-vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, vec3 dir, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0, float constantAttenuation, float linearAttenuation, float quadraticAttenuation, float outerConeCos, float innerConeCos) {    // Calculate ambient light
+vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, vec3 dir, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0, float constantAttenuation, float linearAttenuation, float quadraticAttenuation, float outerConeCos, float innerConeCos) {
     vec3 lightDir;
     float distance;
     float attenuation;
@@ -231,6 +232,7 @@ void main() {
 
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
+    vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos, 1.0);
     for (int i=0; i<MAX_LIGHTS; i++){
         if (i >= u_numLights){break;}
         int lightType = int(u_lightProperties[i].x);
@@ -238,7 +240,21 @@ void main() {
         vec3 lightDir = u_lightDirViewSpace[i].xyz;
         float outerConeCos = u_lightProperties[i].z;
         float innerConeCos = u_lightProperties[i].y;
-        lighting += calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
+
+        //shadows
+        vec4 fragPosLightSpace = u_lightSpaceMatrices[i] * fragPosWorldSpace;
+        vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+
+        // Sample the corresponding shadow map
+        float closestDepth = texture2D(u_shadowMaps[i], projCoords.xy).r;
+        float currentDepth = projCoords.z;
+
+        // Implement shadow comparison (with bias to avoid shadow acne)
+        float bias = 0.005; // Adjust bias as needed
+        float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
+        lighting += (1.0-shadow)*calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
     }
     // Combine results
 

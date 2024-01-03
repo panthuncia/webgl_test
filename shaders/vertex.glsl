@@ -7,7 +7,7 @@ attribute vec3 a_tangent;
 attribute vec3 a_bitangent;
 #endif
 
-uniform mat4 u_modelMatrix;
+//uniform mat4 u_modelMatrix;
 uniform mat4 u_modelViewMatrix;
 uniform mat4 u_projectionMatrix;
 uniform mat3 u_normalMatrix;
