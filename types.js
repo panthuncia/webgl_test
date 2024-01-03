@@ -213,7 +213,7 @@ class Light extends SceneNode{
   //TODO: don't calculate every time
   getLightViewMatrix(){
     const lightDirection = this.getLightDir();
-    let lightPos = vec3.scale(vec3.create(), lightDirection, 10);
+    let lightPos = vec3.scale(vec3.create(), lightDirection, 40);
     let target = vec3.fromValues(0.0, 0.0, 0.0);
     let up = vec3.fromValues(0.0, 1.0, 0.0);
     let lightViewMatrix = mat4.create();
@@ -221,12 +221,12 @@ class Light extends SceneNode{
     return lightViewMatrix;
   }
   getLightProjectionMatrix(){
-    let left = -10;
-    let right = 10;
-    let bottom = -10;
-    let top = 10;
+    let left = -100;
+    let right = 100;
+    let bottom = -100;
+    let top = 100;
     let near = 1.0;
-    let far = 20.0;
+    let far = 200.0;
 
     let lightProjectionMatrix = mat4.create();
     mat4.ortho(lightProjectionMatrix, left, right, bottom, top, near, far);

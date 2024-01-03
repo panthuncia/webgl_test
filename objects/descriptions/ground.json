@@ -1,0 +1,9 @@
+{
+  "model": "terrain.obj",
+  "textures": [
+    "Mountain3.png"
+  ],
+  "normals": [
+    "Mountain3Normal.png"
+  ]
+}

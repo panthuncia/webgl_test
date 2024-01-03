@@ -291,10 +291,10 @@ async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
 
-  let fieldOfView = 45 * Math.PI / 180; // in radians
+  let fieldOfView = 80 * Math.PI / 180; // in radians
   let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   let zNear = 0.1;
-  let zFar = 100.0;
+  let zFar = 1000.0;
   let projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
   globalMatrices.projectionMatrix = projectionMatrix
@@ -305,16 +305,20 @@ async function main() {
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.blendEquation(gl.FUNC_ADD);
-
+  let terrain = await (loadModel(await (loadJson("objects/descriptions/ground.json"))));
   let mainObject = await (loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
+  //terrain.transform.setLocalPosition([0, 0, -100])
+  terrain.transform.setLocalScale([2, 2, 2])
+
   mainObject.transform.setLocalRotation([0, 0, 0]);
+  mainObject.transform.setLocalPosition([8, 4, 0]);
 
   sphereObject.transform.setLocalPosition([0, 10, 0]);
   sphereObject.transform.setLocalScale([.1, .1, .1]);
 
-  currentScene.objects = [mainObject, sphereObject];
+  currentScene.objects = [terrain, mainObject, sphereObject];
 
   // let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 0.09, 0.032);
   // let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 0.09, 0.032);

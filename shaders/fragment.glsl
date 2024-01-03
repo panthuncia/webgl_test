@@ -251,7 +251,7 @@ void main() {
         float currentDepth = projCoords.z;
 
         // Implement shadow comparison (with bias to avoid shadow acne)
-        float bias = 0.005; // Adjust bias as needed
+        float bias = 0.001; // Adjust bias as needed
         float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
 
         lighting += (1.0-shadow)*calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);

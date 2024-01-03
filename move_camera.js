@@ -5,7 +5,7 @@ var lastMouseY = null;
 // Camera control parameters
 var horizontalAngle = Math.PI/2;
 var verticalAngle = Math.PI/2;
-var distanceFromOrigin = 5; // Adjust as necessary
+var distanceFromOrigin = 40; // Adjust as necessary
 
 // Event listeners
 canvas.onmousedown = function(event) {
@@ -50,7 +50,7 @@ canvas.addEventListener('wheel', function(event) {
     var delta = Math.sign(event.deltaY);
 
     // Adjust zoom level
-    distanceFromOrigin += delta * 0.5; // Adjust zoom speed as necessary
+    distanceFromOrigin += delta * 5; // Adjust zoom speed as necessary
     distanceFromOrigin = Math.max(0.1, distanceFromOrigin); // Prevents zooming too close, adjust as necessary
 
     // Update camera

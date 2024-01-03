@@ -18,8 +18,8 @@ var globalShaderProgramVariants = {}
 var srgb_ext = gl.getExtension('EXT_sRGB');
 var depth_ext = gl.getExtension('WEBGL_depth_texture');
 
-let shadowWidth = 1024;
-let shadowHeight = 1024;
+let shadowWidth = 8196;
+let shadowHeight = 8196;
 
 const mat4 = glMatrix.mat4;
 const mat3 = glMatrix.mat3;
