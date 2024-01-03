@@ -245,16 +245,20 @@ void main() {
         vec4 fragPosLightSpace = u_lightSpaceMatrices[i] * fragPosWorldSpace;
         vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
         projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
-
+        //because OpenGL ES lacks CLAMP_TO_BORDER...
+        bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z>1.0;
+        float shadow = 0.0;
+        if(!isOutside) {
         // Sample the corresponding shadow map
-        float closestDepth = texture2D(u_shadowMaps[i], projCoords.xy).r;
-        float currentDepth = projCoords.z;
+            float closestDepth = texture2D(u_shadowMaps[i], projCoords.xy).r;
+            float currentDepth = projCoords.z;
 
-        // Implement shadow comparison (with bias to avoid shadow acne)
-        float bias = 0.001; // Adjust bias as needed
-        float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+            // Implement shadow comparison (with bias to avoid shadow acne)
+            float bias = 0.001;
+            shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+        }
 
-        lighting += (1.0-shadow)*calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
+        lighting += (1.0 - shadow) * calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
     }
     // Combine results
 

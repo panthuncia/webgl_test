@@ -66,7 +66,12 @@ function updateCamera() {
     var y = distanceFromOrigin * Math.cos(verticalAngle);
     var z = distanceFromOrigin * Math.sin(verticalAngle) * Math.sin(horizontalAngle);
 
+    currentScene.camera.position[0] = x;
+    currentScene.camera.position[1] = y;
+    currentScene.camera.position[2] = z;
+
     // Update view matrix
+    
     mat4.lookAt(globalMatrices.viewMatrix, [x, y, z], [0, 0, 0], [0, 1, 0]); // Adjust up vector as needed
     mat4.invert(globalMatrices.viewMatrixInverse, globalMatrices.viewMatrix);
 }

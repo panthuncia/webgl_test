@@ -8,8 +8,8 @@ function shadowPass() {
 
     // Set up the light's view and projection matrices
     //let lightDir = vec3.fromValues(currentScene.lights[0].position)
-    let lightProjectionMatrix = currentScene.lights[0].getLightProjectionMatrix();
-    let lightViewMatrix = currentScene.lights[0].getLightViewMatrix();
+    let lightProjectionMatrix = currentScene.lights[0].projectionMatrix;
+    let lightViewMatrix = currentScene.lights[0].viewMatrix;
 
     // Set uniform for the light's projection matrix
     gl.uniformMatrix4fv(currentScene.shadowScene.programInfo.uniformLocations.projectionMatrix, false, lightProjectionMatrix);

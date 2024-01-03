@@ -36,5 +36,11 @@ var globalMatrices = {
 };
 
 var currentScene = {
-    shadowScene: {}
+    shadowScene: {},
+    lights: [],
+    objects: [],
+    camera: {
+        position: vec3.create(),
+        lookAt: vec3.fromValues(0, 0, 0)
+    }
 }

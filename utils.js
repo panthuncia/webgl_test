@@ -385,3 +385,51 @@ async function loadModel(modelDescription) {
   console.log(objectData);
   return renderableObject = createRenderable(objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
 }
+
+function getFrustumCorners(fov, aspect, zNear, zFar, inverseViewMatrix) {
+  let tanFov = Math.tan(fov / 2);
+
+  let nearHeight = 2 * tanFov * zNear;
+  let nearWidth = nearHeight * aspect;
+  let farHeight = 2 * tanFov * zFar;
+  let farWidth = farHeight * aspect;
+
+  let corners = [
+      vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix),
+      vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix)
+  ];
+
+  return corners;
+}
+
+function getFrustumCenter(cameraPosition, cameraForward, zNear, zFar) {
+  let nearCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zNear);
+  let farCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zFar);
+
+  let frustumCenter = vec3.lerp(vec3.create(), nearCenter, farCenter, 0.5);
+  return frustumCenter;
+}
+
+function computeAABB(points) {
+  let min = vec3.fromValues(Infinity, Infinity, Infinity);
+  let max = vec3.fromValues(-Infinity, -Infinity, -Infinity);
+
+  points.forEach(point => {
+    vec3.min(min, min, point);
+    vec3.max(max, max, point);
+  });
+
+  return [min, max];
+}
+
+function calculateForwardVector(cameraPosition, targetPosition) {
+  let forwardVector = vec3.subtract(vec3.create(), targetPosition, cameraPosition);
+  vec3.normalize(forwardVector, forwardVector);
+  return forwardVector;
+}

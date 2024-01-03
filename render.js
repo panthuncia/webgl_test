@@ -126,13 +126,14 @@ async function drawScene() {
     gl.uniform1i(programInfo.uniformLocations.numShadowCastingLights, 1);
     textureUnitAfterShadowMaps = 0;
     for (let i = 0; i < 1; i++) {
-      gl.activeTexture(gl.TEXTURE0 + i); // Activate proper texture unit
+      gl.activeTexture(gl.TEXTURE0 + i);
       gl.bindTexture(gl.TEXTURE_2D, currentScene.shadowScene.shadowMap); // Bind shadow map texture
-      gl.uniform1i(programInfo.uniformLocations.shadowMapUniformLocations[i], i); // Set the sampler to the correct texture unit
+      gl.uniform1i(programInfo.uniformLocations.shadowMapUniformLocations[i], i);
       textureUnitAfterShadowMaps+=1;
 
       let lightSpaceMatrix = mat4.create();
-      mat4.multiply(lightSpaceMatrix, currentScene.lights[i].getLightProjectionMatrix(), currentScene.lights[i].getLightViewMatrix()); // Note the order is important
+
+      mat4.multiply(lightSpaceMatrix, currentScene.lights[i].projectionMatrix, currentScene.lights[i].viewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[i], false, lightSpaceMatrix);
     }
 
@@ -237,6 +238,8 @@ async function drawScene() {
 }
 
 function updateLights() {
+  let frustrumCorners = getFrustumCorners(currentScene.camera.fieldOfView, currentScene.camera.aspect, currentScene.camera.zNear, currentScene.camera.zFar, globalMatrices.viewMatrixInverse);
+  let frustrumCenter = getFrustumCenter(currentScene.camera.position, calculateForwardVector(currentScene.camera.position, currentScene.camera.lookAt), currentScene.camera.zNear, currentScene.camera.zFar);
   currentScene.numLights = currentScene.lights.length;
   for (let i = 0; i < currentScene.lights.length; i++) {
 
@@ -275,6 +278,12 @@ function updateLights() {
       currentScene.lightPropertiesData[i * 4 + 1] = Math.cos(currentScene.lights[i].innerConeAngle);
       currentScene.lightPropertiesData[i * 4 + 2] = Math.cos(currentScene.lights[i].outerConeAngle);
     }
+    if(currentScene.lights[i].type == LightType.DIRECTIONAL){
+      currentScene.lights[i].projectionMatrix = currentScene.lights[i].getDynamicLightProjectionMatrix(globalMatrices.viewMatrix, frustrumCorners);
+      camPosition = currentScene.camera.position;
+      adjustedPosition = vec3.fromValues(camPosition[0], 100, camPosition[2]);
+      currentScene.lights[i].viewMatrix = currentScene.lights[i].getDynamicLightViewMatrix(adjustedPosition);
+    }
   }
 }
 
@@ -296,6 +305,11 @@ async function main() {
   let zNear = 0.1;
   let zFar = 1000.0;
   let projectionMatrix = mat4.create();
+  currentScene.camera.fieldOfView = fieldOfView;
+  currentScene.camera.aspect = aspect;
+  currentScene.camera.zNear = zNear;
+  currentScene.camera.zFar = zFar;
+
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
   globalMatrices.projectionMatrix = projectionMatrix
 
