@@ -3,9 +3,9 @@ precision mediump float;
 
 //if we're not using normal mapping, 
 //we want the view-space normals from the vertex shader
-//#ifndef USE_NORMAL_MAP
+#ifndef USE_NORMAL_MAP
 varying vec3 v_normal;
-//#endif
+#endif
 
 varying vec3 v_fragPos;
 varying vec2 v_texCoord;  // Received from vertex shader
