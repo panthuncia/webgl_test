@@ -141,7 +141,17 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }  
-vec3 calculateLightContribution(int lightType, vec3 lightColor, vec3 lightPos, vec3 dir, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0, float constantAttenuation, float linearAttenuation, float quadraticAttenuation, float outerConeCos, float innerConeCos) {
+vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0) {
+    int lightType = int(u_lightProperties[lightIndex].x);
+    vec3 lightPos = u_lightPosViewSpace[lightIndex].xyz;
+    vec3 lightColor = u_lightColor[lightIndex].xyz;
+    vec3 dir = u_lightDirViewSpace[lightIndex].xyz;
+    float constantAttenuation = u_lightAttenuation[lightIndex].x;
+    float linearAttenuation = u_lightAttenuation[lightIndex].y;
+    float quadraticAttenuation = u_lightAttenuation[lightIndex].z;
+    float outerConeCos = u_lightProperties[lightIndex].z;
+    float innerConeCos = u_lightProperties[lightIndex].y;
+    
     vec3 lightDir;
     float distance;
     float attenuation;
@@ -237,11 +247,6 @@ void main() {
     vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos, 1.0);
     for (int i=0; i<MAX_LIGHTS; i++){
         if (i >= u_numLights){break;}
-        int lightType = int(u_lightProperties[i].x);
-        vec3 lightPos = u_lightPosViewSpace[i].xyz;
-        vec3 lightDir = u_lightDirViewSpace[i].xyz;
-        float outerConeCos = u_lightProperties[i].z;
-        float innerConeCos = u_lightProperties[i].y;
 
         //shadows
         vec4 fragPosLightSpace = u_lightSpaceMatrices[i] * fragPosWorldSpace;
@@ -261,7 +266,7 @@ void main() {
             shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
         }
 
-        lighting += (1.0 - shadow) * calculateLightContribution(lightType, u_lightColor[i].xyz, lightPos, lightDir, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, u_lightAttenuation[i].x, u_lightAttenuation[i].y, u_lightAttenuation[i].z, outerConeCos, innerConeCos);
+        lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }
     // Combine results
 
