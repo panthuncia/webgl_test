@@ -1,6 +1,6 @@
 debugQuad = {}
 
-async function createDebugQuad(){
+async function createDebugQuad(gl){
     debugQuad.vertices = new Float32Array([
         -1.0, -1.0,  0.0, 0.0, // bottom left
          1.0, -1.0,  1.0, 0.0, // bottom right
@@ -38,7 +38,7 @@ async function createDebugQuad(){
     
 }
 
-function drawFullscreenQuad(texture){
+function drawFullscreenQuad(gl, texture){
     gl.useProgram(debugQuad.programInfo.program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.vertexBuffer);

@@ -1,5 +1,5 @@
 class Mesh {
-    constructor(vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
+    constructor(gl, vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
       this.vertices = vertices;
       this.normals = normals;
       this.indices = indices;
