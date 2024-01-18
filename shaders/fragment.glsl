@@ -245,9 +245,7 @@ void main() {
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
     vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos, 1.0);
-    for (int i=0; i<MAX_LIGHTS; i++){
-        if (i >= u_numLights){break;}
-
+    for (int i=0; i<u_numLights; i++){
         //shadows
         vec4 fragPosLightSpace = u_lightSpaceMatrices[i] * fragPosWorldSpace;
         vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
