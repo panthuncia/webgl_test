@@ -1,5 +1,6 @@
+#version 300 es
 precision mediump float;
-attribute vec3 a_position;
+in vec3 a_position;
 //attribute vec2 a_texCoord;
 
 uniform mat4 u_modelViewMatrix;

@@ -1,10 +1,11 @@
 precision mediump float;
-attribute vec3 a_position;
-attribute vec3 a_normal;
-attribute vec2 a_texCoord;
+
+in vec3 a_position;
+in vec3 a_normal;
+in vec2 a_texCoord;
 #ifdef USE_NORMAL_MAP
-attribute vec3 a_tangent;
-attribute vec3 a_bitangent;
+in vec3 a_tangent;
+in vec3 a_bitangent;
 #endif
 
 //uniform mat4 u_modelMatrix;
@@ -13,12 +14,12 @@ uniform mat4 u_projectionMatrix;
 uniform mat3 u_normalMatrix;
 
 #ifndef USE_NORMAL_MAP
-varying vec3 v_normal;
+out vec3 v_normal;
 #endif
-varying vec3 v_fragPos;
-varying vec2 v_texCoord;
+out vec3 v_fragPos;
+out vec2 v_texCoord;
 #ifdef USE_NORMAL_MAP
-varying mat3 m_TBN;
+out mat3 m_TBN;
 #endif
 
 void main() {
@@ -30,11 +31,11 @@ void main() {
     v_normal = u_normalMatrix * a_normal;
     #endif
 
-    //pass texcoord to fs
+    // Pass texcoord to fs
     v_texCoord = a_texCoord;
 
-    //calculate TBN matrix, for transforming tangent-space coordinates to view space
-    //used in normal mapping
+    // Calculate TBN matrix, for transforming tangent-space coordinates to view space
+    // Used in normal mapping
     #ifdef USE_NORMAL_MAP
     vec3 T = normalize(u_normalMatrix * a_tangent);
     vec3 B = normalize(u_normalMatrix * a_bitangent);

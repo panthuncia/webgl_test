@@ -15,8 +15,8 @@ var ShaderVariantOpacityMap = 0b10000;
 
 var globalShaderProgramVariants = {}
 
-var srgb_ext = gl.getExtension('EXT_sRGB');
-var depth_ext = gl.getExtension('WEBGL_depth_texture');
+// var srgb_ext = gl.getExtension('EXT_sRGB');
+// var depth_ext = gl.getExtension('WEBGL_depth_texture');
 
 let shadowWidth = 8196;
 let shadowHeight = 8196;

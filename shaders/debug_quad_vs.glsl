@@ -1,10 +1,12 @@
+#version 300 es
 // vertex_shader.glsl
-attribute vec4 a_position;
-attribute vec2 a_texCoord;
+in vec4 a_position;
+in vec2 a_texCoord;
 
-varying highp vec2 v_texCoord;
+out highp vec2 v_texCoord;
+out vec4 outVertexPosition;
 
 void main() {
     v_texCoord = a_texCoord;
-    gl_Position = a_position;
+    outVertexPosition = a_position;
 }

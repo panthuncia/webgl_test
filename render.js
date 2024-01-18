@@ -4,7 +4,7 @@ async function createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
 
 
   for (const variantID of shaderVariantsToCompile) {
-    let defines = "";
+    let defines = "#version 300 es\n";
     if (variantID & shaderVariantNormalMap) {
       defines += "#define USE_NORMAL_MAP\n";
     }
@@ -159,17 +159,7 @@ async function drawScene() {
     let i = 0;
     for (const mesh of object.meshes) {
       //vertices
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
-      gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-      //normals
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.normalBuffer);
-      gl.vertexAttribPointer(programInfo.attribLocations.vertexNormal, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-      //texcoords
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
-      gl.vertexAttribPointer(programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(programInfo.attribLocations.texCoord);
+      gl.bindVertexArray(mesh.vao);
 
       let textureUnit = textureUnitAfterShadowMaps
       //base texture
@@ -228,7 +218,7 @@ async function drawScene() {
       }
 
       gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
-
+      gl.bindVertexArray(null);
       i += 1;
     }
     //console.log("done with object")

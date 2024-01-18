@@ -4,13 +4,13 @@ precision mediump float;
 //if we're not using normal mapping, 
 //we want the view-space normals from the vertex shader
 #ifndef USE_NORMAL_MAP
-varying vec3 v_normal;
+in vec3 v_normal;
 #endif
 
-varying vec3 v_fragPos;
-varying vec2 v_texCoord;  // Received from vertex shader
+in vec3 v_fragPos;
+in vec2 v_texCoord;  // Received from vertex shader
 #ifdef USE_NORMAL_MAP
-varying mat3 m_TBN; //received from vertex shader
+in mat3 m_TBN; //received from vertex shader
 #endif
 
 #define MAX_LIGHTS 5
@@ -54,6 +54,8 @@ uniform sampler2D u_roughness;
 uniform sampler2D u_opacity;
 #endif
 
+out vec4 fragmentColor;
+
 //POM. WIP.
 #ifdef USE_PARALLAX
 vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
@@ -67,7 +69,7 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
   vec2 deltaTexCoords = P / numLayers;
   vec2 currentTexCoords = texCoords;
 
-  float currentDepthMapValue = texture2D(u_heightMap, currentTexCoords).r;
+  float currentDepthMapValue = texture(u_heightMap, currentTexCoords).r;
 
   for (int i = 0; i < 20; ++i) {
       if (currentLayerDepth >= currentDepthMapValue) {
@@ -75,7 +77,7 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
       }
 
       currentTexCoords -= deltaTexCoords;
-      currentDepthMapValue = texture2D(u_heightMap, currentTexCoords).r;
+      currentDepthMapValue = texture(u_heightMap, currentTexCoords).r;
       currentLayerDepth += layerDepth;
   }
 
@@ -207,15 +209,15 @@ void main() {
     vec2 uv = v_texCoord;
     #endif
     
-    vec4 baseColor = texture2D(u_baseColorTexture, uv);
+    vec4 baseColor = texture(u_baseColorTexture, uv);
 
     //if normal mapping, transform tangent space normal
     //to view space using TBN matrix. Else, just normalize v_normal.
     #ifdef USE_NORMAL_MAP
-    vec3 normal = texture2D(u_normalMap, uv).rgb;
+    vec3 normal = texture(u_normalMap, uv).rgb;
     normal = normalize(normal*2.0-1.0);
     normal = normalize(m_TBN * normal);
-    //normal = normalize(v_normal + texture2D(u_normalMap, uv).rgb);
+    //normal = normalize(v_normal + texture(u_normalMap, uv).rgb);
     #else
     vec3 normal = normalize(v_normal);
     #endif
@@ -225,8 +227,8 @@ void main() {
     float roughness = 0.0;
     vec3 F0 = vec3(0.04); 
     #ifdef USE_PBR
-    metallic = texture2D(u_metallic, uv).r;
-    roughness = texture2D(u_roughness, uv).r;
+    metallic = texture(u_metallic, uv).r;
+    roughness = texture(u_roughness, uv).r;
     F0 = mix(F0, baseColor.xyz, metallic);
     #endif
 
@@ -250,7 +252,8 @@ void main() {
         float shadow = 0.0;
         if(!isOutside) {
         // Sample the corresponding shadow map
-            float closestDepth = texture2D(u_shadowMaps[i], projCoords.xy).r;
+        //hack for one shadow, as this no longer works in GLSL 300 ES. Replace with texture array.
+            float closestDepth = texture(u_shadowMaps[1], projCoords.xy).r;
             float currentDepth = projCoords.z;
 
             // Implement shadow comparison (with bias to avoid shadow acne)
@@ -264,7 +267,7 @@ void main() {
 
     //ambient lighting, use AO map here if we have one
     #ifdef USE_BAKED_AO
-    vec3 ambient = u_ambientStrength * baseColor.xyz*texture2D(u_aoMap, uv).r;
+    vec3 ambient = u_ambientStrength * baseColor.xyz*texture(u_aoMap, uv).r;
     // color.xyz *= aoColor.r;
     #else
     vec3 ambient = u_ambientStrength * baseColor.xyz;
@@ -281,7 +284,7 @@ void main() {
     //apply opacity
     float opacity = baseColor.a;
     #ifdef USE_OPACITY_MAP
-    opacity = 1.0-texture2D(u_opacity, uv).r;
+    opacity = 1.0-texture(u_opacity, uv).r;
     #endif
-    gl_FragColor = vec4(color, opacity);
+    fragmentColor = vec4(color, opacity);
 }

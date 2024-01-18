@@ -1,37 +1,61 @@
 class Mesh {
     constructor(vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
-        this.vertices = vertices;
-        this.normals = normals;
-        this.indices = indices;
-        this.tangents = tangents;
-        this.bitangents = bitangents;
-        this.vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+      this.vertices = vertices;
+      this.normals = normals;
+      this.indices = indices;
+      this.tangents = tangents;
+      this.bitangents = bitangents;
 
-        this.normalBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+      // Create a VAO
+      this.vao = gl.createVertexArray();
+      gl.bindVertexArray(this.vao);
 
-        this.texCoordBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+      // Vertex buffer
+      this.vertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(0);
 
-        if (tangents != null){
+      // Normal buffer
+      this.normalBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(1);
+
+      // Texture coordinate buffer
+      this.texCoordBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(2);
+
+      // Tangents and bitangents (if present)
+      if (tangents != null) {
           this.tangentBuffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
+          gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(3);
+
           this.bitangentBuffer = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-        }
-
-        if (indices != null){
-            this.indexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-        }
+          gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
+          gl.enableVertexAttribArray(4);
       }
+
+      // Index buffer (if present)
+      if (indices != null) {
+          this.indexBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+          gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+      }
+
+      // Unbind the VAO
+      gl.bindVertexArray(null);
+  }
 }
 
 class Transform {
