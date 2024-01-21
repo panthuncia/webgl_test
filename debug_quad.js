@@ -53,7 +53,6 @@ function drawFullscreenQuad(gl, texture){
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(debugQuad.programInfo.uniformLocations.image, 0);
-
-    // Assuming you have already set up the vertex attributes for the full-screen quad
+    
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }

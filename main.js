@@ -30,8 +30,8 @@ async function main() {
   //currentScene.lights = [light5];
   renderer.addLight(light5);
   await(createDebugQuad(renderer.gl));
-  function drawScene() {
-    renderer.drawScene();
+  async function drawScene() {
+    await(renderer.drawScene());
     requestAnimationFrame(drawScene);
   }
   requestAnimationFrame(drawScene);

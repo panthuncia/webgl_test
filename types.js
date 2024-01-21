@@ -235,32 +235,11 @@ class Light extends SceneNode{
     this.outerConeAngle = outerConeAngle;
   }
   //TODO: don't calculate every time
-  // getLightViewMatrix(){
-  //   const lightDirection = this.getLightDir();
-  //   let lightPos = vec3.scale(vec3.create(), lightDirection, 40);
-  //   let target = vec3.fromValues(0.0, 0.0, 0.0);
-  //   let up = vec3.fromValues(0.0, 1.0, 0.0);
-  //   let lightViewMatrix = mat4.create();
-  //   mat4.lookAt(lightViewMatrix, lightPos, target, up);
-  //   return lightViewMatrix;
-  // }
-  // getLightProjectionMatrix(){
-  //   let left = -100;
-  //   let right = 100;
-  //   let bottom = -100;
-  //   let top = 100;
-  //   let near = 1.0;
-  //   let far = 200.0;
-    
-  //   let lightProjectionMatrix = mat4.create();
-  //   mat4.ortho(lightProjectionMatrix, left, right, bottom, top, near, far);
-  //   return lightProjectionMatrix;
-  // }
   getDynamicLightViewMatrix(center) {
     const lightDirection = this.getLightDir();
     let lightPos = vec3.add(vec3.create(), center, vec3.scale(vec3.create(), lightDirection, 1)); // Adjust distance as needed
     let target = center;
-    let up = vec3.fromValues(0.0, 1.0, 0.0);
+    let up = vec3.fromValues(1.0, 0.0, 0.0);
     let lightViewMatrix = mat4.create();
     mat4.lookAt(lightViewMatrix, lightPos, target, up);
     return lightViewMatrix;
@@ -268,7 +247,7 @@ class Light extends SceneNode{
   getDynamicLightProjectionMatrix(lightViewMatrix, cameraFrustumCorners) {
     // Transform camera frustum corners to light space
     let transformedCorners = cameraFrustumCorners.map(corner => {
-      let corner4d = glMatrix.vec4.fromValues(corner[0], corner[1], corner[2], 1.0); // Extend to 4D vector
+      let corner4d = glMatrix.vec4.fromValues(corner[0], corner[1], corner[2], 1.0);
       let transformed = glMatrix.vec4.transformMat4(glMatrix.vec4.create(), corner4d, lightViewMatrix);
       return [transformed[0], transformed[1], transformed[2]];
     });
@@ -277,7 +256,7 @@ class Light extends SceneNode{
     let [min, max] = computeAABB(transformedCorners);
   
     let lightProjectionMatrix = mat4.create();
-    mat4.ortho(lightProjectionMatrix, min[0]/10, max[0]/5, min[1]/5, max[1]/5, -max[2]/5, -min[2]/5);
+    mat4.ortho(lightProjectionMatrix, min[0]/5, max[0]/5, min[1]/5, max[1]/5, -max[2]/5, -min[2]/5);
     return lightProjectionMatrix;
   }
   getLightDir() {

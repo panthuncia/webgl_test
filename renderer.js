@@ -15,7 +15,8 @@ class WebGLRenderer {
             objects: [],
             camera: {
                 position: vec3.create(),
-                lookAt: vec3.fromValues(0, 0, 0)
+                lookAt: vec3.fromValues(0, 0, 0),
+                up: vec3.fromValues(0, 1, 0)
             }
         }
 
@@ -24,6 +25,8 @@ class WebGLRenderer {
 
         this.SHADOW_WIDTH = 8196;
         this.SHADOW_HEIGHT = 8196;
+
+        this.NUM_SHADOW_CASCADES = 5;
 
         this.MAX_LIGHTS = 5;
 
@@ -178,11 +181,10 @@ class WebGLRenderer {
         await (this.shadowPass());
         gl.clearColor(0.0, 0.0, 1.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        // drawFullscreenQuad(currentScene.shadowScene.shadowMap);
-        // updateCamera();
-        // requestAnimationFrame(drawScene);
-        // return;
         const currentScene = this.currentScene;
+        // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap);
+        // this.updateCamera();
+        // return;
         for (const object of currentScene.objects) {
 
             //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
@@ -347,11 +349,16 @@ class WebGLRenderer {
                 this.currentScene.lightPropertiesData[i * 4 + 1] = Math.cos(this.currentScene.lights[i].innerConeAngle);
                 this.currentScene.lightPropertiesData[i * 4 + 2] = Math.cos(this.currentScene.lights[i].outerConeAngle);
             }
+            let cascades = setupCascades(this.NUM_SHADOW_CASCADES, this.currentScene.lights[i], this.currentScene.camera);
             if (this.currentScene.lights[i].type == LightType.DIRECTIONAL) {
-                this.currentScene.lights[i].projectionMatrix = this.currentScene.lights[i].getDynamicLightProjectionMatrix(this.matrices.viewMatrix, frustrumCorners);
+                let projectionMatrix = this.currentScene.lights[i].getDynamicLightProjectionMatrix(this.matrices.viewMatrix, frustrumCorners);
+                this.currentScene.lights[i].projectionMatrix = cascades[0].orthoMatrix;
+                projectionMatrix;
                 let camPosition = this.currentScene.camera.position;
                 let adjustedPosition = vec3.fromValues(camPosition[0], 100, camPosition[2]);
-                this.currentScene.lights[i].viewMatrix = this.currentScene.lights[i].getDynamicLightViewMatrix(adjustedPosition);
+                let viewMatrix = this.currentScene.lights[i].getDynamicLightViewMatrix(adjustedPosition);
+                viewMatrix;
+                this.currentScene.lights[i].viewMatrix = cascades[0].viewMatrix;
             }
         }
     }
