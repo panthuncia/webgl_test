@@ -200,13 +200,17 @@ class WebGLRenderer {
     const gl = this.gl;
     this.updateScene();
     this.updateLights();
-    await this.shadowPass();
+    // if we haven't initialized shadow scene, do that. This cannot be in constructor because async.
+    if (this.currentScene.shadowScene.shadowFramebuffer == null) {
+      await this.initShadowScene();
+    }
+    this.shadowPass();
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap);
-    // this.updateCamera();
-    // return;
+    drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap, 0);
+    this.updateCamera();
+    return;
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       if (!this.shaderProgramVariants[object.shaderVariant]) {
@@ -389,12 +393,8 @@ class WebGLRenderer {
     this.currentScene.lightDirectionsData = new Float32Array(this.MAX_LIGHTS * 4);
     this.currentScene.lightPropertiesData = new Float32Array(this.MAX_LIGHTS * 4);
   }
-  async shadowPass() {
+  shadowPass() {
     const gl = this.gl;
-    // if we haven't initialized shadow scene, do that. This cannot be in constructor because async.
-    if (this.currentScene.shadowScene.shadowFramebuffer == null) {
-      await this.initShadowScene();
-    }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowFramebuffer);
     gl.viewport(0, 0, this.SHADOW_WIDTH, this.SHADOW_HEIGHT);

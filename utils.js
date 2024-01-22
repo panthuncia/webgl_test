@@ -401,9 +401,9 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 
   for (let i = 0; i < numCascades; i++) {
     let size = cascadeSplits[i];
-    let center = camera.position; //vec3.fromValues(camera.position[0], 100, camera.position[2]);//getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
+    let center = vec3.fromValues(camera.position[0], 0, camera.position[2]);//getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
     let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
-    let orthoMatrix = getOrthographicProjectionMatrix(size, -100, 100);
+    let orthoMatrix = getOrthographicProjectionMatrix(size, -200, 200);
 
     cascades.push({ size, center, orthoMatrix, viewMatrix });
   }
