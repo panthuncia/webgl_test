@@ -16,7 +16,7 @@ in mat3 m_TBN; //received from vertex shader
 
 #define MAX_LIGHTS 5
 #define MAX_DIRECTIONAL_LIGHTS 2
-#define NUM_CASCADE_SPLITS 5
+#define NUM_CASCADE_SPLITS 10
 //light attributes: x=type (0=point, 1=spot, 2=directional)
 //x=point -> w = shadow caster
 //x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster

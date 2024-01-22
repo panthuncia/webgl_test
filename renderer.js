@@ -43,7 +43,7 @@ class WebGLRenderer {
     this.SHADOW_HEIGHT = 8196;
     this.SHADOW_CASCADE_DISTANCE = 300;
 
-    this.NUM_SHADOW_CASCADES = 5;
+    this.NUM_SHADOW_CASCADES = 10;
     this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(
       this.NUM_SHADOW_CASCADES,
       this.currentScene.camera.zNear,
