@@ -286,7 +286,7 @@ void main() {
 
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
-    float normalOffsetBias = 0.15;
+    float normalOffsetBias = 0.05;
     vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos+normal*normalOffsetBias, 1.0);
     int dirLightNum = 0;
     for(int i = 0; i < u_numLights; i++) {
