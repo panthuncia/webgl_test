@@ -140,9 +140,7 @@ function parseOBJ(text) {
 
   // remove any arrays that have no entries.
   for (const geometry of geometries) {
-    geometry.data = Object.fromEntries(
-      Object.entries(geometry.data).filter(([, array]) => array.length > 0)
-    );
+    geometry.data = Object.fromEntries(Object.entries(geometry.data).filter(([, array]) => array.length > 0));
   }
 
   return {
@@ -223,47 +221,13 @@ async function getObj(filename) {
     });
 }
 
-function createRenderable(
-  gl,
-  data,
-  shaderVariant,
-  textures = [],
-  normals = [],
-  aoMaps = [],
-  heightMaps = [],
-  metallic = [],
-  roughness = [],
-  opacity = []
-) {
+function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = []) {
   meshes = [];
   for (const geometry of data.geometries) {
-    let tanbit = calculateTangentsBitangents(
-      geometry.data.position,
-      geometry.data.normal,
-      geometry.data.texcoord
-    );
-    meshes.push(
-      new Mesh(
-        gl,
-        geometry.data.position,
-        geometry.data.normal,
-        geometry.data.texcoord,
-        tanbit.tangents,
-        tanbit.bitangents
-      )
-    );
+    let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, tanbit.tangents, tanbit.bitangents));
   }
-  return new RenderableObject(
-    meshes,
-    shaderVariant,
-    textures,
-    normals,
-    aoMaps,
-    heightMaps,
-    metallic,
-    roughness,
-    opacity
-  );
+  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
 }
 
 async function loadTexture(url) {
@@ -272,49 +236,24 @@ async function loadTexture(url) {
   return createImageBitmap(blob);
 }
 
-function createWebGLTexture(
-  gl,
-  image,
-  srgb = false,
-  repeated = false,
-  mipmaps = false
-) {
+function createWebGLTexture(gl, image, srgb = false, repeated = false, mipmaps = false) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
-  gl.texParameteri(
-    gl.TEXTURE_2D,
-    gl.TEXTURE_WRAP_S,
-    repeated ? gl.REPEAT : gl.CLAMP_TO_EDGE
-  );
-  gl.texParameteri(
-    gl.TEXTURE_2D,
-    gl.TEXTURE_WRAP_T,
-    repeated ? gl.REPEAT : gl.CLAMP_TO_EDGE
-  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeated ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeated ? gl.REPEAT : gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   if (srgb) {
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.SRGB8_ALPHA8,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      image
-    );
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, image);
   } else {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, image);
   }
 
   if (mipmaps) {
     gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(
-      gl.TEXTURE_2D,
-      gl.TEXTURE_MIN_FILTER,
-      gl.LINEAR_MIPMAP_LINEAR
-    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   }
 
   return texture;
@@ -355,64 +294,22 @@ function getFrustumCorners(fov, aspect, zNear, zFar, inverseViewMatrix) {
   let farWidth = farHeight * aspect;
 
   let corners = [
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(-nearWidth / 2, nearHeight / 2, -zNear),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(nearWidth / 2, nearHeight / 2, -zNear),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(-nearWidth / 2, -nearHeight / 2, -zNear),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(nearWidth / 2, -nearHeight / 2, -zNear),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(-farWidth / 2, farHeight / 2, -zFar),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(farWidth / 2, farHeight / 2, -zFar),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(-farWidth / 2, -farHeight / 2, -zFar),
-      inverseViewMatrix
-    ),
-    vec3.transformMat4(
-      vec3.create(),
-      vec3.fromValues(farWidth / 2, -farHeight / 2, -zFar),
-      inverseViewMatrix
-    ),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix),
   ];
 
   return corners;
 }
 
 function getFrustumCenter(cameraPosition, cameraForward, zNear, zFar) {
-  let nearCenter = vec3.scaleAndAdd(
-    vec3.create(),
-    cameraPosition,
-    cameraForward,
-    zNear
-  );
-  let farCenter = vec3.scaleAndAdd(
-    vec3.create(),
-    cameraPosition,
-    cameraForward,
-    zFar
-  );
+  let nearCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zNear);
+  let farCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zFar);
 
   let frustumCenter = vec3.lerp(vec3.create(), nearCenter, farCenter, 0.5);
   return frustumCenter;
@@ -431,11 +328,7 @@ function computeAABB(points) {
 }
 
 function calculateForwardVector(cameraPosition, targetPosition) {
-  let forwardVector = vec3.subtract(
-    vec3.create(),
-    targetPosition,
-    cameraPosition
-  );
+  let forwardVector = vec3.subtract(vec3.create(), targetPosition, cameraPosition);
   vec3.normalize(forwardVector, forwardVector);
   return forwardVector;
 }
@@ -454,7 +347,7 @@ function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.5)
     let uniformSplit = zNear + uniformRange * p;
     splits[i] = lambda * logSplit + (1 - lambda) * uniformSplit;
   }
-  return [zNear, ...splits];
+  return splits;
 }
 
 // function getOrthographicFromCorners(corners) {
@@ -503,22 +396,12 @@ function getLightViewMatrix(lightDirection, lightUp, cascadeCenter) {
   return mat4.lookAt(mat4.create(), cascadeCenter, lookAtPoint, lightUp);
 }
 
-function setupCascades(
-  numCascades,
-  light,
-  camera,
-) {
-  let cascadeSplits = calculateCascadeSplits(
-    numCascades,
-    camera.zNear,
-    camera.zFar,
-    300
-  );
+function setupCascades(numCascades, light, camera, cascadeSplits) {
   let cascades = [];
 
   for (let i = 0; i < numCascades; i++) {
-    let size = cascadeSplits[i + 1];
-    let center = camera.position;//vec3.fromValues(camera.position[0], 100, camera.position[2]);//getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
+    let size = cascadeSplits[i];
+    let center = camera.position; //vec3.fromValues(camera.position[0], 100, camera.position[2]);//getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
     let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
     let orthoMatrix = getOrthographicProjectionMatrix(size, -100, 100);
 
