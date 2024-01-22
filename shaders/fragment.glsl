@@ -225,6 +225,16 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
         //because OpenGL ES lacks CLAMP_TO_BORDER...
     bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
     float shadow = 0.0;
+    //kind of a hack, not quite sure why I'm getting texcoords outside of bounds on fragments within the split distance
+    //this just steps up one cascade if that happens.
+    if (isOutside && cascadeIndex!=NUM_CASCADE_SPLITS-1){
+        cascadeIndex+=1;
+        infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
+        fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
+        projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+        isOutside = false;
+    } 
     if(!isOutside) {
         // Sample the corresponding shadow map
         float closestDepth = texture(u_shadowCascades, vec3(projCoords.xy, float(infoIndex))).r;
