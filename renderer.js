@@ -208,9 +208,9 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap, 0);
-    this.updateCamera();
-    return;
+    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap, 0);
+    // this.updateCamera();
+    // return;
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       if (!this.shaderProgramVariants[object.shaderVariant]) {
@@ -248,8 +248,8 @@ class WebGLRenderer {
             let lightSpaceMatrix = mat4.create();
             mat4.multiply(lightSpaceMatrix, currentScene.lights[i].cascades[j].orthoMatrix, currentScene.lights[i].cascades[j].viewMatrix);
             gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum*this.NUM_SHADOW_CASCADES+j], false, lightSpaceMatrix);
-            dirLightNum++;
           }
+          dirLightNum++;
         } else {
           let lightSpaceMatrix = mat4.create();
           mat4.multiply(lightSpaceMatrix, currentScene.lights[i].projectionMatrix, currentScene.lights[i].viewMatrix);
@@ -531,7 +531,7 @@ class WebGLRenderer {
       let delta = Math.sign(event.deltaY);
 
       // Adjust zoom level
-      this.distanceFromOrigin += delta * 5; // Adjust zoom speed as necessary
+      this.distanceFromOrigin += delta * 1; // Adjust zoom speed as necessary
       this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Prevents zooming too close, adjust as necessary
 
       // Update camera

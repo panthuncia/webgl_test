@@ -10,6 +10,7 @@ uniform int u_layer;
 out vec4 fragmentColor;
 
 void main() {
-    highp float depth = texture(u_textureArray, vec3(v_texCoord, u_layer)).r;
-    fragmentColor = vec4(depth, depth, depth, 1.0); // Display shadow map as grayscale
+    //highp float depth = texture(u_textureArray, vec3(v_texCoord, u_layer)).r;
+    //fragmentColor = vec4(depth, depth, depth, 1.0); // Display shadow map as grayscale
+    fragmentColor = vec4(1, 1, 0, 1);
 }

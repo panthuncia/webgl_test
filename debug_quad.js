@@ -22,7 +22,7 @@ async function createDebugQuad(gl){
     gl.linkProgram(shaderProgram);
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shadow shader program: ' + gl.getProgramInfoLog(shadowProgram));
+        alert('Unable to initialize the debug shader program: ' + gl.getProgramInfoLog(shadowProgram));
     }
 
     debugQuad.programInfo = {
@@ -54,7 +54,11 @@ function drawFullscreenQuad(gl, textureArray, layer){
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, textureArray);
     gl.uniform1i(debugQuad.programInfo.uniformLocations.textureArray, 0);
-    gl.uniform1i(debugQuad.programInfo.uniformLocations.layer, layer);
     
+    gl.uniform1i(debugQuad.programInfo.uniformLocations.layer, layer);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
 }

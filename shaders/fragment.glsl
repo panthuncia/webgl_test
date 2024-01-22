@@ -1,5 +1,5 @@
 #define PI 3.1415926538
-precision mediump float;
+precision highp float;
 precision highp sampler2DArray;
 
 //if we're not using normal mapping, 
@@ -217,8 +217,9 @@ int calculateShadowCascadeIndex(float depth) {
 
 float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
     //shadows
-    int cascadeIndex = calculateShadowCascadeIndex(v_fragPos.z);
-    vec4 fragPosLightSpace = u_lightCascadeMatrices[dirLightNum] * fragPosWorldSpace;
+    int cascadeIndex = calculateShadowCascadeIndex(abs(v_fragPos.z)); //abs because -z is forwards
+    int infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
+    vec4 fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
         //because OpenGL ES lacks CLAMP_TO_BORDER...
@@ -226,15 +227,12 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
     float shadow = 0.0;
     if(!isOutside) {
         // Sample the corresponding shadow map
-        float closestDepth = texture(u_shadowCascades, vec3(projCoords.xy, float(cascadeIndex))).r;
+        float closestDepth = texture(u_shadowCascades, vec3(projCoords.xy, float(infoIndex))).r;
         float currentDepth = projCoords.z;
 
             // Implement shadow comparison (with bias to avoid shadow acne)
         float bias = 0.001;
         shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
-        if(cascadeIndex == 1){
-            shadow = 1.0;
-        }
     }
     return shadow;
 }
