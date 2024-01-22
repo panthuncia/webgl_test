@@ -1,7 +1,10 @@
 class WebGLRenderer {
   constructor(canvasID) {
+
     this.canvas = document.getElementById(canvasID);
     this.gl = this.canvas.getContext("webgl2");
+    //print gl restrictions, for debugging
+    this.printRestrictions()
     const gl = this.gl;
     this.matrices = {
       viewMatrix: mat4.create(),
@@ -39,9 +42,9 @@ class WebGLRenderer {
     this.matrices.projectionMatrix = projectionMatrix;
 
     //shadow setup
-    this.SHADOW_WIDTH = 8196;
-    this.SHADOW_HEIGHT = 8196;
-    this.SHADOW_CASCADE_DISTANCE = 300;
+    this.SHADOW_WIDTH = 2048;//8192;
+    this.SHADOW_HEIGHT = 2048;//8192;
+    this.SHADOW_CASCADE_DISTANCE = 200;
 
     this.NUM_SHADOW_CASCADES = 10;
     this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(
@@ -644,5 +647,13 @@ class WebGLRenderer {
     let objectData = await getObj("objects/" + modelDescription.model);
     console.log(objectData);
     return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
+  }
+  printRestrictions(){
+    console.log("Max texture size: "+this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
+    console.log("Max texture layers: "+this.gl.getParameter(this.gl.MAX_ARRAY_TEXTURE_LAYERS));
+    console.log("Max cubemap dimensions: "+this.gl.getParameter(this.gl.MAX_CUBE_MAP_TEXTURE_SIZE));
+    console.log("Max vertex uniforms: "+this.gl.getParameter(this.gl.MAX_VERTEX_UNIFORM_VECTORS));
+    console.log("Max fragment uniforms: "+this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
+    console.log("Max fragment uniform blocks: "+this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
   }
 }

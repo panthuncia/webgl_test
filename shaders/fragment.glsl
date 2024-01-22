@@ -241,7 +241,7 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
         float currentDepth = projCoords.z;
 
             // Implement shadow comparison (with bias to avoid shadow acne)
-        float bias = 0.001;
+        float bias = 0.0002;
         shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
     }
     return shadow;
