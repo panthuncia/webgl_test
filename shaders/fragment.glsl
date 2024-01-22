@@ -4,9 +4,9 @@ precision highp sampler2DArray;
 
 //if we're not using normal mapping, 
 //we want the view-space normals from the vertex shader
-#ifndef USE_NORMAL_MAP
+//#ifndef USE_NORMAL_MAP
 in vec3 v_normal;
-#endif
+//#endif
 
 in vec3 v_fragPos;
 in vec2 v_texCoord;  // Received from vertex shader
@@ -215,7 +215,7 @@ int calculateShadowCascadeIndex(float depth) {
     return NUM_CASCADE_SPLITS - 1;
 }
 
-float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
+float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 normal, int lightIndex) {
     //shadows
     int cascadeIndex = calculateShadowCascadeIndex(abs(v_fragPos.z)); //abs because -z is forwards
     int infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
@@ -240,8 +240,11 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum) {
         float closestDepth = texture(u_shadowCascades, vec3(projCoords.xy, float(infoIndex))).r;
         float currentDepth = projCoords.z;
 
-            // Implement shadow comparison (with bias to avoid shadow acne)
+        // Implement shadow comparison (with bias to avoid shadow acne)
+        //float cosTheta = abs(dot(normal, u_lightDirViewSpace[lightIndex].xyz));
         float bias = 0.0002;
+        //float slopeScaledBias = 0.0000;
+        //float bias = max(constantBias, slopeScaledBias*cosTheta);
         shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
     }
     return shadow;
@@ -283,12 +286,13 @@ void main() {
 
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
-    vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos, 1.0);
+    float normalOffsetBias = 0.15;
+    vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos+normal*normalOffsetBias, 1.0);
     int dirLightNum = 0;
     for(int i = 0; i < u_numLights; i++) {
         float shadow = 0.0;
-        if(u_lightProperties[i].x == 2.0) {
-            shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum);
+        if(int(round(u_lightProperties[i].x)) == 2) {
+            shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum, normalize(v_normal), i);
             dirLightNum++;
         }
         lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);

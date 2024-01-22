@@ -13,9 +13,9 @@ uniform mat4 u_modelViewMatrix;
 uniform mat4 u_projectionMatrix;
 uniform mat3 u_normalMatrix;
 
-#ifndef USE_NORMAL_MAP
+//#ifndef USE_NORMAL_MAP
 out vec3 v_normal;
-#endif
+//#endif
 out vec3 v_fragPos;
 out vec2 v_texCoord;
 #ifdef USE_NORMAL_MAP
@@ -27,9 +27,11 @@ void main() {
     v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));
 
     // Transform the normal
-    #ifndef USE_NORMAL_MAP
+    // normal matrix is calculated as inverse transpose
+    // of model-view matrix to modify normals appropriately when object is scaled
+    //#ifndef USE_NORMAL_MAP
     v_normal = u_normalMatrix * a_normal;
-    #endif
+    //#endif
 
     // Pass texcoord to fs
     v_texCoord = a_texCoord;
