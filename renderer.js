@@ -54,8 +54,9 @@ class WebGLRenderer {
       this.SHADOW_CASCADE_DISTANCE,
     );
 
-    this.MAX_LIGHTS = 5;
+    this.MAX_LIGHTS = 7;
     this.MAX_DIRECTIONAL_LIGHTS = 2;
+    this.MAX_SPOT_LIGHTS = 5;
 
     //shader variants for conditional compilation
     this.SHADER_VARIANTS = {
@@ -146,6 +147,7 @@ class WebGLRenderer {
           ambientLightStrength: gl.getUniformLocation(shaderProgram, "u_ambientStrength"),
           specularLightStrength: gl.getUniformLocation(shaderProgram, "u_specularStrength"),
           shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
+          shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
         },
       };
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
@@ -243,7 +245,11 @@ class WebGLRenderer {
         gl.uniform1f(programInfo.uniformLocations.cascadeSplits[i], this.currentScene.shadowScene.cascadeSplits[i]);
       }
 
-      let textureUnitAfterShadowMaps = 1;
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps); // Bind shadow map texture array
+      gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
+
+      let textureUnitAfterShadowMaps = 2;
       let dirLightNum = 0;
       for (let i = 0; i < currentScene.lights.length; i++) {
         if (currentScene.lights[i].type == LightType.DIRECTIONAL){
@@ -363,9 +369,10 @@ class WebGLRenderer {
       this.currentScene.lightAttenuationsData[i * 4 + 2] = this.currentScene.lights[i].quadraticAttenuation;
 
       let lightColor = this.currentScene.lights[i].color;
-      this.currentScene.lightColorsData[i * 4] = lightColor[0];
-      this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1];
-      this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2];
+      let lightIntensity = this.currentScene.lights[i].intensity;
+      this.currentScene.lightColorsData[i * 4] = lightColor[0]*lightIntensity;
+      this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1]*lightIntensity;
+      this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2]*lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
       let lightDirWorld = this.currentScene.lights[i].getLightDir();

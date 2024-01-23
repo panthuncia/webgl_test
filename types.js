@@ -145,6 +145,10 @@ class Transform {
   //   quat.getEuler(eulerFromQuaternion, this.rot);
   //   return eulerFromQuaternion;
   // }
+  getGlobalPosition(){
+    let position = vec3.fromValues(this.modelMatrix[12], this.modelMatrix[13], this.modelMatrix[14]);
+    return position;
+  }
 }
 
 class SceneNode {
@@ -232,11 +236,13 @@ const LightType = {
   DIRECTIONAL: 2
 }
 class Light extends SceneNode{
-  constructor(type, position, color, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
+  constructor(type, position, color, intensity, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
     super();
     this.type = type;
     this.transform.setLocalPosition(vec3.fromValues(position[0], position[1], position[2]));
-    this.color = color;
+    this.color = vec3.fromValues(color[0], color[1], color[2]);
+    vec3.normalize(this.color, this.color);
+    this.intensity = intensity;
     this.constantAttenuation = constantAttenuation;
     this.linearAttenuation = linearAttenuation;
     this.quadraticAttenuation = quadraticAttenuation;
@@ -245,35 +251,75 @@ class Light extends SceneNode{
     this.transform.setDirection(direction);
     this.innerConeAngle = innerConeAngle;
     this.outerConeAngle = outerConeAngle;
+    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+    this.viewMatrix = this.getViewMatrix();
+    this.farPlane = this.calculateFarPlane();
   }
   //TODO: don't calculate every time
-  getDynamicLightViewMatrix(center) {
-    const lightDirection = this.getLightDir();
-    let lightPos = vec3.add(vec3.create(), center, vec3.scale(vec3.create(), lightDirection, 1)); // Adjust distance as needed
-    let target = center;
-    let up = vec3.fromValues(1.0, 0.0, 0.0);
-    let lightViewMatrix = mat4.create();
-    mat4.lookAt(lightViewMatrix, lightPos, target, up);
-    return lightViewMatrix;
+  getViewMatrix() {
+    let normalizedDirection = vec3.create();
+    vec3.normalize(normalizedDirection, this.getLightDir());
+    let targetPosition = vec3.create();
+    let lightPosition = this.transform.getGlobalPosition();
+    let up = [0, 1, 0];
+    vec3.add(targetPosition, lightPosition, normalizedDirection);
+    let lightView = mat4.create();
+    mat4.lookAt(lightView, lightPosition, targetPosition, up);
+    return lightView;
   }
-  getDynamicLightProjectionMatrix(lightViewMatrix, cameraFrustumCorners) {
-    // Transform camera frustum corners to light space
-    let transformedCorners = cameraFrustumCorners.map(corner => {
-      let corner4d = glMatrix.vec4.fromValues(corner[0], corner[1], corner[2], 1.0);
-      let transformed = glMatrix.vec4.transformMat4(glMatrix.vec4.create(), corner4d, lightViewMatrix);
-      return [transformed[0], transformed[1], transformed[2]];
-    });
-  
-    // Compute AABB in light space
-    let [min, max] = computeAABB(transformedCorners);
-  
-    let lightProjectionMatrix = mat4.create();
-    mat4.ortho(lightProjectionMatrix, min[0]/5, max[0]/5, min[1]/5, max[1]/5, -max[2]/5, -min[2]/5);
-    return lightProjectionMatrix;
+  getPerspectiveProjectionMatrix(){
+    if (this.type == LightType.SPOT){
+      let lightProjection = mat4.create();
+      let aspect = 1;
+      let near = 0.01;
+      let far = 100;
+      mat4.perspective(lightProjection, this.outerConeAngle*(Math.PI/180), aspect, near, far);
+      return lightProjection;
+    }
+  }
+  calculateFarPlane(){
+    const A = this.quadraticAttenuation;
+    const B = this.linearAttenuation;
+    const C = this.constantAttenuation - this.intensity / 0.1;
+
+    //quadratic equation
+    const discriminant = B * B - 4 * A * C;
+    if (discriminant < 0) {
+        return Infinity;
+    }
+
+    const d1 = (-B + Math.sqrt(discriminant)) / (2 * A);
+    const d2 = (-B - Math.sqrt(discriminant)) / (2 * A);
+    return Math.max(d1, d2);
   }
   getLightDir() {
     const lightDirection = vec3.create();
     vec3.transformQuat(lightDirection, defaultDirection, this.transform.rot);
     return lightDirection;
   }
+  setConeAngles(innerConeAngle, outerConeAngle) {
+    this.innerConeAngle = innerConeAngle;
+    this.outerConeAngle = outerConeAngle;
+    //recalculate projection matrix with new fov
+    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+  }
+  //override these methods to calculate view and projection matrices
+  // updateSelfAndChildren(){
+  //   if(this.transform.isDirty){
+  //     this.forceUpdateSelfAndChildren();
+  //     return;
+  //   }
+  //   for(child of this.children){
+  //     child.updateSelfAndChildren();
+  //   }
+  // }
+  // forceUpdateSelfAndChildren(){
+  //   if(this.parent){
+  //     this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
+  //   } else {
+  //     this.transform.computeLocalModelMatrix();
+  //   }
+  //   //recalculate view matrix with new location
+  //   this.viewMatrix = this.getViewMatrix();
+  // }
 }

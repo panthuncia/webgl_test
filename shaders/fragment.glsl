@@ -14,9 +14,14 @@ in vec2 v_texCoord;  // Received from vertex shader
 in mat3 m_TBN; //received from vertex shader
 #endif
 
-#define MAX_LIGHTS 5
+#define MAX_LIGHTS 7
 #define MAX_DIRECTIONAL_LIGHTS 2
+#define MAX_SPOT_LIGHTS 5
 #define NUM_CASCADE_SPLITS 10
+
+#define LIGHT_TYPE_POINT 0
+#define LIGHT_TYPE_SPOT 1
+#define LIGHT_TYPE_DIRECTIONAL 2
 //light attributes: x=type (0=point, 1=spot, 2=directional)
 //x=point -> w = shadow caster
 //x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
@@ -27,7 +32,7 @@ uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
 uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
 uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 
-//these two have u_numShadowCastingLights elements
+uniform sampler2DArray u_shadowMaps;
 uniform mat4 u_lightSpaceMatrices[MAX_LIGHTS]; // for transforming fragments to light-space for shadow sampling
 uniform mat4 u_viewMatrixInverse;
 
@@ -250,6 +255,28 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
     return shadow;
 }
 
+float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
+    vec4 fragPosLightSpace = u_lightSpaceMatrices[spotLightNum] * fragPosWorldSpace;
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+        //because OpenGL ES lacks CLAMP_TO_BORDER...
+    bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
+    float shadow = 0.0;
+    if(!isOutside) {
+        // Sample the corresponding shadow map
+        float closestDepth = texture(u_shadowMaps, vec3(projCoords.xy, float(spotLightNum))).r;
+        float currentDepth = projCoords.z;
+
+        // Implement shadow comparison (with bias to avoid shadow acne)
+        //float cosTheta = abs(dot(normal, u_lightDirViewSpace[lightIndex].xyz));
+        float bias = 0.0002;
+        //float slopeScaledBias = 0.0000;
+        //float bias = max(constantBias, slopeScaledBias*cosTheta);
+        shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    }
+    return shadow;
+}
+
 void main() {
     //we're doing light calculations in view space
     vec3 viewDir = -normalize(v_fragPos); // view-space
@@ -289,12 +316,18 @@ void main() {
     float normalOffsetBias = 0.05;
     vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos+normal*normalOffsetBias, 1.0);
     int dirLightNum = 0;
+    int spotLightNum = 0;
     for(int i = 0; i < u_numLights; i++) {
         float shadow = 0.0;
-        if(int(round(u_lightProperties[i].x)) == 2) {
+        int lightType = int(round(u_lightProperties[i].x));
+        if(lightType == LIGHT_TYPE_DIRECTIONAL) {
             shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum, normalize(v_normal), i);
             dirLightNum++;
-        }
+        } 
+        // else if (lightType == LIGHT_TYPE_SPOT){
+        //     shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
+        //     spotLightNum++;
+        // }
         lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }
     // Combine results
