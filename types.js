@@ -101,25 +101,37 @@ class Transform {
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
   }
-  setDirection(dir){
-    let targetDirection = vec3.fromValues(dir[0], dir[1], dir[2])
+  setDirection(dir) {
+    let targetDirection = vec3.fromValues(dir[0], dir[1], dir[2]);
     vec3.normalize(targetDirection, targetDirection);
-    let axis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
-    let angle = Math.acos(vec3.dot(defaultDirection, targetDirection));
+
+    let dotProduct = vec3.dot(defaultDirection, targetDirection);
 
     // Calculate the rotation quaternion
     let rotationQuat = quat.create();
-    if (vec3.dot(defaultDirection, targetDirection) < 0.9999) {
-      let rotationAxis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
-      vec3.normalize(rotationAxis, rotationAxis);
-      let rotationAngle = Math.acos(vec3.dot(defaultDirection, targetDirection));
-      quat.setAxisAngle(rotationQuat, rotationAxis, rotationAngle);
+
+    if (dotProduct < -0.9999) {
+        // The vectors are anti-parallel
+        // Find an arbitrary perpendicular axis
+        let perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(1, 0, 0));
+        if (vec3.length(perpendicularAxis) < 0.01) {
+            perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(0, 1, 0));
+        }
+        vec3.normalize(perpendicularAxis, perpendicularAxis);
+        quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI); // 180 degrees rotation
+    } else if (dotProduct > 0.9999) {
+        // The vectors are parallel
+        quat.identity(rotationQuat);
     } else {
-      // If the target direction is very close to the default, no rotation is needed
-      quat.identity(rotationQuat);
+        // General case
+        let rotationAxis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
+        vec3.normalize(rotationAxis, rotationAxis);
+        let rotationAngle = Math.acos(dotProduct);
+        quat.setAxisAngle(rotationQuat, rotationAxis, rotationAngle);
     }
+
     this.rot = rotationQuat;
-  }
+}
   setLocalScale(newScale){
     this.scale = newScale;
     this.isDirty = true;
