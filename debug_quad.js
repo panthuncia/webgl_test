@@ -22,7 +22,7 @@ async function createDebugQuad(gl){
     gl.linkProgram(shaderProgram);
 
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize the shadow shader program: ' + gl.getProgramInfoLog(shadowProgram));
+        alert('Unable to initialize the debug shader program: ' + gl.getProgramInfoLog(shadowProgram));
     }
 
     debugQuad.programInfo = {
@@ -32,13 +32,14 @@ async function createDebugQuad(gl){
             texCoord: gl.getAttribLocation(shaderProgram, 'a_texCoord')
         },
         uniformLocations: {
-            image: gl.getUniformLocation(shaderProgram, 'u_texture')
+            textureArray: gl.getUniformLocation(shaderProgram, 'u_textureArray'),
+            layer: gl.getUniformLocation(shaderProgram, 'u_layer'),
         }
     }
     
 }
 
-function drawFullscreenQuad(gl, texture){
+function drawFullscreenQuad(gl, textureArray, layer){
     gl.useProgram(debugQuad.programInfo.program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.vertexBuffer);
@@ -51,8 +52,13 @@ function drawFullscreenQuad(gl, texture){
     gl.enableVertexAttribArray(debugQuad.programInfo.attribLocations.texCoord);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(debugQuad.programInfo.uniformLocations.image, 0);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, textureArray);
+    gl.uniform1i(debugQuad.programInfo.uniformLocations.textureArray, 0);
     
+    gl.uniform1i(debugQuad.programInfo.uniformLocations.layer, layer);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
 }
