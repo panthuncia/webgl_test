@@ -273,7 +273,7 @@ class Light extends SceneNode{
       let aspect = 1;
       let near = 0.01;
       let far = 100;
-      mat4.perspective(lightProjection, this.outerConeAngle*(Math.PI/180), aspect, near, far);
+      mat4.perspective(lightProjection, this.outerConeAngle, aspect, near, far);
       return lightProjection;
     }
   }
@@ -304,22 +304,22 @@ class Light extends SceneNode{
     this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
   //override these methods to calculate view and projection matrices
-  // updateSelfAndChildren(){
-  //   if(this.transform.isDirty){
-  //     this.forceUpdateSelfAndChildren();
-  //     return;
-  //   }
-  //   for(child of this.children){
-  //     child.updateSelfAndChildren();
-  //   }
-  // }
-  // forceUpdateSelfAndChildren(){
-  //   if(this.parent){
-  //     this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
-  //   } else {
-  //     this.transform.computeLocalModelMatrix();
-  //   }
-  //   //recalculate view matrix with new location
-  //   this.viewMatrix = this.getViewMatrix();
-  // }
+  updateSelfAndChildren(){
+    if(this.transform.isDirty){
+      this.forceUpdateSelfAndChildren();
+      return;
+    }
+    for(child of this.children){
+      child.updateSelfAndChildren();
+    }
+  }
+  forceUpdateSelfAndChildren(){
+    if(this.parent){
+      this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
+    } else {
+      this.transform.computeLocalModelMatrix();
+    }
+    //recalculate view matrix with new location
+    this.viewMatrix = this.getViewMatrix();
+  }
 }

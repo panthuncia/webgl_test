@@ -324,10 +324,10 @@ void main() {
             shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum, normalize(v_normal), i);
             dirLightNum++;
         } 
-        // else if (lightType == LIGHT_TYPE_SPOT){
-        //     shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
-        //     spotLightNum++;
-        // }
+        else if (lightType == LIGHT_TYPE_SPOT){
+            shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
+            spotLightNum++;
+        }
         lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }
     // Combine results

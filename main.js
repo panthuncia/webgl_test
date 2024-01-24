@@ -23,13 +23,14 @@ async function main() {
 
   // let light1 = new Light(LightType.POINT, [0, 0, 5], [1, 1, 1], 1.0, 1.0, 0.09, 0.032);
   // let light2 = new Light(LightType.POINT, [9, 0, 0], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-10, 1, 0], [1, 1, 1], 1.0, 1.0, 0.09, 0.032, [1, 0, 0], Math.PI / 8, Math.PI / 6);
-  // let light4 = new Light(LightType.SPOT, [0, 10, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0, -1, 0], Math.PI / 8, Math.PI / 6);
+  let light3 = new Light(LightType.SPOT, [-10, 2, 0], [1, 1, 1], 4.0, 1.0, 0.09, 0.032, [1, 0, -0.2], Math.PI / 8, Math.PI / 6);
+  let light4 = new Light(LightType.SPOT, [8, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   //renderer.addLight(light3);
-  renderer.addLight(light5);
+  renderer.addLight(light4);
+  //renderer.addLight(light5);
   //renderer.addLight(light6);
   await(createDebugQuad(renderer.gl));
   async function drawScene() {
