@@ -213,9 +213,9 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMap, 0);
-    // this.updateCamera();
-    // return;
+    drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 0);
+    this.updateCamera();
+    return;
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       if (!this.shaderProgramVariants[object.shaderVariant]) {
