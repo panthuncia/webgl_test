@@ -45,9 +45,11 @@ WebGLRenderer.prototype.shadowPass = function () {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowMapFramebuffer);
 
         gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.currentScene.shadowScene.shadowMaps, 0, spotLightNum);
-        let projectionMatrix = light.projectionMatrix;
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+
+        let projectionMatrix = light.getPerspectiveProjectionMatrix();
         gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-        let viewMatrix = light.viewMatrix;
+        let viewMatrix = light.getViewMatrix();
         this.drawDepths(viewMatrix);
         spotLightNum++
     }
@@ -81,7 +83,6 @@ WebGLRenderer.prototype.initShadowScene = async function () {
         numSpotLights++;
       }
     }
-    // Use gl.DEPTH_COMPONENT32F for higher precision if needed
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numCascades * numDirectionalLights, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
   
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -107,7 +108,6 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     this.currentScene.shadowScene.shadowMaps = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.currentScene.shadowScene.shadowMaps);
   
-    // Use gl.DEPTH_COMPONENT32F for higher precision if needed
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numSpotLights, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
   
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);

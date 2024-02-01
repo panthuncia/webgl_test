@@ -95,10 +95,10 @@ class WebGLRenderer {
     this.currentScene.lights.push(light);
     this.initLightVectors();
   }
-  async createProgramVariants(vsPath, fsPath, shaderVariantsToCompile) {
+  async createProgramVariants(shaderVariantsToCompile) {
     const gl = this.gl;
-    let fsSource = await loadText(fsPath);
-    let vsSource = await loadText(vsPath);
+    let fsSource = primaryFSSource;
+    let vsSource = primaryVSSource;
 
     for (const variantID of shaderVariantsToCompile) {
       let defines = "#version 300 es\n";
@@ -213,13 +213,13 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 0);
-    this.updateCamera();
-    return;
+    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 0);
+    // this.updateCamera();
+    // return;
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       if (!this.shaderProgramVariants[object.shaderVariant]) {
-        await this.createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl", [object.shaderVariant]);
+        await this.createProgramVariants([object.shaderVariant]);
       }
       const programInfo = this.shaderProgramVariants[object.shaderVariant];
       gl.useProgram(programInfo.program);
@@ -251,6 +251,7 @@ class WebGLRenderer {
 
       let textureUnitAfterShadowMaps = 2;
       let dirLightNum = 0;
+      let spotLightNum = 0;
       for (let i = 0; i < currentScene.lights.length; i++) {
         if (currentScene.lights[i].type == LightType.DIRECTIONAL){
           for(let j=0; j<this.NUM_SHADOW_CASCADES; j++){
@@ -259,10 +260,11 @@ class WebGLRenderer {
             gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum*this.NUM_SHADOW_CASCADES+j], false, lightSpaceMatrix);
           }
           dirLightNum++;
-        } else {
+        } else if (currentScene.lights[i].type == LightType.SPOT){
           let lightSpaceMatrix = mat4.create();
-          mat4.multiply(lightSpaceMatrix, currentScene.lights[i].projectionMatrix, currentScene.lights[i].viewMatrix);
-          gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[i], false, lightSpaceMatrix);
+          mat4.multiply(lightSpaceMatrix, currentScene.lights[spotLightNum].getPerspectiveProjectionMatrix(), currentScene.lights[i].getViewMatrix());
+          gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[spotLightNum], false, lightSpaceMatrix);
+          spotLightNum++;
         }
       }
 

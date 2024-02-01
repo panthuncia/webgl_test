@@ -30,8 +30,9 @@ async function main() {
 
   //renderer.addLight(light3);
   renderer.addLight(light4);
-  //renderer.addLight(light5);
-  //renderer.addLight(light6);
+  renderer.addLight(light5);
+  renderer.addLight(light6);
+  createDebugTriangle(renderer.gl);
   await(createDebugQuad(renderer.gl));
   async function drawScene() {
     await(renderer.drawScene());

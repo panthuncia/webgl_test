@@ -271,9 +271,9 @@ class Light extends SceneNode{
     if (this.type == LightType.SPOT){
       let lightProjection = mat4.create();
       let aspect = 1;
-      let near = 0.01;
+      let near = 1.0;
       let far = 100;
-      mat4.perspective(lightProjection, this.outerConeAngle, aspect, near, far);
+      mat4.perspective(lightProjection, this.outerConeAngle*2, aspect, near, far);
       return lightProjection;
     }
   }
