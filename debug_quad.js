@@ -1,19 +1,55 @@
 debugQuad = {}
 
 async function createDebugQuad(gl){
-    debugQuad.vertices = new Float32Array([
-        -1.0, -1.0,  0.0, 0.0, // bottom left
-         1.0, -1.0,  1.0, 0.0, // bottom right
-        -1.0,  1.0,  0.0, 1.0, // top left
-         1.0,  1.0,  1.0, 1.0  // top right
+    debugQuad.positions = new Float32Array([
+        -1.0, -1.0, 
+         1.0, -1.0, 
+        -1.0,  1.0, 
+         1.0,  1.0,
+    ]);
+    debugQuad.textureCoordinates = new Float32Array([
+        0.0,  0.0,
+        1.0,  0.0,
+        0.0,  1.0,
+        1.0,  1.0,
     ]);
     
-    debugQuad.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, debugQuad.vertices, gl.STATIC_DRAW);
+    debugQuad.positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, debugQuad.positions, gl.STATIC_DRAW);
 
-    let fsSource = await (loadText("shaders/debug_quad_fs.glsl"));
-    let vsSource = await (loadText("shaders/debug_quad_vs.glsl"));
+    debugQuad.textureCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.textureCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, debugQuad.textureCoordinates, gl.STATIC_DRAW);
+
+    let fsSource = `#version 300 es
+    precision mediump float;
+    precision highp sampler2DArray;
+    
+    in highp vec2 v_texCoord;
+    
+    uniform sampler2DArray u_textureArray;
+    uniform int u_layer;
+    
+    out vec4 fragmentColor;
+    
+    void main() {
+        highp float depth = texture(u_textureArray, vec3(v_texCoord, u_layer)).r;
+        fragmentColor = vec4(depth, depth, depth, 1.0); // Display shadow map as grayscale
+        //fragmentColor = vec4(1, 1, 0, 1);
+    }
+    `
+    let vsSource = `#version 300 es
+    // vertex_shader.glsl
+    in vec4 a_position;
+    in vec2 a_texCoord;
+    
+    out highp vec2 v_texCoord;
+    
+    void main() {
+        v_texCoord = a_texCoord;
+        gl_Position = a_position;
+    }`
     vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
     fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
     shaderProgram = gl.createProgram();
@@ -42,13 +78,14 @@ async function createDebugQuad(gl){
 function drawFullscreenQuad(gl, textureArray, layer){
     gl.useProgram(debugQuad.programInfo.program);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.vertexBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.positionBuffer);
     // Set up the position attribute
-    gl.vertexAttribPointer(debugQuad.programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 16, 0);
+    gl.vertexAttribPointer(debugQuad.programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(debugQuad.programInfo.attribLocations.vertexPosition);
     
     // Set up the texture coordinate attribute
-    gl.vertexAttribPointer(debugQuad.programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 16, 8);
+    gl.bindBuffer(gl.ARRAY_BUFFER, debugQuad.textureCoordBuffer);
+    gl.vertexAttribPointer(debugQuad.programInfo.attribLocations.texCoord, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(debugQuad.programInfo.attribLocations.texCoord);
 
     gl.activeTexture(gl.TEXTURE0);
@@ -56,9 +93,6 @@ function drawFullscreenQuad(gl, textureArray, layer){
     gl.uniform1i(debugQuad.programInfo.uniformLocations.textureArray, 0);
     
     gl.uniform1i(debugQuad.programInfo.uniformLocations.layer, layer);
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.BLEND);
+    
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
 }

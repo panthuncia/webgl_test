@@ -231,7 +231,9 @@ function createRenderable(gl, data, shaderVariant, textures = [], normals = [], 
 }
 
 async function loadTexture(url) {
-  const response = await fetch(url);
+  //Web environments suck I want to use C++/Vulkan
+  const uniqueUrl = url + '?_ts=' + new Date().getTime();
+  const response = await fetch(uniqueUrl);
   const blob = await response.blob();
   return createImageBitmap(blob);
 }

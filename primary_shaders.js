@@ -1,4 +1,4 @@
-#define PI 3.1415926538
+const primaryFSSource = `#define PI 3.1415926538
 precision highp float;
 precision highp sampler2DArray;
 
@@ -8,7 +8,7 @@ precision highp sampler2DArray;
 in vec3 v_normal;
 //#endif
 
-in vec3 v_fragPos;
+in vec4 v_fragPos;
 in vec2 v_texCoord;  // Received from vertex shader
 #ifdef USE_NORMAL_MAP
 in mat3 m_TBN; //received from vertex shader
@@ -225,7 +225,7 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
     int cascadeIndex = calculateShadowCascadeIndex(abs(v_fragPos.z)); //abs because -z is forwards
     int infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
     vec4 fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
-    //vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    vec3 projCoords = fragPosLightSpace.xyz; /// fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
         //because OpenGL ES lacks CLAMP_TO_BORDER...
     bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
@@ -257,9 +257,9 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
 
 float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
     vec4 fragPosLightSpace = u_lightSpaceMatrices[spotLightNum] * fragPosWorldSpace;
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    vec3 projCoords = fragPosLightSpace.xyz/fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
-        //because OpenGL ES lacks CLAMP_TO_BORDER...
+    //because OpenGL ES lacks CLAMP_TO_BORDER...
     bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
     float shadow = 0.0;
     if(!isOutside) {
@@ -279,7 +279,7 @@ float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
 
 void main() {
     //we're doing light calculations in view space
-    vec3 viewDir = -normalize(v_fragPos); // view-space
+    vec3 viewDir = -normalize(v_fragPos.xyz); // view-space
 
     //Parallax occlusion mapping. WIP.
     #ifdef USE_PARALLAX
@@ -314,7 +314,7 @@ void main() {
     //accumulate light from all lights. WIP.
     vec3 lighting = vec3(0.0, 0.0, 0.0);
     float normalOffsetBias = 0.05;
-    vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos+normal*normalOffsetBias, 1.0);
+    vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos.xyz+normal*normalOffsetBias, v_fragPos.w);
     int dirLightNum = 0;
     int spotLightNum = 0;
     for(int i = 0; i < u_numLights; i++) {
@@ -328,7 +328,7 @@ void main() {
             shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
             spotLightNum++;
         }
-        lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
+        lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }
     // Combine results
 
@@ -355,3 +355,56 @@ void main() {
     #endif
     fragmentColor = vec4(color, opacity);
 }
+`
+
+const primaryVSSource = `precision mediump float;
+
+in vec3 a_position;
+in vec3 a_normal;
+in vec2 a_texCoord;
+#ifdef USE_NORMAL_MAP
+in vec3 a_tangent;
+in vec3 a_bitangent;
+#endif
+
+//uniform mat4 u_modelMatrix;
+uniform mat4 u_modelViewMatrix;
+uniform mat4 u_projectionMatrix;
+uniform mat3 u_normalMatrix;
+
+//#ifndef USE_NORMAL_MAP
+out vec3 v_normal;
+//#endif
+out vec4 v_fragPos;
+out vec2 v_texCoord;
+#ifdef USE_NORMAL_MAP
+out mat3 m_TBN;
+#endif
+
+void main() {
+    // Transform the position into view space
+    v_fragPos = vec4(u_modelViewMatrix * vec4(a_position, 1.0));
+
+    // Transform the normal
+    // normal matrix is calculated as inverse transpose
+    // of model-view matrix to modify normals appropriately when object is scaled
+    //#ifndef USE_NORMAL_MAP
+    v_normal = u_normalMatrix * a_normal;
+    //#endif
+
+    // Pass texcoord to fs
+    v_texCoord = a_texCoord;
+
+    // Calculate TBN matrix, for transforming tangent-space coordinates to view space
+    // Used in normal mapping
+    #ifdef USE_NORMAL_MAP
+    vec3 T = normalize(u_normalMatrix * a_tangent);
+    vec3 B = normalize(u_normalMatrix * a_bitangent);
+    vec3 N = normalize(u_normalMatrix * a_normal);
+    m_TBN = mat3(T, B, N);
+    #endif
+
+    // Set the position
+    gl_Position = u_projectionMatrix * v_fragPos;
+}
+`
