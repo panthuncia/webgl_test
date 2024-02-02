@@ -1,73 +1,73 @@
 class Mesh {
-    constructor(gl, vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
-      this.vertices = vertices;
-      this.normals = normals;
-      this.indices = indices;
-      this.tangents = tangents;
-      this.bitangents = bitangents;
+  constructor(gl, vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
+    this.vertices = vertices;
+    this.normals = normals;
+    this.indices = indices;
+    this.tangents = tangents;
+    this.bitangents = bitangents;
 
-      // Create a VAO
-      this.vao = gl.createVertexArray();
-      gl.bindVertexArray(this.vao);
+    // Create a VAO
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
 
-      // Vertex buffer
-      this.vertexBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(0);
+    // Vertex buffer
+    this.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
 
-      // Normal buffer
-      this.normalBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(1);
+    // Normal buffer
+    this.normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(1);
 
-      // Texture coordinate buffer
-      this.texCoordBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(2);
+    // Texture coordinate buffer
+    this.texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(2);
 
-      // Tangents and bitangents (if present)
-      if (tangents != null) {
-          this.tangentBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
-          gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
-          gl.enableVertexAttribArray(3);
+    // Tangents and bitangents (if present)
+    if (tangents != null) {
+      this.tangentBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(3);
 
-          this.bitangentBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-          gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
-          gl.enableVertexAttribArray(4);
-      }
+      this.bitangentBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(4);
+    }
 
-      // Index buffer (if present)
-      if (indices != null) {
-          this.indexBuffer = gl.createBuffer();
-          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-          gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-      }
+    // Index buffer (if present)
+    if (indices != null) {
+      this.indexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    }
 
-      // Unbind the VAO
-      gl.bindVertexArray(null);
+    // Unbind the VAO
+    gl.bindVertexArray(null);
   }
 }
 
 class Transform {
-  constructor(pos = [0.0, 0.0, 0.0], rot = [0.0, 0.0, 0.0], scale = [1.0, 1.0, 1.0],){
-    this.pos = pos; 
+  constructor(pos = [0.0, 0.0, 0.0], rot = [0.0, 0.0, 0.0], scale = [1.0, 1.0, 1.0]) {
+    this.pos = pos;
     this.rot = quat.create();
     quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.scale = scale;
     this.isDirty = false;
     this.modelMatrix = mat4.create();
   }
-  getLocalModelMatrix(){
+  getLocalModelMatrix() {
     let matRotation = mat4.create();
     mat4.fromQuat(matRotation, this.rot);
 
@@ -82,22 +82,22 @@ class Transform {
     mat4.multiply(localMatrix, localMatrix, matScale);
     return localMatrix;
   }
-  computeLocalModelMatrix(){
+  computeLocalModelMatrix() {
     this.modelMatrix = this.getLocalModelMatrix();
     this.isDirty = false;
   }
-  computeModelMatrixFromParent(parentGlobalModelMatrix){
+  computeModelMatrixFromParent(parentGlobalModelMatrix) {
     mat4.multiply(this.modelMatrix, parentGlobalModelMatrix, this.getLocalModelMatrix());
     this.isDirty = false;
   }
-  setLocalPosition(newPosition){
+  setLocalPosition(newPosition) {
     this.pos = newPosition;
-		this.isDirty = true;
+    this.isDirty = true;
   }
-  setLocalRotation(rot){
+  setLocalRotation(rot) {
     //Why TF does quat.fromEuler use degrees
     //Who uses degrees
-    quat.fromEuler(this.rot, rot[0]*(180/Math.PI), rot[1]*(180/Math.PI), rot[2]*(180/Math.PI));
+    quat.fromEuler(this.rot, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
   }
@@ -111,28 +111,28 @@ class Transform {
     let rotationQuat = quat.create();
 
     if (dotProduct < -0.9999) {
-        // The vectors are anti-parallel
-        // Find an arbitrary perpendicular axis
-        let perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(1, 0, 0));
-        if (vec3.length(perpendicularAxis) < 0.01) {
-            perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(0, 1, 0));
-        }
-        vec3.normalize(perpendicularAxis, perpendicularAxis);
-        quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI); // 180 degrees rotation
+      // The vectors are anti-parallel
+      // Find an arbitrary perpendicular axis
+      let perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(1, 0, 0));
+      if (vec3.length(perpendicularAxis) < 0.01) {
+        perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(0, 1, 0));
+      }
+      vec3.normalize(perpendicularAxis, perpendicularAxis);
+      quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI); // 180 degrees rotation
     } else if (dotProduct > 0.9999) {
-        // The vectors are parallel
-        quat.identity(rotationQuat);
+      // The vectors are parallel
+      quat.identity(rotationQuat);
     } else {
-        // General case
-        let rotationAxis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
-        vec3.normalize(rotationAxis, rotationAxis);
-        let rotationAngle = Math.acos(dotProduct);
-        quat.setAxisAngle(rotationQuat, rotationAxis, rotationAngle);
+      // General case
+      let rotationAxis = vec3.cross(vec3.create(), defaultDirection, targetDirection);
+      vec3.normalize(rotationAxis, rotationAxis);
+      let rotationAngle = Math.acos(dotProduct);
+      quat.setAxisAngle(rotationQuat, rotationAxis, rotationAngle);
     }
 
     this.rot = rotationQuat;
-}
-  setLocalScale(newScale){
+  }
+  setLocalScale(newScale) {
     this.scale = newScale;
     this.isDirty = true;
   }
@@ -145,33 +145,33 @@ class Transform {
   //   quat.getEuler(eulerFromQuaternion, this.rot);
   //   return eulerFromQuaternion;
   // }
-  getGlobalPosition(){
+  getGlobalPosition() {
     let position = vec3.fromValues(this.modelMatrix[12], this.modelMatrix[13], this.modelMatrix[14]);
     return position;
   }
 }
 
 class SceneNode {
-  constructor(){
+  constructor() {
     this.children = [];
     this.parent = null;
-    this.transform = new Transform(); 
+    this.transform = new Transform();
   }
-  addChild(node){
+  addChild(node) {
     this.children.push(node);
     node.parent = this;
   }
-  updateSelfAndChildren(){
-    if(this.transform.isDirty){
+  updateSelfAndChildren() {
+    if (this.transform.isDirty) {
       this.forceUpdateSelfAndChildren();
       return;
     }
-    for(child of this.children){
+    for (child of this.children) {
       child.updateSelfAndChildren();
     }
   }
-  forceUpdateSelfAndChildren(){
-    if(this.parent){
+  forceUpdateSelfAndChildren() {
+    if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
       this.transform.computeLocalModelMatrix();
@@ -179,8 +179,8 @@ class SceneNode {
   }
 }
 
-class RenderableObject extends SceneNode{
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity){
+class RenderableObject extends SceneNode {
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity) {
     super();
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
@@ -191,7 +191,7 @@ class RenderableObject extends SceneNode{
     this.metallic = [];
     this.roughness = [];
     this.opacity = [];
-    for (let i=0; i<meshes.length; i++){
+    for (let i = 0; i < meshes.length; i++) {
       if (textures.length >= i + 1) {
         this.textures.push(textures[i]);
       } else {
@@ -233,10 +233,10 @@ class RenderableObject extends SceneNode{
 const LightType = {
   POINT: 0,
   SPOT: 1,
-  DIRECTIONAL: 2
-}
-class Light extends SceneNode{
-  constructor(type, position, color, intensity, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0,0,0], innerConeAngle = 20, outerConeAngle = 30){
+  DIRECTIONAL: 2,
+};
+class Light extends SceneNode {
+  constructor(type, position, color, intensity, constantAttenuation = 0, linearAttenuation = 0, quadraticAttenuation = 0, direction = [0, 0, 0], innerConeAngle = 20, outerConeAngle = 30) {
     super();
     this.type = type;
     this.transform.setLocalPosition(vec3.fromValues(position[0], position[1], position[2]));
@@ -251,9 +251,18 @@ class Light extends SceneNode{
     this.transform.setDirection(direction);
     this.innerConeAngle = innerConeAngle;
     this.outerConeAngle = outerConeAngle;
-    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
-    this.viewMatrix = this.getViewMatrix();
-    this.farPlane = this.calculateFarPlane();
+    switch (type) {
+      case LightType.DIRECTIONAL:
+        break;
+      case LightType.SPOT:
+        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+        this.viewMatrix = this.getViewMatrix();
+        this.farPlane = this.calculateFarPlane();
+        break;
+      case LightType.POINT:
+        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+        this.cubemapViewMatrices = this.getCubemapViewMatrices();
+    }
   }
   //TODO: don't calculate every time
   getViewMatrix() {
@@ -267,17 +276,41 @@ class Light extends SceneNode{
     mat4.lookAt(lightView, lightPosition, targetPosition, up);
     return lightView;
   }
-  getPerspectiveProjectionMatrix(){
-    if (this.type == LightType.SPOT){
-      let lightProjection = mat4.create();
-      let aspect = 1;
-      let near = 1.0;
-      let far = 100;
-      mat4.perspective(lightProjection, this.outerConeAngle*2, aspect, near, far);
-      return lightProjection;
+  getCubemapViewMatrices() {
+    //create six camera directions for each face
+    const directions = [
+      { target: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, -1, 0) },
+      { target: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, -1, 0) },
+      { target: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
+      { target: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
+      { target: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, -1, 0) },
+      { target: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, -1, 0) },
+    ];
+    //create view matrices for each dir
+    const viewMatrices = [];
+    for(let dir of directions){
+      const viewMatrix = mat4.create();
+      mat4.lookAt(viewMatrix, this.transform.pos, dir.target, dir.up);
+      viewMatrices.push(viewMatrix);
     }
+    return viewMatrices;
   }
-  calculateFarPlane(){
+  getPerspectiveProjectionMatrix() {
+    let aspect = 1;
+    let near = 1.0;
+    let far = 100;
+    let lightProjection = mat4.create();
+    switch(this.type){
+      case LightType.SPOT:
+        mat4.perspective(lightProjection, this.outerConeAngle * 2, aspect, near, far);
+        break;
+      case LightType.POINT:
+        mat4.perspective(lightProjection, Math.PI/4, aspect, near, far);
+        break;
+    }
+    return lightProjection;
+  }
+  calculateFarPlane() {
     const A = this.quadraticAttenuation;
     const B = this.linearAttenuation;
     const C = this.constantAttenuation - this.intensity / 0.1;
@@ -285,7 +318,7 @@ class Light extends SceneNode{
     //quadratic equation
     const discriminant = B * B - 4 * A * C;
     if (discriminant < 0) {
-        return Infinity;
+      return Infinity;
     }
 
     const d1 = (-B + Math.sqrt(discriminant)) / (2 * A);
@@ -301,25 +334,36 @@ class Light extends SceneNode{
     this.innerConeAngle = innerConeAngle;
     this.outerConeAngle = outerConeAngle;
     //recalculate projection matrix with new fov
-    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+    switch (this.type) {
+      case LightType.SPOT:
+        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
+        break;
+    }
   }
   //override these methods to calculate view and projection matrices
-  updateSelfAndChildren(){
-    if(this.transform.isDirty){
+  updateSelfAndChildren() {
+    if (this.transform.isDirty) {
       this.forceUpdateSelfAndChildren();
       return;
     }
-    for(child of this.children){
+    for (child of this.children) {
       child.updateSelfAndChildren();
     }
   }
-  forceUpdateSelfAndChildren(){
-    if(this.parent){
+  forceUpdateSelfAndChildren() {
+    if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
       this.transform.computeLocalModelMatrix();
     }
     //recalculate view matrix with new location
-    this.viewMatrix = this.getViewMatrix();
+    switch (this.type) {
+      case LightType.SPOT:
+        this.viewMatrix = this.getViewMatrix();
+        break;
+      case LightType.POINT:
+        this.cubemapViewMatrices = this.getCubemapViewMatrices();
+        break;
+    }
   }
 }

@@ -24,6 +24,7 @@ WebGLRenderer.prototype.shadowPass = function () {
 
   let directionalLightNum = 0;
   let spotLightNum = 0;
+  let pointLightNum = 0;
   for (let i = 0; i < this.currentScene.lights.length; i++) {
     let light = this.currentScene.lights[i];
     if (light.type == LightType.DIRECTIONAL) {
@@ -47,11 +48,24 @@ WebGLRenderer.prototype.shadowPass = function () {
         gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.currentScene.shadowScene.shadowMaps, 0, spotLightNum);
         gl.clear(gl.DEPTH_BUFFER_BIT);
 
-        let projectionMatrix = light.getPerspectiveProjectionMatrix();
+        let projectionMatrix = light.projectionMatrix;
         gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-        let viewMatrix = light.getViewMatrix();
+        let viewMatrix = light.viewMatrix;
         this.drawDepths(viewMatrix);
-        spotLightNum++
+        spotLightNum++;
+    }
+    else if (light.type == LightType.POINT){
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowCubemapFramebuffer);
+      for(let i=0; i<6; i++){
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.currentScene.shadowScene.shadowCubemaps, 0, pointLightNum*6+i);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        let projectionMatrix = light.projectionMatrix;
+        gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+        let viewMatrix = light.cubemapViewMatrices[pointLightNum*6+i];
+        this.drawDepths(viewMatrix);
+      }
+
+      pointLightNum++;
     }
   }
 
@@ -59,6 +73,7 @@ WebGLRenderer.prototype.shadowPass = function () {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 };
+
 WebGLRenderer.prototype.initShadowScene = async function () {
     const gl = this.gl;
     const numCascades = this.NUM_SHADOW_CASCADES;
@@ -75,12 +90,16 @@ WebGLRenderer.prototype.initShadowScene = async function () {
   
     let numDirectionalLights = 0;
     let numSpotLights = 0;
+    let numPointLights = 0;
     for (let light of this.currentScene.lights) {
       if (light.type == LightType.DIRECTIONAL) {
         numDirectionalLights++;
       }
       else if (light.type == LightType.SPOT) {
         numSpotLights++;
+      }
+      else if (light.type == LightType.POINT) {
+        numPointLights++;
       }
     }
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numCascades * numDirectionalLights, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
@@ -125,7 +144,33 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     }
   
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    //create (emulated) cubemaps for spot lights
+    this.currentScene.shadowScene.shadowCubemapFramebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowCubemapFramebuffer);
+  
+    this.currentScene.shadowScene.shadowCubemaps = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.currentScene.shadowScene.shadowCubemaps);
+  
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numPointLights*6, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+  
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  
+    // Attach the first layer of the texture array to the framebuffer's depth buffer
+    // This layer will be changed when rendering each cascade
+    gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.currentScene.shadowScene.shadowCubemaps, 0, 0);
+  
+    // Check if the framebuffer is complete
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      console.error("Framebuffer is not complete");
+    }
+  
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 };
+
 WebGLRenderer.prototype.createShadowProgram = async function () {
   const gl = this.gl;
   let fsSource = await loadText("shaders/fragment_shadow.glsl");

@@ -14,10 +14,12 @@ in vec2 v_texCoord;  // Received from vertex shader
 in mat3 m_TBN; //received from vertex shader
 #endif
 
-#define MAX_LIGHTS 7
 #define MAX_DIRECTIONAL_LIGHTS 2
 #define MAX_SPOT_LIGHTS 5
-#define NUM_CASCADE_SPLITS 10
+#define MAX_POINT_LIGHTS 2
+#define MAX_LIGHTS MAX_DIRECTIONAL_LIGHTS+MAX_SPOT_LIGHTS+MAX_POINT_LIGHTS
+
+#define NUM_CASCADE_SPLITS 3
 
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_SPOT 1
@@ -45,6 +47,10 @@ uniform float u_specularStrength;
 uniform sampler2DArray u_shadowCascades;
 uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
 uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
+
+uniform sampler2DArray u_shadowCubemaps; //emulated cubemaps (+X, -X, +Y, -Y, +Z, -Z) because OpenGL ES 3.0 doesn't have TEXTURE_CUBE_MAP_ARRAY :/
+uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
+
 
 uniform sampler2D u_baseColorTexture;
 #ifdef USE_NORMAL_MAP
@@ -277,6 +283,10 @@ float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
     return shadow;
 }
 
+float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum){
+    return 0.0;
+}
+
 void main() {
     //we're doing light calculations in view space
     vec3 viewDir = -normalize(v_fragPos.xyz); // view-space
@@ -317,16 +327,23 @@ void main() {
     vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos.xyz+normal*normalOffsetBias, v_fragPos.w);
     int dirLightNum = 0;
     int spotLightNum = 0;
+    int pointLightNum = 0;
     for(int i = 0; i < u_numLights; i++) {
         float shadow = 0.0;
         int lightType = int(round(u_lightProperties[i].x));
-        if(lightType == LIGHT_TYPE_DIRECTIONAL) {
-            shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum, normalize(v_normal), i);
-            dirLightNum++;
-        } 
-        else if (lightType == LIGHT_TYPE_SPOT){
-            shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
-            spotLightNum++;
+        switch (lightType){
+            case LIGHT_TYPE_DIRECTIONAL:
+                shadow = calculateCascadedShadow(fragPosWorldSpace, dirLightNum, normalize(v_normal), i);
+                dirLightNum++;
+                break;
+            case LIGHT_TYPE_SPOT:
+                shadow = calculateSpotShadow(fragPosWorldSpace, spotLightNum);
+                spotLightNum++;
+                break;
+            case LIGHT_TYPE_POINT:
+                shadow = calculatePointShadow(fragPosWorldSpace, pointLightNum);
+                pointLightNum++;
+                break;
         }
         lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }

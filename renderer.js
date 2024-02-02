@@ -44,9 +44,9 @@ class WebGLRenderer {
     //shadow setup
     this.SHADOW_WIDTH = 2048;//8192;
     this.SHADOW_HEIGHT = 2048;//8192;
-    this.SHADOW_CASCADE_DISTANCE = 200;
+    this.SHADOW_CASCADE_DISTANCE = 100;
 
-    this.NUM_SHADOW_CASCADES = 10;
+    this.NUM_SHADOW_CASCADES = 3;
     this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(
       this.NUM_SHADOW_CASCADES,
       this.currentScene.camera.zNear,
@@ -54,9 +54,10 @@ class WebGLRenderer {
       this.SHADOW_CASCADE_DISTANCE,
     );
 
-    this.MAX_LIGHTS = 7;
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
+    this.MAX_POINT_LIGHTS = 2
+    this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS+this.MAX_SPOT_LIGHTS+this.MAX_POINT_LIGHTS;
 
     //shader variants for conditional compilation
     this.SHADER_VARIANTS = {
@@ -148,8 +149,10 @@ class WebGLRenderer {
           specularLightStrength: gl.getUniformLocation(shaderProgram, "u_specularStrength"),
           shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
           shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
+          shadowCubemaps: gl.getUniformLocation(shaderProgram, "u_shadowCubemaps"),
         },
       };
+      //conditional attributes and uniforms
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
         //programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
         programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, "a_tangent");
@@ -169,20 +172,30 @@ class WebGLRenderer {
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
         programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, "u_opacity");
       }
-      //shadow map samplers
-      //let shadowMapUniformLocations = [];
+      //uniform arrays
+
+      //spot light matrices
       let lightSpaceMatrices = [];
-      for (let i = 0; i < this.MAX_LIGHTS; i++) {
-        // shadowMapUniformLocations[i] = gl.getUniformLocation(shaderProgram, "u_shadowMaps[" + i + "]");
+      for (let i = 0; i < this.MAX_SPOT_LIGHTS; i++) {
         lightSpaceMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightSpaceMatrices[" + i + "]");
       }
-      //programInfo.uniformLocations.shadowMapUniformLocations = shadowMapUniformLocations;
       programInfo.uniformLocations.lightSpaceMatrices = lightSpaceMatrices;
+
+      //per-face point light matrices
+      let lightCubemapMatrices = [];
+      for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) {
+        lightCubemapMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightCubemapMatrices[" + i + "]");
+      }
+      programInfo.uniformLocations.lightCubemapMatrices = lightCubemapMatrices;
+
+      //cascade split distances
       let cascadeSplits=[];
       for (let i=0; i<this.NUM_SHADOW_CASCADES; i++){
         cascadeSplits[i] = gl.getUniformLocation(shaderProgram, "u_cascadeSplits["+i+"]");
       }
       programInfo.uniformLocations.cascadeSplits = cascadeSplits;
+      
+      //per-cascade light matrices
       let lightCascadeMatrices = [];
       for (let i=0; i<this.MAX_DIRECTIONAL_LIGHTS*this.NUM_SHADOW_CASCADES; i++){
         lightCascadeMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightCascadeMatrices["+i+"]");
@@ -213,7 +226,7 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 0);
+    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCubemaps, 4);
     // this.updateCamera();
     // return;
     for (const object of currentScene.objects) {
@@ -249,22 +262,39 @@ class WebGLRenderer {
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps); // Bind shadow map texture array
       gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
 
-      let textureUnitAfterShadowMaps = 2;
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps); // Bind shadow map texture array
+      gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
+
+      let textureUnitAfterShadowMaps = 3;
       let dirLightNum = 0;
       let spotLightNum = 0;
-      for (let i = 0; i < currentScene.lights.length; i++) {
-        if (currentScene.lights[i].type == LightType.DIRECTIONAL){
-          for(let j=0; j<this.NUM_SHADOW_CASCADES; j++){
+      let pointLightNum = 0;
+
+      for(const light of currentScene.lights){
+        switch (light.type){
+          case LightType.DIRECTIONAL:
+            for(let j=0; j<this.NUM_SHADOW_CASCADES; j++){
+              let lightSpaceMatrix = mat4.create();
+              mat4.multiply(lightSpaceMatrix, light.cascades[j].orthoMatrix, light.cascades[j].viewMatrix);
+              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum*this.NUM_SHADOW_CASCADES+j], false, lightSpaceMatrix);
+            }
+            dirLightNum++;
+            break;
+          case LightType.SPOT:
             let lightSpaceMatrix = mat4.create();
-            mat4.multiply(lightSpaceMatrix, currentScene.lights[i].cascades[j].orthoMatrix, currentScene.lights[i].cascades[j].viewMatrix);
-            gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum*this.NUM_SHADOW_CASCADES+j], false, lightSpaceMatrix);
-          }
-          dirLightNum++;
-        } else if (currentScene.lights[i].type == LightType.SPOT){
-          let lightSpaceMatrix = mat4.create();
-          mat4.multiply(lightSpaceMatrix, currentScene.lights[spotLightNum].getPerspectiveProjectionMatrix(), currentScene.lights[i].getViewMatrix());
-          gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[spotLightNum], false, lightSpaceMatrix);
-          spotLightNum++;
+            mat4.multiply(lightSpaceMatrix, light.projectionMatrix, light.viewMatrix);
+            gl.uniformMatrix4fv(programInfo.uniformLocations.lightSpaceMatrices[spotLightNum], false, lightSpaceMatrix);
+            spotLightNum++;
+            break;
+          case LightType.POINT:
+            for(let i=0; i<6; i++){
+              let lightSpaceMatrix = mat4.create();
+              mat4.multiply(lightSpaceMatrix, light.projectionMatrix, light.cubemapViewMatrices[i]);
+              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCubemapMatrices[pointLightNum*6+i], false, lightSpaceMatrix);
+            }
+            pointLightNum++;
+            break;
         }
       }
 
@@ -487,7 +517,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.textures) {
         let textureImage = await loadTexture("textures/" + textureName);
-        let texture = createWebGLTexture(gl, textureImage, false, false);
+        let texture = createWebGLTexture(gl, textureImage, false, true);
         textures.push(texture);
       }
     } catch {
@@ -497,7 +527,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.normals) {
         let normalImage = await loadTexture("textures/" + textureName);
-        let normalTexture = createWebGLTexture(gl, normalImage);
+        let normalTexture = createWebGLTexture(gl, normalImage, false, true);
         normals.push(normalTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
@@ -530,7 +560,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.metallic) {
         let metallicImage = await loadTexture("textures/" + textureName);
-        let metallicTexture = createWebGLTexture(gl, metallicImage);
+        let metallicTexture = createWebGLTexture(gl, metallicImage, false, true);
         metallic.push(metallicTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -541,7 +571,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.roughness) {
         let roughnessImage = await loadTexture("textures/" + textureName);
-        let roughnessTexture = createWebGLTexture(gl, roughnessImage);
+        let roughnessTexture = createWebGLTexture(gl, roughnessImage, false, true);
         roughness.push(roughnessTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
