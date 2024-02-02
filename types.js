@@ -307,7 +307,7 @@ class Light extends SceneNode {
         mat4.perspective(lightProjection, this.outerConeAngle * 2, aspect, near, far);
         break;
       case LightType.POINT:
-        mat4.perspective(lightProjection, Math.PI/4, aspect, near, far);
+        mat4.perspective(lightProjection, Math.PI/2, aspect, near, far);
         break;
     }
     return lightProjection;

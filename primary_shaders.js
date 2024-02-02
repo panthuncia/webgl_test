@@ -37,7 +37,6 @@ uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 uniform sampler2DArray u_shadowMaps;
 uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
 uniform mat4 u_viewMatrixInverse;
-uniform vec4 u_cameraPositionWorldSpace;
 
 uniform int u_numLights;
 //uniform int u_numShadowCastingLights;
@@ -280,8 +279,9 @@ float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
     return shadow;
 }
 
-float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum){
-    vec3 dir = fragPosWorldSpace.xyz - u_cameraPositionWorldSpace.xyz;
+float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum, int lightIndex){
+    vec4 lightPosWorldSpace = u_viewMatrixInverse*u_lightPosViewSpace[lightIndex];
+    vec3 dir = fragPosWorldSpace.xyz - lightPosWorldSpace.xyz;
     int faceIndex = 0;
     float maxDir = max(max(abs(dir.x), abs(dir.y)), abs(dir.z));
 
@@ -373,7 +373,7 @@ void main() {
                 spotLightNum++;
                 break;
             case LIGHT_TYPE_POINT:
-                shadow = calculatePointShadow(fragPosWorldSpace, pointLightNum);
+                shadow = calculatePointShadow(fragPosWorldSpace, pointLightNum, i);
                 pointLightNum++;
                 break;
         }
