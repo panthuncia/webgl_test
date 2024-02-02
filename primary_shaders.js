@@ -304,7 +304,7 @@ float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum){
         faceIndex = 5; // -Z
         //uv = dir.xy / maxDir;
     }
-    vec4 fragPosLightSpace = u_lightCubemapMatrices[pointLightNum]*fragPosWorldSpace;
+    vec4 fragPosLightSpace = u_lightCubemapMatrices[pointLightNum*6+faceIndex]*fragPosWorldSpace;
     vec3 uv = fragPosLightSpace.xyz/fragPosLightSpace.w;
     uv = uv * 0.5 + 0.5;
     bool isOutside = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || uv.z > 1.0;
