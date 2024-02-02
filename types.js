@@ -279,12 +279,12 @@ class Light extends SceneNode {
   getCubemapViewMatrices() {
     //create six camera directions for each face
     const directions = [
-      { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, -1, 0) },
-      { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, 1, 0) },
+      { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, 1, 0) },
       { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
       { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
-      { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, -1, 0) },
-      { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, 1, 0) },
+      { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, 1, 0) },
     ];
     //create view matrices for each dir
     const viewMatrices = [];

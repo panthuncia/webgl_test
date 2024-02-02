@@ -280,7 +280,7 @@ float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
 }
 
 float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum, int lightIndex){
-    vec4 lightPosWorldSpace = u_viewMatrixInverse*u_lightPosViewSpace[lightIndex];
+    vec4 lightPosWorldSpace = u_viewMatrixInverse*vec4(u_lightPosViewSpace[lightIndex].xyz, 1);
     vec3 dir = fragPosWorldSpace.xyz - lightPosWorldSpace.xyz;
     int faceIndex = 0;
     float maxDir = max(max(abs(dir.x), abs(dir.y)), abs(dir.z));

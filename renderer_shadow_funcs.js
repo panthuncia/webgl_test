@@ -61,7 +61,7 @@ WebGLRenderer.prototype.shadowPass = function () {
         gl.clear(gl.DEPTH_BUFFER_BIT);
         let projectionMatrix = light.projectionMatrix;
         gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
-        let viewMatrix = light.cubemapViewMatrices[pointLightNum*6+i];
+        let viewMatrix = light.cubemapViewMatrices[i];
         this.drawDepths(viewMatrix);
       }
 
