@@ -37,6 +37,7 @@ uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 uniform sampler2DArray u_shadowMaps;
 uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
 uniform mat4 u_viewMatrixInverse;
+uniform vec4 u_cameraPositionWorldSpace;
 
 uniform int u_numLights;
 //uniform int u_numShadowCastingLights;
@@ -231,10 +232,10 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
     int cascadeIndex = calculateShadowCascadeIndex(abs(v_fragPos.z)); //abs because -z is forwards
     int infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
     vec4 fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
-    vec3 projCoords = fragPosLightSpace.xyz; /// fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+    vec3 uv = fragPosLightSpace.xyz; /// fragPosLightSpace.w;
+    uv = uv * 0.5 + 0.5; // Map to [0, 1]
         //because OpenGL ES lacks CLAMP_TO_BORDER...
-    bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
+    bool isOutside = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || uv.z > 1.0;
     float shadow = 0.0;
     //kind of a hack, not quite sure why I'm getting texcoords outside of bounds on fragments within the split distance
     //this just steps up one cascade if that happens.
@@ -242,16 +243,14 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
         cascadeIndex+=1;
         infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
         fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
-        projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-        projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+        uv = fragPosLightSpace.xyz / fragPosLightSpace.w;
+        uv = uv * 0.5 + 0.5; // Map to [0, 1]
         isOutside = false;
     } 
     if(!isOutside) {
-        // Sample the corresponding shadow map
-        float closestDepth = texture(u_shadowCascades, vec3(projCoords.xy, float(infoIndex))).r;
-        float currentDepth = projCoords.z;
+        float closestDepth = texture(u_shadowCascades, vec3(uv.xy, float(infoIndex))).r;
+        float currentDepth = uv.z;
 
-        // Implement shadow comparison (with bias to avoid shadow acne)
         //float cosTheta = abs(dot(normal, u_lightDirViewSpace[lightIndex].xyz));
         float bias = 0.0002;
         //float slopeScaledBias = 0.0000;
@@ -263,17 +262,15 @@ float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 norm
 
 float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
     vec4 fragPosLightSpace = u_lightSpaceMatrices[spotLightNum] * fragPosWorldSpace;
-    vec3 projCoords = fragPosLightSpace.xyz/fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5; // Map to [0, 1]
+    vec3 uv = fragPosLightSpace.xyz/fragPosLightSpace.w;
+    uv = uv * 0.5 + 0.5; // Map to [0, 1]
     //because OpenGL ES lacks CLAMP_TO_BORDER...
-    bool isOutside = projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0 || projCoords.z > 1.0;
+    bool isOutside = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || uv.z > 1.0;
     float shadow = 0.0;
     if(!isOutside) {
-        // Sample the corresponding shadow map
-        float closestDepth = texture(u_shadowMaps, vec3(projCoords.xy, float(spotLightNum))).r;
-        float currentDepth = projCoords.z;
+        float closestDepth = texture(u_shadowMaps, vec3(uv.xy, float(spotLightNum))).r;
+        float currentDepth = uv.z;
 
-        // Implement shadow comparison (with bias to avoid shadow acne)
         //float cosTheta = abs(dot(normal, u_lightDirViewSpace[lightIndex].xyz));
         float bias = 0.0002;
         //float slopeScaledBias = 0.0000;
@@ -284,7 +281,42 @@ float calculateSpotShadow(vec4 fragPosWorldSpace, int spotLightNum){
 }
 
 float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum){
-    return 0.0;
+    vec3 dir = fragPosWorldSpace.xyz - u_cameraPositionWorldSpace.xyz;
+    int faceIndex = 0;
+    float maxDir = max(max(abs(dir.x), abs(dir.y)), abs(dir.z));
+
+    if (dir.x == maxDir) {
+        faceIndex = 0; // +X
+        //uv = dir.zy / maxDir;
+    } else if (dir.x == -maxDir) {
+        faceIndex = 1; // -X
+        //uv = -dir.zy / maxDir;
+    } else if (dir.y == maxDir) {
+        faceIndex = 2; // +Y
+        //uv = dir.xz / maxDir;
+    } else if (dir.y == -maxDir) {
+        faceIndex = 3; // -Y
+        //uv = dir.xz / maxDir;
+    } else if (dir.z == maxDir) {
+        faceIndex = 4; // +Z
+        //uv = dir.xy / maxDir;
+    } else if (dir.z == -maxDir) {
+        faceIndex = 5; // -Z
+        //uv = dir.xy / maxDir;
+    }
+    vec4 fragPosLightSpace = u_lightCubemapMatrices[pointLightNum]*fragPosWorldSpace;
+    vec3 uv = fragPosLightSpace.xyz/fragPosLightSpace.w;
+    uv = uv * 0.5 + 0.5;
+    bool isOutside = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || uv.z > 1.0;
+    float shadow = 0.0;
+    if(!isOutside) {
+    int layer = pointLightNum * 6 + faceIndex;
+        float closestDepth = texture(u_shadowCubemaps, vec3(uv.xy, float(layer))).r;
+        float currentDepth = uv.z;
+        float bias = 0.0002;
+        shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    }
+    return shadow;
 }
 
 void main() {

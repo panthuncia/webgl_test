@@ -138,6 +138,7 @@ class WebGLRenderer {
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           numLights: gl.getUniformLocation(shaderProgram, "u_numLights"),
           viewMatrixInverse: gl.getUniformLocation(shaderProgram, "u_viewMatrixInverse"),
+          cameraPosWorldSpace: gl.getUniformLocation(shaderProgram, "u_cameraPositionWorldSpace"),
           numShadowCastingLights: gl.getUniformLocation(shaderProgram, "u_numShadowCastingLights"),
           lightPosViewSpace: gl.getUniformLocation(shaderProgram, "u_lightPosViewSpace"),
           lightColor: gl.getUniformLocation(shaderProgram, "u_lightColor"),
@@ -183,7 +184,7 @@ class WebGLRenderer {
 
       //per-face point light matrices
       let lightCubemapMatrices = [];
-      for (let i = 0; i < this.MAX_POINT_LIGHTS; i++) {
+      for (let i = 0; i < this.MAX_POINT_LIGHTS*6; i++) {
         lightCubemapMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightCubemapMatrices[" + i + "]");
       }
       programInfo.uniformLocations.lightCubemapMatrices = lightCubemapMatrices;
@@ -226,7 +227,7 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCubemaps, 4);
+    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCubemaps, 5);
     // this.updateCamera();
     // return;
     for (const object of currentScene.objects) {
@@ -306,6 +307,9 @@ class WebGLRenderer {
       gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
 
       gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrixInverse, false, this.matrices.viewMatrixInverse);
+
+      const camPosWorld = currentScene.camera.position;
+      gl.uniform4f(programInfo.uniformLocations.cameraPosWorldSpace, camPosWorld[0], camPosWorld[1], camPosWorld[2], 0);
 
       let normalMatrix = calculateNormalMatrix(modelViewMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);

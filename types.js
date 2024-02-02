@@ -279,18 +279,20 @@ class Light extends SceneNode {
   getCubemapViewMatrices() {
     //create six camera directions for each face
     const directions = [
-      { target: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, -1, 0) },
-      { target: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, -1, 0) },
-      { target: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
-      { target: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
-      { target: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, -1, 0) },
-      { target: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
+      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
+      { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, -1, 0) },
+      { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, -1, 0) },
     ];
     //create view matrices for each dir
     const viewMatrices = [];
     for(let dir of directions){
       const viewMatrix = mat4.create();
-      mat4.lookAt(viewMatrix, this.transform.pos, dir.target, dir.up);
+      let target = vec3.create();
+      vec3.add(target, this.transform.pos, dir.dir);
+      mat4.lookAt(viewMatrix, this.transform.pos, target, dir.up);
       viewMatrices.push(viewMatrix);
     }
     return viewMatrices;
