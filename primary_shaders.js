@@ -21,6 +21,14 @@ in mat3 m_TBN; //received from vertex shader
 
 #define NUM_CASCADE_SPLITS 3
 
+
+//ambient lighting needs to be scaled differently for PBR and non-PBR materials, or shadows look wierd
+#ifdef USE_PBR 
+#define AMBIENT_SCALING_FACTOR 0.2
+#else
+#define AMBIENT_SCALING_FACTOR 15.0
+#endif
+
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_SPOT 1
 #define LIGHT_TYPE_DIRECTIONAL 2
@@ -382,16 +390,16 @@ void main() {
                 pointLightNum++;
                 break;
         }
-        lighting += (1.0 - shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
+        lighting += (1.0-shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
     }
     // Combine results
 
     //ambient lighting, use AO map here if we have one
     #ifdef USE_BAKED_AO
-    vec3 ambient = u_ambientStrength * baseColor.xyz * texture(u_aoMap, uv).r;
+    vec3 ambient = u_ambientStrength * baseColor.xyz * texture(u_aoMap, uv).r * AMBIENT_SCALING_FACTOR;
     // color.xyz *= aoColor.r;
     #else
-    vec3 ambient = u_ambientStrength * baseColor.xyz;
+    vec3 ambient = u_ambientStrength * baseColor.xyz * AMBIENT_SCALING_FACTOR;
     #endif
     lighting += ambient;
     vec3 color = baseColor.xyz * lighting;
