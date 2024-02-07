@@ -412,3 +412,39 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 
   return cascades;
 }
+
+function createCubemap(gl) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+  const faceInfos = [
+      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posx.png'},
+      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negx.png'},
+      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posy.png'},
+      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negy.png'},
+      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posz.png'},
+      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negz.png'},
+  ];
+  faceInfos.forEach((faceInfo) => {
+      const {target, url} = faceInfo;
+
+      // Setup each face so it's immediately renderable
+      gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+
+      // Asynchronously load an image
+      const image = new Image();
+      image.onload = function() {
+          gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+          gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+      };
+      image.src = url;
+  });
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+
+  return texture;
+}

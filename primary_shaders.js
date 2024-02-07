@@ -101,52 +101,52 @@ vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
 }
 #endif
 
-//https://github.com/panthuncia/TressFXShaders/blob/main/TressFXLighting.hlsl
-// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#inner-and-outer-cone-angles
-float SpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos, float innerConeCos) {
-    float actualCos = dot(normalize(spotDirection), normalize(-pointToLight));
-    if(actualCos > outerConeCos) {
-        if(actualCos < innerConeCos) {
-            return smoothstep(outerConeCos, innerConeCos, actualCos);
+// Models spotlight falloff with linear interpolation between inner and outer cone angles
+float spotAttenuation(vec3 pointToLight, vec3 lightDirection, float outerConeCos, float innerConeCos) {
+    float cos = dot(normalize(lightDirection), normalize(-pointToLight));
+    if(cos > outerConeCos) {
+        if(cos < innerConeCos) {
+            return smoothstep(outerConeCos, innerConeCos, cos);
         }
         return 1.0;
     }
     return 0.0;
 }
 
-//https://learnopengl.com/PBR/Lighting
-float DistributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
+// http://graphicrants.blogspot.com/2013/08/specular-brdf-reference.html
+// http://ix.cs.uoregon.edu/~hank/441/lectures/pbr_slides.pdf
+// Approximates the percent of microfacets in a surface aligned with the halfway vector
+float TrowbridgeReitzGGX(vec3 normalDir, vec3 halfwayDir, float roughness) {
+    // UE4 uses alpha = roughness^2, so I will too.
+    float alpha = roughness * roughness;
+    float alpha2 = alpha* alpha;
+    
+    float normDotHalf = max(dot(normalDir, halfwayDir), 0.0);
+    float normDotHalf2 = normDotHalf * normDotHalf;
 
-    float num = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
+    float denom1 = (normDotHalf2 * (alpha2 - 1.0) + 1.0);
+    float denom2 = denom1 * denom1;
 
-    return num / denom;
+    return alpha2 / (PI * denom2);
 }
-//https://learnopengl.com/PBR/Lighting
-float GeometrySchlickGGX(float NdotV, float roughness) {
+// https://learnopengl.com/PBR/Theory
+// Approximates self-shadowing of microfacets on a surface
+float geometrySchlickGGX(float normDotView, float roughness) {
     float r = (roughness + 1.0);
     float k = (r * r) / 8.0;
 
-    float num = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-
-    return num / denom;
+    float denominator = normDotView * (1.0 - k) + k;
+    return normDotView / denominator;
 }
-//https://learnopengl.com/PBR/Lighting
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+// https://learnopengl.com/PBR/Theory
+float geometrySmith(vec3 normalDir, vec3 viewDir, float roughness, float normDotLight) {
+    float normDotView = max(dot(normalDir, viewDir), 0.0);
 
-    return ggx1 * ggx2;
+    // combination of shadowing from microfacets obstructing view vector, and microfacets obstructing light vector
+    return geometrySchlickGGX(normDotView, roughness) * geometrySchlickGGX(normDotLight, roughness);
 }
-//https://learnopengl.com/PBR/Lighting
+// https://learnopengl.com/PBR/Theory
+// models increased reflectivity as view angle approaches 90 degrees
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
@@ -154,16 +154,24 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     int lightType = int(u_lightProperties[lightIndex].x);
     vec3 lightPos = u_lightPosViewSpace[lightIndex].xyz;
     vec3 lightColor = u_lightColor[lightIndex].xyz;
+
     vec3 dir = u_lightDirViewSpace[lightIndex].xyz;
+    
     float constantAttenuation = u_lightAttenuation[lightIndex].x;
     float linearAttenuation = u_lightAttenuation[lightIndex].y;
     float quadraticAttenuation = u_lightAttenuation[lightIndex].z;
+    
     float outerConeCos = u_lightProperties[lightIndex].z;
     float innerConeCos = u_lightProperties[lightIndex].y;
 
     vec3 lightDir;
     float distance;
     float attenuation;
+    float spotAttenuationFactor = 0.0;
+    // For spotlights, apply extra attenuation based on the angle
+    if(lightType == 1) {
+        spotAttenuationFactor = spotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
+    }
     //for directional lights, use light dir directly, with zero attenuation
     if(lightType == 2) {
         lightDir = dir;
@@ -171,27 +179,37 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     } else {
         lightDir = normalize(lightPos - fragPos);
         distance = length(lightPos - fragPos);
-        attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
+        attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance+spotAttenuationFactor);
     }
 
-    //PBR lighting
-    //https://learnopengl.com/PBR/Lighting
+    //unit vector halfway between view dir and light dir. Makes more accurate specular highlights.
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+
+    // PBR lighting
+    // https://learnopengl.com/PBR/Theory
     #ifdef USE_PBR
-    vec3 H = normalize(viewDir + lightDir);
     vec3 radiance = lightColor * attenuation;
-    float NDF = DistributionGGX(normal, H, roughness);
-    float G = GeometrySmith(normal, viewDir, lightDir, roughness);
-    vec3 F = fresnelSchlick(max(dot(H, viewDir), 0.0), F0);
+    float normDotLight = max(dot(normal, lightDir), 0.0);
 
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metallic;
+    // Cook-Torrence specular BRDF: fCookTorrance=DFG/(4(ωo⋅n)(ωi⋅n))
+    // Approximate microfacet alignment
+    float normalDistributionFunction = TrowbridgeReitzGGX(normal, halfwayDir, roughness);
+    // Approximate microfacet shadowing
+    float G = geometrySmith(normal, viewDir, roughness, normDotLight);
+    // Approximate specular intensity based on view angle
+    vec3 kSpecular = fresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0); // F
 
-    vec3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, lightDir), 0.0) + 0.0001;
+    // Preserve energy, diffuse+specular must be at most 1.0
+    vec3 kDiffuse = vec3(1.0) - kSpecular;
+    // Metallic surfaces have no diffuse color
+    // model as diffuse color decreases as metallic fudge-factor increases 
+    kDiffuse *= 1.0 - metallic;
+
+    vec3 numerator = normalDistributionFunction * G * kSpecular;
+    float denominator = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, lightDir), 0.0) + 0.0001; //+0.0001 fudge-factor to prevent division by 0
     vec3 specular = numerator / denominator;
-    float NdotL = max(dot(normal, lightDir), 0.0);
-    vec3 lighting = (kD * albedo / PI + specular) * radiance * NdotL;
+
+    vec3 lighting = (kDiffuse * albedo / PI + specular) * radiance * normDotLight;
 
     #else //Non-PBR lighting
 
@@ -199,20 +217,13 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
 
-    // Calculate specular light
-    vec3 halfwayDir = normalize(lightDir + viewDir);
+    // Calculate specular light, Blinn-Phong
     float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
     vec3 specular = u_specularStrength * spec * lightColor;
 
     //attenuate
     vec3 lighting = (diffuse + specular) * attenuation;
     #endif
-    // For spotlights, apply extra attenuation based on the angle
-    if(lightType == 1) {
-        //vec3 pointToLight = fragPos - lightPos;
-        float spotEffect = SpotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
-        lighting *= spotEffect;
-    }
 
     return lighting;
 }
@@ -287,22 +298,16 @@ float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum, int lightI
 
     if (dir.x == maxDir) {
         faceIndex = 0; // +X
-        //uv = dir.zy / maxDir;
     } else if (dir.x == -maxDir) {
         faceIndex = 1; // -X
-        //uv = -dir.zy / maxDir;
     } else if (dir.y == maxDir) {
         faceIndex = 2; // +Y
-        //uv = dir.xz / maxDir;
     } else if (dir.y == -maxDir) {
         faceIndex = 3; // -Y
-        //uv = dir.xz / maxDir;
     } else if (dir.z == maxDir) {
         faceIndex = 4; // +Z
-        //uv = dir.xy / maxDir;
     } else if (dir.z == -maxDir) {
         faceIndex = 5; // -Z
-        //uv = dir.xy / maxDir;
     }
     vec4 fragPosLightSpace = u_lightCubemapMatrices[pointLightNum*6+faceIndex]*fragPosWorldSpace;
     vec3 uv = fragPosLightSpace.xyz/fragPosLightSpace.w;
@@ -346,7 +351,7 @@ void main() {
     //set up pbr values, if we are using it
     float metallic = 0.0;
     float roughness = 0.0;
-    vec3 F0 = vec3(0.04); 
+    vec3 F0 = vec3(0.04); //total hack, this should be specified per-material
     #ifdef USE_PBR
     metallic = texture(u_metallic, uv).r;
     roughness = texture(u_roughness, uv).r;
@@ -455,5 +460,31 @@ void main() {
 
     // Set the position
     gl_Position = u_projectionMatrix * v_fragPos;
+}
+`
+const skyboxVSSource = `#version 300 es
+layout (location = 0) in vec3 a_position;
+
+out vec3 v_texCoords;
+
+uniform mat4 u_projectionMatrix;
+uniform mat4 u_viewMatrix;
+
+void main() {
+    v_texCoords = a_position;  
+    gl_Position = u_projectionMatrix * u_viewMatrix * vec4(a_position, 1.0);
+}
+`
+
+const skyboxFSSource = `#version 300 es
+precision highp float;
+
+out vec4 FragColor;
+in vec3 v_texCoords;
+
+uniform samplerCube skybox;
+
+void main() {    
+    FragColor = texture(skybox, v_texCoords);
 }
 `
