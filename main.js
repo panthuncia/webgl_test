@@ -31,11 +31,11 @@ async function main() {
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  renderer.addLight(light1);
-  renderer.addLight(light2);
+  //renderer.addLight(light1);
+  //renderer.addLight(light2);
   //renderer.addLight(light3);
   //renderer.addLight(light4);
-  //renderer.addLight(light5);
+  renderer.addLight(light5);
   //renderer.addLight(light6);
   
   createDebugTriangle(renderer.gl);

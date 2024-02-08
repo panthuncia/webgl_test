@@ -4,9 +4,7 @@ precision highp sampler2DArray;
 
 //if we're not using normal mapping, 
 //we want the view-space normals from the vertex shader
-//#ifndef USE_NORMAL_MAP
 in vec3 v_normal;
-//#endif
 
 in vec4 v_fragPos;
 in vec2 v_texCoord;  // Received from vertex shader
@@ -364,7 +362,6 @@ void main() {
     vec3 normal = texture(u_normalMap, uv).rgb;
     normal = normalize(normal * 2.0 - 1.0);
     normal = normalize(m_TBN * normal);
-    //normal = normalize(v_normal + texture(u_normalMap, uv).rgb);
     #else
     vec3 normal = normalize(v_normal);
     #endif
@@ -447,9 +444,7 @@ uniform mat4 u_modelViewMatrix;
 uniform mat4 u_projectionMatrix;
 uniform mat3 u_normalMatrix;
 
-//#ifndef USE_NORMAL_MAP
 out vec3 v_normal;
-//#endif
 out vec4 v_fragPos;
 out vec2 v_texCoord;
 #ifdef USE_NORMAL_MAP
@@ -463,9 +458,7 @@ void main() {
     // Transform the normal
     // normal matrix is calculated as inverse transpose
     // of model-view matrix to modify normals appropriately when object is scaled
-    //#ifndef USE_NORMAL_MAP
     v_normal = u_normalMatrix * a_normal;
-    //#endif
 
     // Pass texcoord to fs
     v_texCoord = a_texCoord;
