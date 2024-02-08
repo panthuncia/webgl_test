@@ -232,7 +232,7 @@ function createRenderable(gl, data, shaderVariant, textures = [], normals = [], 
 
 async function loadTexture(url) {
   //Web environments suck I want to use C++/Vulkan
-  const uniqueUrl = url + '?_ts=' + new Date().getTime();
+  const uniqueUrl = url + "?_ts=" + new Date().getTime();
   const response = await fetch(uniqueUrl);
   const blob = await response.blob();
   return createImageBitmap(blob);
@@ -403,7 +403,7 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 
   for (let i = 0; i < numCascades; i++) {
     let size = cascadeSplits[i];
-    let center = vec3.fromValues(camera.position[0], 0, camera.position[2]);//getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
+    let center = vec3.fromValues(camera.position[0], 0, camera.position[2]); //getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
     let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
     let orthoMatrix = getOrthographicProjectionMatrix(size, -200, 200);
 
@@ -418,27 +418,27 @@ function createCubemap(gl) {
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
 
   const faceInfos = [
-      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posx.png'},
-      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negx.png'},
-      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posy.png'},
-      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negy.png'},
-      {target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posz.png'},
-      {target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: 'https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negz.png'},
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posx.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negx.png" },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posy.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negy.png" },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posz.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negz.png" },
   ];
   faceInfos.forEach((faceInfo) => {
-      const {target, url} = faceInfo;
+    const { target, url } = faceInfo;
 
-      // Setup each face so it's immediately renderable
-      gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+    // Setup each face so it's immediately renderable
+    gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
 
-      // Asynchronously load an image
-      const image = new Image();
-      image.onload = function() {
-          gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-          gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-          gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
-      };
-      image.src = url;
+    // Asynchronously load an image
+    const image = new Image();
+    image.onload = function () {
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+      gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    };
+    image.src = url;
   });
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -447,4 +447,29 @@ function createCubemap(gl) {
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 
   return texture;
+}
+
+function dataViewSetMatrix(dataView, matrix, baseOffset) {
+  for (let i = 0; i < 16; i++) {
+    let offset = baseOffset + i * 4;
+    dataView.setFloat32(offset, matrix[i], true);
+  }
+}
+
+function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
+  for (let i = 0; i < matrices.length; i++) {
+    currentMatrixOffset = i*64;
+    let matrix = matrices[i]
+    for (let j = 0; j < 16; j++) {
+      let offset = baseOffset + currentMatrixOffset + j * 4;
+      dataView.setFloat32(offset, matrix[j], true);
+    }
+  }
+}
+
+function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
+  for (let i = 0; i < floatArray.length; i++) {
+    let offset = baseOffset + i * 4;
+    dataView.setFloat32(offset, floatArray[i], true);
+  }
 }

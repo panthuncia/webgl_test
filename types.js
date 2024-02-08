@@ -136,15 +136,6 @@ class Transform {
     this.scale = newScale;
     this.isDirty = true;
   }
-  // getLocalRotationEuler(){
-  //   //let rotationMatrix3x3 = mat3.fromMat4(mat3.create(), this.modelMatrix);
-
-  //   // Decompose to Euler angles
-  //   //let rot = decomposeRotationMatrixToEuler(rotationMatrix3x3);
-  //   let eulerFromQuaternion = vec3.create();
-  //   quat.getEuler(eulerFromQuaternion, this.rot);
-  //   return eulerFromQuaternion;
-  // }
   getGlobalPosition() {
     let position = vec3.fromValues(this.modelMatrix[12], this.modelMatrix[13], this.modelMatrix[14]);
     return position;
@@ -161,16 +152,16 @@ class SceneNode {
     this.children.push(node);
     node.parent = this;
   }
-  updateSelfAndChildren() {
+  update() {
     if (this.transform.isDirty) {
-      this.forceUpdateSelfAndChildren();
+      this.forceUpdate();
       return;
     }
     for (child of this.children) {
-      child.updateSelfAndChildren();
+      child.update();
     }
   }
-  forceUpdateSelfAndChildren() {
+  forceUpdate() {
     if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
@@ -179,9 +170,17 @@ class SceneNode {
   }
 }
 
+class Material {
+  constructor(){
+    this.ambientStrength = 0.005;
+    this.specularStrength = 1.0;
+  }
+}
+
 class RenderableObject extends SceneNode {
   constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity) {
     super();
+    this.material = new Material();
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.textures = [];
@@ -250,18 +249,28 @@ class Light extends SceneNode {
     // vec3.normalize(direction_vec, direction_vec);
     this.transform.setDirection(direction);
     this.innerConeAngle = innerConeAngle;
+    this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
+    this.outerConeCos = Math.cos(outerConeAngle);
+
+    this.dirtyFlag = true;
     switch (type) {
       case LightType.DIRECTIONAL:
         break;
       case LightType.SPOT:
         this.projectionMatrix = this.getPerspectiveProjectionMatrix();
         this.viewMatrix = this.getViewMatrix();
+        this.lightSpaceMatrix = mat4.create();
+        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
         this.farPlane = this.calculateFarPlane();
         break;
       case LightType.POINT:
         this.projectionMatrix = this.getPerspectiveProjectionMatrix();
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
+        this.lightCubemapMatrices = [];
+        for(let i=0; i<6; i++){
+          this.lightCubemapMatrices[i] = mat4.create();
+        }
     }
   }
   //TODO: don't calculate every time
@@ -333,26 +342,29 @@ class Light extends SceneNode {
     return lightDirection;
   }
   setConeAngles(innerConeAngle, outerConeAngle) {
-    this.innerConeAngle = innerConeAngle;
-    this.outerConeAngle = outerConeAngle;
-    //recalculate projection matrix with new fov
-    switch (this.type) {
-      case LightType.SPOT:
-        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
-        break;
+    if (this.type != LightType.SPOT){
+      console.warn("Calling setConeAngles on light of type other than spot!")
+      return;
     }
+    this.innerConeAngle = innerConeAngle;
+    this.innerConeCos = Math.cos(innerConeAngle);
+    this.outerConeAngle = outerConeAngle;
+    this.outerConeCos = Math.cos(outerConeAngle);
+    //recalculate projection matrix with new fov
+    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
   //override these methods to calculate view and projection matrices
-  updateSelfAndChildren() {
+  update() {
     if (this.transform.isDirty) {
-      this.forceUpdateSelfAndChildren();
+      this.forceUpdate();
       return;
     }
     for (child of this.children) {
-      child.updateSelfAndChildren();
+      child.update();
     }
   }
-  forceUpdateSelfAndChildren() {
+  forceUpdate() {
+    this.dirtyFlag = true;
     if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
@@ -362,9 +374,13 @@ class Light extends SceneNode {
     switch (this.type) {
       case LightType.SPOT:
         this.viewMatrix = this.getViewMatrix();
+        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
         break;
       case LightType.POINT:
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
+        for(let i=0; i<6; i++){
+          mat4.multiply(this.lightCubemapMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
+        }
         break;
     }
   }
