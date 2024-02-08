@@ -344,6 +344,8 @@ float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum, int lightI
 }
 
 void main() {
+    //fragmentColor = vec4(0.0, 1.0, 0.0, 1.0);
+    //return;
     //we're doing light calculations in view space
     vec3 viewDir = -normalize(v_fragPos.xyz); // view-space
 

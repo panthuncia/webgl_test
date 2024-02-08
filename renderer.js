@@ -94,7 +94,7 @@ class WebGLRenderer {
   }
   addLight(light) {
     this.currentScene.lights.push(light);
-    this.buffers.lightDataView.setFloat32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.lights.length, true);
+    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.lights.length, true);
     this.initLightVectors();
     
     if (light.type == LightType.DIRECTIONAL){
@@ -311,7 +311,7 @@ class WebGLRenderer {
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
 
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
-      //gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
+      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
 
       // gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
       // gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
