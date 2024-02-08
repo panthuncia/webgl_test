@@ -42,9 +42,6 @@ layout(std140) uniform FSPerMaterial {
     uniform float u_ambientStrength;
     #ifndef USE_PBR
     uniform float u_specularStrength;
-    uniform float padding[2];
-    #else
-    uniform float padding[3];
     #endif
 };
 

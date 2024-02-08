@@ -458,7 +458,7 @@ function dataViewSetMatrix(dataView, matrix, baseOffset) {
 
 function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
   for (let i = 0; i < matrices.length; i++) {
-    currentMatrixOffset = i*16;
+    currentMatrixOffset = i*64;
     let matrix = matrices[i]
     for (let j = 0; j < 16; j++) {
       let offset = baseOffset + currentMatrixOffset + j * 4;
