@@ -252,6 +252,8 @@ class Light extends SceneNode {
     this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
     this.outerConeCos = Math.cos(outerConeAngle);
+
+    this.dirtyFlag = true;
     switch (type) {
       case LightType.DIRECTIONAL:
         break;
@@ -265,9 +267,9 @@ class Light extends SceneNode {
       case LightType.POINT:
         this.projectionMatrix = this.getPerspectiveProjectionMatrix();
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
-        this.lightSpaceMatrices = [];
+        this.lightCubemapMatrices = [];
         for(let i=0; i<6; i++){
-          this.lightSpaceMatrices[i] = mat4.create();
+          this.lightCubemapMatrices[i] = mat4.create();
         }
     }
   }
@@ -352,16 +354,17 @@ class Light extends SceneNode {
     this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
   //override these methods to calculate view and projection matrices
-  updateSelfAndChildren() {
+  update() {
     if (this.transform.isDirty) {
-      this.forceUpdateSelfAndChildren();
+      this.forceUpdate();
       return;
     }
     for (child of this.children) {
-      child.updateSelfAndChildren();
+      child.update();
     }
   }
-  forceUpdateSelfAndChildren() {
+  forceUpdate() {
+    this.dirtyFlag = true;
     if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
@@ -376,7 +379,7 @@ class Light extends SceneNode {
       case LightType.POINT:
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
         for(let i=0; i<6; i++){
-          mat4.multiply(this.lightSpaceMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
+          mat4.multiply(this.lightCubemapMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
         }
         break;
     }

@@ -291,6 +291,13 @@ class WebGLRenderer {
     // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCubemaps, 1);
     // this.updateCamera();
     // return;
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perFrameBufferData);
+
+    
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
+    
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       if (!this.shaderProgramVariants[object.shaderVariant]) {
@@ -304,14 +311,9 @@ class WebGLRenderer {
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
 
-      gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
-      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perFrameBufferData);
 
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
-
-      gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
-      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
 
       // gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
       // gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
@@ -432,7 +434,10 @@ class WebGLRenderer {
   }
   updateLights() {
     this.currentScene.numLights = this.currentScene.lights.length;
+    let spotNum = 0;
+    let pointNum = 0;
     for (let i = 0; i < this.currentScene.lights.length; i++) {
+      
       let lightPosWorld = this.currentScene.lights[i].transform.pos;
       let lightPosView = vec3.create();
       vec3.transformMat4(lightPosView, lightPosWorld, this.matrices.viewMatrix);
@@ -467,6 +472,23 @@ class WebGLRenderer {
       if (this.currentScene.lights[i].type == LightType.SPOT) {
         this.currentScene.lightPropertiesData[i * 4 + 1] = this.currentScene.lights[i].innerConeCos;
         this.currentScene.lightPropertiesData[i * 4 + 2] = this.currentScene.lights[i].outerConeCos;
+      }
+
+      switch (this.currentScene.lights[i].type){
+        case LightType.SPOT:
+          if (this.currentScene.lights[i].dirtyFlag){
+            dataViewSetMatrix(this.buffers.lightDataView, this.currentScene.lights[i].lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
+            this.currentScene.lights[i].dirtyFlag = false;
+          }
+          spotNum++;
+          break;
+        case LightType.POINT:
+          if (this.currentScene.lights[i].dirtyFlag){
+            dataViewSetMatrixArray(this.buffers.lightDataView, this.currentScene.lights[i].lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
+            this.currentScene.lights[i].dirtyFlag = false;
+          }
+          pointNum++;
+          break;
       }
     }
 
