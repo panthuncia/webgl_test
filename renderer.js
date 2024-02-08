@@ -69,6 +69,12 @@ class WebGLRenderer {
     };
 
     this.shaderProgramVariants = {};
+    this.buffers = {
+      uniformLocations: {}
+
+    };
+
+    this.createUBOs();
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
@@ -96,12 +102,9 @@ class WebGLRenderer {
     this.currentScene.lights.push(light);
     this.initLightVectors();
   }
-  async createProgramVariants(shaderVariantsToCompile) {
+  getProgram(fsSource, vsSource, variantID){
     const gl = this.gl;
-    let fsSource = primaryFSSource;
-    let vsSource = primaryVSSource;
 
-    for (const variantID of shaderVariantsToCompile) {
       let defines = "#version 300 es\n";
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
         defines += "#define USE_NORMAL_MAP\n";
@@ -125,6 +128,104 @@ class WebGLRenderer {
       gl.attachShader(shaderProgram, vertexShader);
       gl.attachShader(shaderProgram, fragmentShader);
       gl.linkProgram(shaderProgram);
+      return shaderProgram;
+  }
+  async createUBOs() {
+    const gl = this.gl;
+    let fsSource = primaryFSSource;
+    let vsSource = primaryVSSource;
+    //create dummy program with all uniforms
+    let shaderProgram = this.getProgram(fsSource, vsSource, 0b00000);
+
+    this.buffers.perFrameUBOBindingLocation = 0;
+    this.buffers.perMaterialUBOBindingLocation = 1;
+    this.buffers.lightUBOBindingLocation = 2;
+
+    //get uniform block info
+    const perFrameBlockName = "FSPerFrame";
+    const perMaterialBlockName = "FSPerMaterial";
+    const lightBlockName = "FSLightInfo";
+    const perFrameBlockIndex = gl.getUniformBlockIndex(shaderProgram, perFrameBlockName);
+    const perMaterialBlockIndex = gl.getUniformBlockIndex(shaderProgram, perMaterialBlockName);
+    const lightBlockIndex = gl.getUniformBlockIndex(shaderProgram, lightBlockName);
+    const perFrameBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, perFrameBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
+    const perMaterialBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, perMaterialBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
+    const lightBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, lightBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
+
+    //create CPU-side buffers
+    this.buffers.perFrameBufferData = new ArrayBuffer(perFrameBlockSize);
+    this.buffers.perMaterialBufferData = new ArrayBuffer(perMaterialBlockSize);
+    this.buffers.lightBufferData = new ArrayBuffer(lightBlockSize);
+
+    //create data views for accessing CPU-side buffers
+    this.buffers.perFrameDataView = new DataView(this.buffers.perFrameBufferData);
+    this.buffers.perMaterialDataView = new DataView(this.buffers.perMaterialBufferData);
+    this.buffers.lightDataView = new DataView(this.buffers.lightBufferData);
+
+    //create GPU-side buffers
+    this.buffers.perFrameUBO = gl.createBuffer();
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
+    gl.bufferData(gl.UNIFORM_BUFFER, perFrameBlockSize, gl.DYNAMIC_DRAW);
+
+    this.buffers.perMaterialUBO = gl.createBuffer();
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
+    gl.bufferData(gl.UNIFORM_BUFFER, perMaterialBlockSize, gl.DYNAMIC_DRAW);
+
+    this.buffers.lightUBO = gl.createBuffer();
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
+    gl.bufferData(gl.UNIFORM_BUFFER, lightBlockSize, gl.DYNAMIC_DRAW);
+
+    const perFrameUniformNames = ["u_viewMatrixInverse"];
+    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength"];
+    const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosViewSpace", "u_lightDirViewSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
+
+    //get uniform offsets by name
+    gl.uniformBlockBinding(shaderProgram, perFrameBlockIndex, this.buffers.perFrameUBOBindingLocation);
+    const perFrameUniformIndices = gl.getUniformIndices(shaderProgram, perFrameUniformNames);
+    const perFrameUniformOffsets = gl.getActiveUniforms(shaderProgram, perFrameUniformIndices, gl.UNIFORM_OFFSET);
+    gl.uniformBlockBinding(shaderProgram, perMaterialBlockIndex, this.buffers.perMaterialUBOBindingLocation);
+    const perMaterialUniformIndices = gl.getUniformIndices(shaderProgram, perMaterialUniformNames);
+    const perMaterialUniformOffsets = gl.getActiveUniforms(shaderProgram, perMaterialUniformIndices, gl.UNIFORM_OFFSET);
+    gl.uniformBlockBinding(shaderProgram, lightBlockIndex, this.buffers.lightUBOBindingLocation);
+    const lightUniformIndices = gl.getUniformIndices(shaderProgram, lightUniformNames);
+    const lightUniformOffsets = gl.getActiveUniforms(shaderProgram, lightUniformIndices, gl.UNIFORM_OFFSET);
+
+    this.buffers.uniformLocations.perFrameUniformLocations = {}
+    this.buffers.uniformLocations.perMaterialUniformLocations = {}
+    this.buffers.uniformLocations.lightUniformLocations = {}
+    for (let i=0; i<perFrameUniformNames.length; i++){
+      this.buffers.uniformLocations.perFrameUniformLocations[perFrameUniformNames[i]]=perFrameUniformOffsets[i]
+    }
+    for (let i=0; i<perMaterialUniformNames.length; i++){
+      this.buffers.uniformLocations.perMaterialUniformLocations[perMaterialUniformNames[i]]=perMaterialUniformOffsets[i]
+    }
+    for (let i=0; i<lightUniformNames.length; i++){
+      this.buffers.uniformLocations.lightUniformLocations[lightUniformNames[i]]=lightUniformOffsets[i]
+    }
+
+    console.log("created UBOs");
+  }
+  async createProgramVariants(shaderVariantsToCompile) {
+    const gl = this.gl;
+    let fsSource = primaryFSSource;
+    let vsSource = primaryVSSource;
+
+    for (const variantID of shaderVariantsToCompile) {
+      shaderProgram = this.getProgram(fsSource, vsSource, variantID);
+
+      //bind UBOs
+      let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "FSPerFrame");
+      gl.uniformBlockBinding(shaderProgram, perFrameIndex, this.buffers.perFrameUBOBindingLocation);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perFrameUBOBindingLocation, this.buffers.perFrameUBO);
+
+      let perMaterialIndex = gl.getUniformBlockIndex(shaderProgram, "FSPerMaterial");
+      gl.uniformBlockBinding(shaderProgram, perMaterialIndex, this.buffers.perMaterialUBOBindingLocation);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBOBindingLocation, this.buffers.perMaterialUBO);
+
+      let lightInfoIndex = gl.getUniformBlockIndex(shaderProgram, "FSLightInfo");
+      gl.uniformBlockBinding(shaderProgram, lightInfoIndex, this.buffers.lightUBOBindingLocation);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.lightUBOBindingLocation, this.buffers.lightUBO);
+
       let programInfo = {
         program: shaderProgram,
         attribLocations: {
@@ -136,81 +237,42 @@ class WebGLRenderer {
           projectionMatrix: gl.getUniformLocation(shaderProgram, "u_projectionMatrix"),
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
-          numLights: gl.getUniformLocation(shaderProgram, "u_numLights"),
-          viewMatrixInverse: gl.getUniformLocation(shaderProgram, "u_viewMatrixInverse"),
-          numShadowCastingLights: gl.getUniformLocation(shaderProgram, "u_numShadowCastingLights"),
-          lightPosViewSpace: gl.getUniformLocation(shaderProgram, "u_lightPosViewSpace"),
-          lightColor: gl.getUniformLocation(shaderProgram, "u_lightColor"),
-          lightAttenuation: gl.getUniformLocation(shaderProgram, "u_lightAttenuation"),
-          lightProperties: gl.getUniformLocation(shaderProgram, "u_lightProperties"),
-          lightDirection: gl.getUniformLocation(shaderProgram, "u_lightDirViewSpace"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
-          ambientLightStrength: gl.getUniformLocation(shaderProgram, "u_ambientStrength"),
-          specularLightStrength: gl.getUniformLocation(shaderProgram, "u_specularStrength"),
-          shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
-          shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
-          shadowCubemaps: gl.getUniformLocation(shaderProgram, "u_shadowCubemaps"),
         },
+        textureLocations: {
+          
+        }
       };
       //conditional attributes and uniforms
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
         //programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
         programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, "a_tangent");
         programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, "a_bitangent");
-        programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, "u_normalMap");
+        programInfo.textureLocations.normalTexture = gl.getUniformLocation(shaderProgram, "u_normalMap");
       }
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-        programInfo.uniformLocations.aoTexture = gl.getUniformLocation(shaderProgram, "u_aoMap");
+        programInfo.textureLocations.aoTexture = gl.getUniformLocation(shaderProgram, "u_aoMap");
       }
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-        programInfo.uniformLocations.heightMap = gl.getUniformLocation(shaderProgram, "u_heightMap");
+        programInfo.textureLocations.heightMap = gl.getUniformLocation(shaderProgram, "u_heightMap");
       }
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-        programInfo.uniformLocations.metallic = gl.getUniformLocation(shaderProgram, "u_metallic");
-        programInfo.uniformLocations.roughness = gl.getUniformLocation(shaderProgram, "u_roughness");
+        programInfo.textureLocations.metallic = gl.getUniformLocation(shaderProgram, "u_metallic");
+        programInfo.textureLocations.roughness = gl.getUniformLocation(shaderProgram, "u_roughness");
       }
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-        programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, "u_opacity");
+        programInfo.textureLocations.opacity = gl.getUniformLocation(shaderProgram, "u_opacity");
       }
-      //uniform arrays
-
-      //spot light matrices
-      let lightSpaceMatrices = [];
-      for (let i = 0; i < this.MAX_SPOT_LIGHTS; i++) {
-        lightSpaceMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightSpaceMatrices[" + i + "]");
-      }
-      programInfo.uniformLocations.lightSpaceMatrices = lightSpaceMatrices;
-
-      //per-face point light matrices
-      let lightCubemapMatrices = [];
-      for (let i = 0; i < this.MAX_POINT_LIGHTS*6; i++) {
-        lightCubemapMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightCubemapMatrices[" + i + "]");
-      }
-      programInfo.uniformLocations.lightCubemapMatrices = lightCubemapMatrices;
-
-      //cascade split distances
-      let cascadeSplits=[];
-      for (let i=0; i<this.NUM_SHADOW_CASCADES; i++){
-        cascadeSplits[i] = gl.getUniformLocation(shaderProgram, "u_cascadeSplits["+i+"]");
-      }
-      programInfo.uniformLocations.cascadeSplits = cascadeSplits;
-      
-      //per-cascade light matrices
-      let lightCascadeMatrices = [];
-      for (let i=0; i<this.MAX_DIRECTIONAL_LIGHTS*this.NUM_SHADOW_CASCADES; i++){
-        lightCascadeMatrices[i] = gl.getUniformLocation(shaderProgram, "u_lightCascadeMatrices["+i+"]");
-      }
-      programInfo.uniformLocations.lightCascadeMatrices = lightCascadeMatrices;
       this.shaderProgramVariants[variantID] = programInfo;
     }
   }
 
   updateScene() {
     for (let entity of this.currentScene.objects) {
-      entity.updateSelfAndChildren();
+      entity.update();
     }
     for (let entity of this.currentScene.lights) {
-      entity.updateSelfAndChildren();
+      entity.update();
     }
   }
 

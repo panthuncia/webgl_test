@@ -136,15 +136,6 @@ class Transform {
     this.scale = newScale;
     this.isDirty = true;
   }
-  // getLocalRotationEuler(){
-  //   //let rotationMatrix3x3 = mat3.fromMat4(mat3.create(), this.modelMatrix);
-
-  //   // Decompose to Euler angles
-  //   //let rot = decomposeRotationMatrixToEuler(rotationMatrix3x3);
-  //   let eulerFromQuaternion = vec3.create();
-  //   quat.getEuler(eulerFromQuaternion, this.rot);
-  //   return eulerFromQuaternion;
-  // }
   getGlobalPosition() {
     let position = vec3.fromValues(this.modelMatrix[12], this.modelMatrix[13], this.modelMatrix[14]);
     return position;
@@ -161,16 +152,16 @@ class SceneNode {
     this.children.push(node);
     node.parent = this;
   }
-  updateSelfAndChildren() {
+  update() {
     if (this.transform.isDirty) {
-      this.forceUpdateSelfAndChildren();
+      this.forceUpdate();
       return;
     }
     for (child of this.children) {
-      child.updateSelfAndChildren();
+      child.update();
     }
   }
-  forceUpdateSelfAndChildren() {
+  forceUpdate() {
     if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {

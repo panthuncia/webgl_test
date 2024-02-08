@@ -22,7 +22,7 @@ in mat3 m_TBN; //received from vertex shader
 #define NUM_CASCADE_SPLITS 3
 
 
-//ambient lighting needs to be scaled differently for PBR and non-PBR materials, or shadows look wierd
+// Ambient lighting needs to be scaled differently for PBR and non-PBR materials, or shadows look wierd
 #ifdef USE_PBR 
 #define AMBIENT_SCALING_FACTOR 0.2
 #else
@@ -32,33 +32,44 @@ in mat3 m_TBN; //received from vertex shader
 #define LIGHT_TYPE_POINT 0
 #define LIGHT_TYPE_SPOT 1
 #define LIGHT_TYPE_DIRECTIONAL 2
-//light attributes: x=type (0=point, 1=spot, 2=directional)
-//x=point -> w = shadow caster
-//x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
-//x=directional => w= shadow caster
-uniform vec4 u_lightProperties[MAX_LIGHTS];
-uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
-uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
-uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
-uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
+
+
+layout(std140) uniform FSPerFrame {
+    uniform mat4 u_viewMatrixInverse;
+};
+
+layout(std140) uniform FSPerMaterial {
+    uniform float u_ambientStrength;
+    #ifndef USE_PBR
+    uniform float u_specularStrength;
+    uniform float padding[2];
+    #else
+    uniform float padding[3];
+    #endif
+};
+
+layout(std140) uniform FSLightInfo {
+    // light attributes: x=type (0=point, 1=spot, 2=directional)
+    // x=point -> w = shadow caster
+    // x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
+    // x=directional => w= shadow caster
+    uniform vec4 u_lightProperties[MAX_LIGHTS];
+    uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
+    uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
+    uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
+    uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
+
+    uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
+    uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
+    uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
+    
+    uniform int u_numLights;
+    uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
+};
 
 uniform sampler2DArray u_shadowMaps;
-uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
-uniform mat4 u_viewMatrixInverse;
-
-uniform int u_numLights;
-//uniform int u_numShadowCastingLights;
-
-uniform float u_ambientStrength;
-uniform float u_specularStrength;
-
 uniform sampler2DArray u_shadowCascades;
-uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
-uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
-
 uniform sampler2DArray u_shadowCubemaps; //emulated cubemaps (+X, -X, +Y, -Y, +Z, -Z) because OpenGL ES 3.0 doesn't have TEXTURE_CUBE_MAP_ARRAY :/
-uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
-
 
 uniform sampler2D u_baseColorTexture;
 #ifdef USE_NORMAL_MAP
