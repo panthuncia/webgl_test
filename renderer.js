@@ -241,6 +241,9 @@ class WebGLRenderer {
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
+          shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
+          shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
+          shadowCubemaps: gl.getUniformLocation(shaderProgram, "u_shadowCubemaps"),
         },
       };
       //conditional attributes and uniforms
@@ -288,7 +291,7 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCubemaps, 1);
+    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 1);
     // this.updateCamera();
     // return;
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);

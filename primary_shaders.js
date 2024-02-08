@@ -184,10 +184,7 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     float distance;
     float attenuation;
     float spotAttenuationFactor = 0.0;
-    // For spotlights, apply extra attenuation based on the angle
-    if(lightType == 1) {
-        spotAttenuationFactor = spotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
-    }
+
     //for directional lights, use light dir directly, with zero attenuation
     if(lightType == 2) {
         lightDir = dir;
@@ -195,7 +192,7 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     } else {
         lightDir = normalize(lightPos - fragPos);
         distance = length(lightPos - fragPos);
-        attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance+spotAttenuationFactor);
+        attenuation = 1.0 / (constantAttenuation + linearAttenuation * distance + quadraticAttenuation * distance * distance);
     }
 
     //unit vector halfway between view dir and light dir. Makes more accurate specular highlights.
@@ -240,6 +237,12 @@ vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3
     //attenuate
     vec3 lighting = (diffuse + specular) * attenuation;
     #endif
+
+    // For spotlights, apply extra attenuation based on the angle
+    if(lightType == 1) {
+        float spot = spotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
+        lighting *= spot;
+    }
 
     return lighting;
 }

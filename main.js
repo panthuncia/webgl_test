@@ -22,19 +22,19 @@ async function main() {
   //currentScene.objects = [terrain, mainObject, sphereObject];
   renderer.addObject(terrain);
   renderer.addObject(mainObject);
-  renderer.addObject(sphereObject);
+  //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-10, 2, 0], [1, 1, 1], 4.0, 1.0, 0.09, 0.032, [1, 0, -0.2], Math.PI / 8, Math.PI / 6);
+  let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  //renderer.addLight(light1);
+  renderer.addLight(light1);
   renderer.addLight(light2);
   //renderer.addLight(light3);
-  renderer.addLight(light4);
+  //renderer.addLight(light4);
   //renderer.addLight(light5);
   //renderer.addLight(light6);
   
