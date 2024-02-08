@@ -1,10 +1,9 @@
 class WebGLRenderer {
   constructor(canvasID) {
-
     this.canvas = document.getElementById(canvasID);
     this.gl = this.canvas.getContext("webgl2");
     //print gl restrictions, for debugging
-    this.printRestrictions()
+    this.printRestrictions();
     const gl = this.gl;
     this.matrices = {
       viewMatrix: mat4.create(),
@@ -42,22 +41,17 @@ class WebGLRenderer {
     this.matrices.projectionMatrix = projectionMatrix;
 
     //shadow setup
-    this.SHADOW_WIDTH = 2048;//8192;
-    this.SHADOW_HEIGHT = 2048;//8192;
+    this.SHADOW_WIDTH = 2048; //8192;
+    this.SHADOW_HEIGHT = 2048; //8192;
     this.SHADOW_CASCADE_DISTANCE = 100;
 
     this.NUM_SHADOW_CASCADES = 3;
-    this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(
-      this.NUM_SHADOW_CASCADES,
-      this.currentScene.camera.zNear,
-      this.currentScene.camera.zFar,
-      this.SHADOW_CASCADE_DISTANCE,
-    );
+    this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
 
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
-    this.MAX_POINT_LIGHTS = 2
-    this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS+this.MAX_SPOT_LIGHTS+this.MAX_POINT_LIGHTS;
+    this.MAX_POINT_LIGHTS = 2;
+    this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS + this.MAX_SPOT_LIGHTS + this.MAX_POINT_LIGHTS;
 
     //shader variants for conditional compilation
     this.SHADER_VARIANTS = {
@@ -70,8 +64,7 @@ class WebGLRenderer {
 
     this.shaderProgramVariants = {};
     this.buffers = {
-      uniformLocations: {}
-
+      uniformLocations: {},
     };
 
     this.createUBOs();
@@ -100,35 +93,36 @@ class WebGLRenderer {
   }
   addLight(light) {
     this.currentScene.lights.push(light);
+    dataView.setFloat32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.lights.length, true);
     this.initLightVectors();
   }
-  getProgram(fsSource, vsSource, variantID){
+  getProgram(fsSource, vsSource, variantID) {
     const gl = this.gl;
 
-      let defines = "#version 300 es\n";
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        defines += "#define USE_NORMAL_MAP\n";
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-        defines += "#define USE_BAKED_AO\n";
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-        defines += "#define USE_PARALLAX\n";
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-        defines += "#define USE_PBR\n";
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-        defines += "#define USE_OPACITY_MAP\n";
-      }
-      let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
-      let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
+    let defines = "#version 300 es\n";
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
+      defines += "#define USE_NORMAL_MAP\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
+      defines += "#define USE_BAKED_AO\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
+      defines += "#define USE_PARALLAX\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
+      defines += "#define USE_PBR\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
+      defines += "#define USE_OPACITY_MAP\n";
+    }
+    let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
+    let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
-      let shaderProgram = gl.createProgram();
-      gl.attachShader(shaderProgram, vertexShader);
-      gl.attachShader(shaderProgram, fragmentShader);
-      gl.linkProgram(shaderProgram);
-      return shaderProgram;
+    let shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
+    return shaderProgram;
   }
   async createUBOs() {
     const gl = this.gl;
@@ -190,17 +184,17 @@ class WebGLRenderer {
     const lightUniformIndices = gl.getUniformIndices(shaderProgram, lightUniformNames);
     const lightUniformOffsets = gl.getActiveUniforms(shaderProgram, lightUniformIndices, gl.UNIFORM_OFFSET);
 
-    this.buffers.uniformLocations.perFrameUniformLocations = {}
-    this.buffers.uniformLocations.perMaterialUniformLocations = {}
-    this.buffers.uniformLocations.lightUniformLocations = {}
-    for (let i=0; i<perFrameUniformNames.length; i++){
-      this.buffers.uniformLocations.perFrameUniformLocations[perFrameUniformNames[i]]=perFrameUniformOffsets[i]
+    this.buffers.uniformLocations.perFrameUniformLocations = {};
+    this.buffers.uniformLocations.perMaterialUniformLocations = {};
+    this.buffers.uniformLocations.lightUniformLocations = {};
+    for (let i = 0; i < perFrameUniformNames.length; i++) {
+      this.buffers.uniformLocations.perFrameUniformLocations[perFrameUniformNames[i]] = perFrameUniformOffsets[i];
     }
-    for (let i=0; i<perMaterialUniformNames.length; i++){
-      this.buffers.uniformLocations.perMaterialUniformLocations[perMaterialUniformNames[i]]=perMaterialUniformOffsets[i]
+    for (let i = 0; i < perMaterialUniformNames.length; i++) {
+      this.buffers.uniformLocations.perMaterialUniformLocations[perMaterialUniformNames[i]] = perMaterialUniformOffsets[i];
     }
-    for (let i=0; i<lightUniformNames.length; i++){
-      this.buffers.uniformLocations.lightUniformLocations[lightUniformNames[i]]=lightUniformOffsets[i]
+    for (let i = 0; i < lightUniformNames.length; i++) {
+      this.buffers.uniformLocations.lightUniformLocations[lightUniformNames[i]] = lightUniformOffsets[i];
     }
 
     console.log("created UBOs");
@@ -239,9 +233,7 @@ class WebGLRenderer {
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
         },
-        textureLocations: {
-          
-        }
+        textureLocations: {},
       };
       //conditional attributes and uniforms
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
@@ -299,24 +291,26 @@ class WebGLRenderer {
       const programInfo = this.shaderProgramVariants[object.shaderVariant];
       gl.useProgram(programInfo.program);
 
-      gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
-      gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
+      // gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
+      // gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
+      dataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
+      dataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
 
-      gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
-      gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
-      gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
-      gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
-      gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
-      gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
+
+      // gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
+      // gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
+      // gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
+      // gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
+      // gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
+      // gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
 
       //bind shadow maps
-      gl.uniform1i(programInfo.uniformLocations.numShadowCastingLights, 1);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades); // Bind shadow map texture array
       gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
 
-      for(let i=0; i<this.NUM_SHADOW_CASCADES; i++){
+      for (let i = 0; i < this.NUM_SHADOW_CASCADES; i++) {
         gl.uniform1f(programInfo.uniformLocations.cascadeSplits[i], this.currentScene.shadowScene.cascadeSplits[i]);
       }
 
@@ -333,13 +327,13 @@ class WebGLRenderer {
       let spotLightNum = 0;
       let pointLightNum = 0;
 
-      for(const light of currentScene.lights){
-        switch (light.type){
+      for (const light of currentScene.lights) {
+        switch (light.type) {
           case LightType.DIRECTIONAL:
-            for(let j=0; j<this.NUM_SHADOW_CASCADES; j++){
+            for (let j = 0; j < this.NUM_SHADOW_CASCADES; j++) {
               let lightSpaceMatrix = mat4.create();
               mat4.multiply(lightSpaceMatrix, light.cascades[j].orthoMatrix, light.cascades[j].viewMatrix);
-              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum*this.NUM_SHADOW_CASCADES+j], false, lightSpaceMatrix);
+              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCascadeMatrices[dirLightNum * this.NUM_SHADOW_CASCADES + j], false, lightSpaceMatrix);
             }
             dirLightNum++;
             break;
@@ -350,10 +344,10 @@ class WebGLRenderer {
             spotLightNum++;
             break;
           case LightType.POINT:
-            for(let i=0; i<6; i++){
+            for (let i = 0; i < 6; i++) {
               let lightSpaceMatrix = mat4.create();
               mat4.multiply(lightSpaceMatrix, light.projectionMatrix, light.cubemapViewMatrices[i]);
-              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCubemapMatrices[pointLightNum*6+i], false, lightSpaceMatrix);
+              gl.uniformMatrix4fv(programInfo.uniformLocations.lightCubemapMatrices[pointLightNum * 6 + i], false, lightSpaceMatrix);
             }
             pointLightNum++;
             break;
@@ -445,8 +439,6 @@ class WebGLRenderer {
     this.updateCamera();
   }
   updateLights() {
-    let frustrumCorners = getFrustumCorners(this.currentScene.camera.fieldOfView, this.currentScene.camera.aspect, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.matrices.viewMatrixInverse);
-    let frustrumCenter = getFrustumCenter(this.currentScene.camera.position, calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt), this.currentScene.camera.zNear, this.currentScene.camera.zFar);
     this.currentScene.numLights = this.currentScene.lights.length;
     for (let i = 0; i < this.currentScene.lights.length; i++) {
       let lightPosWorld = this.currentScene.lights[i].transform.pos;
@@ -464,9 +456,9 @@ class WebGLRenderer {
 
       let lightColor = this.currentScene.lights[i].color;
       let lightIntensity = this.currentScene.lights[i].intensity;
-      this.currentScene.lightColorsData[i * 4] = lightColor[0]*lightIntensity;
-      this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1]*lightIntensity;
-      this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2]*lightIntensity;
+      this.currentScene.lightColorsData[i * 4] = lightColor[0] * lightIntensity;
+      this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1] * lightIntensity;
+      this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
       let lightDirWorld = this.currentScene.lights[i].getLightDir();
@@ -481,13 +473,17 @@ class WebGLRenderer {
 
       this.currentScene.lightPropertiesData[i * 4] = this.currentScene.lights[i].type;
       if (this.currentScene.lights[i].type == LightType.SPOT) {
-        this.currentScene.lightPropertiesData[i * 4 + 1] = Math.cos(this.currentScene.lights[i].innerConeAngle);
-        this.currentScene.lightPropertiesData[i * 4 + 2] = Math.cos(this.currentScene.lights[i].outerConeAngle);
-      }
-      if (this.currentScene.lights[i].type == LightType.DIRECTIONAL) {
-        this.currentScene.lights[i].cascades = setupCascades(this.NUM_SHADOW_CASCADES, this.currentScene.lights[i], this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
+        this.currentScene.lightPropertiesData[i * 4 + 1] = this.currentScene.lights[i].innerConeCos;
+        this.currentScene.lightPropertiesData[i * 4 + 2] = this.currentScene.lights[i].outerConeCos;
       }
     }
+
+    //update buffer data
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPositionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightPosViewSpace);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPropertiesData, this.buffers.uniformLocations.lightUniformLocations.u_lightProperties);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightColorsData, this.buffers.uniformLocations.lightUniformLocations.u_lightColor);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightAttenuationsData, this.buffers.uniformLocations.lightUniformLocations.u_lightAttenuation);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightDirectionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightDirViewSpace);
   }
 
   initLightVectors() {
@@ -565,6 +561,20 @@ class WebGLRenderer {
 
     mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [0, 0, 0], [0, 1, 0]); // Adjust up vector as needed
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
+
+    //update directional light shadow cascades
+    let lightSpaceMatrices = [];
+    for (let light of this.currentScene.lights) {
+      if (light.type == LightType.DIRECTIONAL) {
+        light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, this.currentScene.lights[i], this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
+        for (let cascade of light.cascades){
+          mat4.multiply(lightSpaceMatrix, cascade.orthoMatrix, cascade.viewMatrix);
+          lightSpaceMatrices.push(lightSpaceMatrix);
+        }
+      }
+    }
+
+    dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices)
   }
   async loadModel(modelDescription) {
     const gl = this.gl;
@@ -655,12 +665,12 @@ class WebGLRenderer {
     console.log(objectData);
     return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
   }
-  printRestrictions(){
-    console.log("Max texture size: "+this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
-    console.log("Max texture layers: "+this.gl.getParameter(this.gl.MAX_ARRAY_TEXTURE_LAYERS));
-    console.log("Max cubemap dimensions: "+this.gl.getParameter(this.gl.MAX_CUBE_MAP_TEXTURE_SIZE));
-    console.log("Max vertex uniforms: "+this.gl.getParameter(this.gl.MAX_VERTEX_UNIFORM_VECTORS));
-    console.log("Max fragment uniforms: "+this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
-    console.log("Max fragment uniform blocks: "+this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
+  printRestrictions() {
+    console.log("Max texture size: " + this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
+    console.log("Max texture layers: " + this.gl.getParameter(this.gl.MAX_ARRAY_TEXTURE_LAYERS));
+    console.log("Max cubemap dimensions: " + this.gl.getParameter(this.gl.MAX_CUBE_MAP_TEXTURE_SIZE));
+    console.log("Max vertex uniforms: " + this.gl.getParameter(this.gl.MAX_VERTEX_UNIFORM_VECTORS));
+    console.log("Max fragment uniforms: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
+    console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
   }
 }

@@ -170,9 +170,17 @@ class SceneNode {
   }
 }
 
+class Material {
+  constructor(){
+    this.ambientStrength = 0.005;
+    this.specularStrength = 1.0;
+  }
+}
+
 class RenderableObject extends SceneNode {
   constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity) {
     super();
+    this.material = new Material();
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.textures = [];
@@ -241,18 +249,26 @@ class Light extends SceneNode {
     // vec3.normalize(direction_vec, direction_vec);
     this.transform.setDirection(direction);
     this.innerConeAngle = innerConeAngle;
+    this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
+    this.outerConeCos = Math.cos(outerConeAngle);
     switch (type) {
       case LightType.DIRECTIONAL:
         break;
       case LightType.SPOT:
         this.projectionMatrix = this.getPerspectiveProjectionMatrix();
         this.viewMatrix = this.getViewMatrix();
+        this.lightSpaceMatrix = mat4.create();
+        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
         this.farPlane = this.calculateFarPlane();
         break;
       case LightType.POINT:
         this.projectionMatrix = this.getPerspectiveProjectionMatrix();
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
+        this.lightSpaceMatrices = [];
+        for(let i=0; i<6; i++){
+          this.lightSpaceMatrices[i] = mat4.create();
+        }
     }
   }
   //TODO: don't calculate every time
@@ -324,14 +340,16 @@ class Light extends SceneNode {
     return lightDirection;
   }
   setConeAngles(innerConeAngle, outerConeAngle) {
-    this.innerConeAngle = innerConeAngle;
-    this.outerConeAngle = outerConeAngle;
-    //recalculate projection matrix with new fov
-    switch (this.type) {
-      case LightType.SPOT:
-        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
-        break;
+    if (this.type != LightType.SPOT){
+      console.warn("Calling setConeAngles on light of type other than spot!")
+      return;
     }
+    this.innerConeAngle = innerConeAngle;
+    this.innerConeCos = Math.cos(innerConeAngle);
+    this.outerConeAngle = outerConeAngle;
+    this.outerConeCos = Math.cos(outerConeAngle);
+    //recalculate projection matrix with new fov
+    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
   //override these methods to calculate view and projection matrices
   updateSelfAndChildren() {
@@ -353,9 +371,13 @@ class Light extends SceneNode {
     switch (this.type) {
       case LightType.SPOT:
         this.viewMatrix = this.getViewMatrix();
+        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
         break;
       case LightType.POINT:
         this.cubemapViewMatrices = this.getCubemapViewMatrices();
+        for(let i=0; i<6; i++){
+          mat4.multiply(this.lightSpaceMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
+        }
         break;
     }
   }
