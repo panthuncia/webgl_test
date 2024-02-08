@@ -63,8 +63,8 @@ layout(std140) uniform FSLightInfo {
     uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
     uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
     
-    uniform int u_numLights;
     uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
+    uniform int u_numLights;
 };
 
 uniform sampler2DArray u_shadowMaps;

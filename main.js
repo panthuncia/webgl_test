@@ -21,8 +21,8 @@ async function main() {
 
   //currentScene.objects = [terrain, mainObject, sphereObject];
   renderer.addObject(terrain);
-  renderer.addObject(mainObject);
-  renderer.addObject(sphereObject);
+  //renderer.addObject(mainObject);
+  //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
