@@ -4,7 +4,7 @@ async function main() {
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
   let renderer = new WebGLRenderer("webgl-canvas");
   let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
-  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/iron_sphere.json"))));
+  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_copper_sphere.json"))));
   let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 

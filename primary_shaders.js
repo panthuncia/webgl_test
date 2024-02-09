@@ -359,11 +359,19 @@ void main() {
     //if normal mapping, transform tangent space normal
     //to view space using TBN matrix. Else, just normalize v_normal.
     #ifdef USE_NORMAL_MAP
-    vec3 normal = texture(u_normalMap, uv).rgb;
-    normal = normalize(normal * 2.0 - 1.0);
-    normal = normalize(m_TBN * normal);
+        #ifndef INVERT_NORMAL_MAP
+            vec3 normal = texture(u_normalMap, uv).rgb;
+            normal = normalize(normal * 2.0 - 1.0);
+            normal = normalize(m_TBN * normal);
+        #else
+            vec3 normal = texture(u_normalMap, uv).grb;
+            normal.r = 1.0-normal.r;
+            normal.g = 1.0-normal.g;
+            normal = normalize(normal * 2.0 - 1.0);
+            normal = normalize(m_TBN * normal);
+        #endif
     #else
-    vec3 normal = normalize(v_normal);
+        vec3 normal = normalize(v_normal);
     #endif
 
     //set up pbr values, if we are using it

@@ -61,6 +61,7 @@ class WebGLRenderer {
       SHADER_VARIANT_PARALLAX: 0b100,
       SHADER_VARIANT_PBR: 0b1000,
       SHADER_VARIANT_OPACITY_MAP: 0b10000,
+      SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
     };
 
     this.shaderProgramVariants = {};
@@ -119,6 +120,9 @@ class WebGLRenderer {
     }
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
       defines += "#define USE_OPACITY_MAP\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP) {
+      defines += "#define INVERT_NORMAL_MAP\n";
     }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
@@ -608,6 +612,12 @@ class WebGLRenderer {
     let roughness = [];
     let opacity = [];
     let shaderVariant = 0;
+    try {
+      if (modelDescription.invert_normal_map == true){
+        shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP;
+      }
+    }
+    catch{}
     try {
       for (const textureName of modelDescription.textures) {
         let textureImage = await loadTexture("textures/" + textureName);

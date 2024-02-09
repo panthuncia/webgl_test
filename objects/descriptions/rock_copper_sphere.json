@@ -1,0 +1,17 @@
+{
+    "model": "sphere.obj",
+    "matfile": "",
+    "textures": [
+      "copper-rock1-alb.png"
+    ],
+    "normals": [
+      "copper-rock1-normal.png"
+    ],
+    "metallic": [
+        "copper-rock1-metal.png"
+    ],
+    "roughness": [
+        "copper-rock1-rough.png"
+    ],
+    "invertRoughness": false
+  }

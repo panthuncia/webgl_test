@@ -184,12 +184,12 @@ function calculateTangentsBitangents(positions, normals, uvs) {
 
     // Store the tangent and bitangent for each vertex of the triangle
     //tangents.push(...Array(9).fill(tangent));
-    tangents.push(-tangent.x, -tangent.y, -tangent.z);
-    tangents.push(-tangent.x, -tangent.y, -tangent.z);
-    tangents.push(-tangent.x, -tangent.y, -tangent.z);
-    bitangents.push(-bitangent.x, -bitangent.y, -bitangent.z);
-    bitangents.push(-bitangent.x, -bitangent.y, -bitangent.z);
-    bitangents.push(-bitangent.x, -bitangent.y, -bitangent.z);
+    tangents.push(tangent.x, tangent.y, tangent.z);
+    tangents.push(tangent.x, tangent.y, tangent.z);
+    tangents.push(tangent.x, tangent.y, tangent.z);
+    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
+    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
+    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
     //bitangents.push(...Array(9).fill(bitangent));
     j += 6;
   }
