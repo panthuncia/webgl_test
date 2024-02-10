@@ -38,6 +38,7 @@ layout(std140) uniform FSPerFrame {
 
 layout(std140) uniform FSPerMaterial {
     uniform float u_ambientStrength;
+    uniform float u_textureScale;
     #ifndef USE_PBR
     uniform float u_specularStrength;
     #endif
@@ -88,30 +89,105 @@ out vec4 fragmentColor;
 
 //POM. WIP.
 #ifdef USE_PARALLAX
-vec2 getParallaxCoords(vec2 texCoords, vec3 viewDir) {
-    float heightScale = 0.02; // This value can be adjusted for more/less depth
-    float numLayers = 200.0; // Number of layers for the POM effect
-    float layerDepth = 1.0 / numLayers;
-
+vec2 getParallaxCoords(vec2 uv, vec3 viewDir) {
+    viewDir = viewDir*m_TBN;
+    float heightScale = 0.05;
+    int steps = 400;
+    float layerDepth = 1.0 / float(steps);
     float currentLayerDepth = 0.0;
-    vec2 P = viewDir.xy / viewDir.z * heightScale;
+    vec2 deltaUV = viewDir.xy * heightScale / (viewDir.z * float(steps));
+    vec2 currentUV = uv;
 
-    vec2 deltaTexCoords = P / numLayers;
-    vec2 currentTexCoords = texCoords;
+    float currentHeight = texture(u_heightMap, currentUV).r;
 
-    float currentDepthMapValue = texture(u_heightMap, currentTexCoords).r;
+    // Loop through the layers to find the intersection point
+    for(int i = 0; i < steps; i++) {
+        currentLayerDepth += layerDepth;
+        currentUV += deltaUV;
+        currentHeight = texture(u_heightMap, currentUV).r;
 
-    for(int i = 0; i < 20; ++i) {
-        if(currentLayerDepth >= currentDepthMapValue) {
+        // If the current depth is greater than the height, we've found the intersection
+        if(currentHeight < currentLayerDepth) {
             break;
         }
-
-        currentTexCoords -= deltaTexCoords;
-        currentDepthMapValue = texture(u_heightMap, currentTexCoords).r;
-        currentLayerDepth += layerDepth;
     }
 
-    return currentTexCoords;
+    // Refine the final UV coordinates using interpolation
+    float weight = (currentLayerDepth - currentHeight) / layerDepth;
+    vec2 finalUV = currentUV + deltaUV.yx * weight;
+
+    return finalUV;
+}
+
+// https://www.artstation.com/blogs/andreariccardi/3VPo/a-new-approach-for-parallax-mapping-presenting-the-contact-refinement-parallax-mapping-technique
+vec2 getContactRefinementParallaxCoords(vec2 uv, vec3 viewDir){
+
+    //get view direction in tangent space
+    viewDir = viewDir*m_TBN;
+
+    //TODO: move to material definition
+    float maxHeight = 0.05;
+    float minHeight = maxHeight*0.5;
+
+    //probably unecessarily high
+    int numSteps = 64;
+    //corrects for Z view angle
+    float viewCorrection = ((-1.0 * viewDir.z) + 2.0);
+	float stepSize = 1.0 / (float(numSteps) + 1.0);
+	vec2 stepOffset = viewDir.xy * vec2(maxHeight, maxHeight) * stepSize;
+
+	vec2 lastOffset = viewDir.xy * vec2(minHeight, minHeight) + uv;
+    float lastRayDepth = 1.0;
+	float lastHeight = 1.0;
+
+	vec2 p1;
+	vec2 p2;
+	bool refine = false;
+
+    while (numSteps > 0)
+    {
+        //advance ray in direction of TS view direction
+        vec2 candidateOffset = lastOffset-stepOffset;
+        float currentRayDepth = lastRayDepth - stepSize;
+
+        float currentHeight;
+        //sample height map at this offset
+        currentHeight = texture(u_heightMap, candidateOffset).r;
+        currentHeight = viewCorrection * currentHeight;
+        //test our candidate depth
+        if (currentHeight > currentRayDepth)
+        {
+            p1 = vec2(currentRayDepth, currentHeight);
+            p2 = vec2(lastRayDepth, lastHeight);
+            //break if this is the contact refinement pass
+            if (refine) {
+                break;
+            //else, continue raycasting with squared precision
+            } else {
+                refine = true;
+                lastRayDepth = p2.x;
+                stepSize /= float(numSteps);
+                stepOffset /= float(numSteps);
+                continue;
+            }
+        }
+        lastOffset = candidateOffset;
+        lastRayDepth = currentRayDepth;
+        lastHeight = currentHeight;
+        numSteps -= 1;
+    }
+    //interpolate between final two points
+    float diff1 = p1.x - p1.y;
+    float diff2 = p2.x - p2.y;
+    float denominator = diff2 - diff1;
+
+    float parallaxAmount;
+    if(denominator != 0.0) {
+        parallaxAmount = (p1.x * diff2 - p2.x * diff1) / denominator;
+    }
+
+    float offset = ((1.0 - parallaxAmount) * -maxHeight) + minHeight;
+    return viewDir.xy * offset + uv;
 }
 #endif
 
@@ -348,10 +424,10 @@ void main() {
     vec3 viewDir = -normalize(v_fragPos.xyz); // view-space
 
     //Parallax occlusion mapping. WIP.
-    #ifdef USE_PARALLAX
-    vec2 uv = getParallaxCoords(v_texCoord, viewDir);
-    #else
     vec2 uv = v_texCoord;
+    uv *= u_textureScale;
+    #ifdef USE_PARALLAX
+    uv = getContactRefinementParallaxCoords(uv, viewDir);
     #endif
 
     vec4 baseColor = texture(u_baseColorTexture, uv);
@@ -364,7 +440,7 @@ void main() {
             normal = normalize(normal * 2.0 - 1.0);
             normal = normalize(m_TBN * normal);
         #else
-            vec3 normal = texture(u_normalMap, uv).grb;
+            vec3 normal = texture(u_normalMap, uv).rgb;
             normal.r = 1.0-normal.r;
             normal.g = 1.0-normal.g;
             normal = normalize(normal * 2.0 - 1.0);

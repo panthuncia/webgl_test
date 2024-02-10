@@ -181,7 +181,7 @@ class WebGLRenderer {
     // gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ones);
 
     const perFrameUniformNames = ["u_viewMatrixInverse"];
-    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength"];
+    const perMaterialUniformNames = ["u_ambientStrength", "u_textureScale", "u_specularStrength"];
     const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosViewSpace", "u_lightDirViewSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
 
     //get uniform offsets by name
@@ -291,7 +291,7 @@ class WebGLRenderer {
     if (this.currentScene.shadowScene.shadowCascadeFramebuffer == null) {
       await this.initShadowScene();
     }
-    this.shadowPass();
+    //this.shadowPass();
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
@@ -317,6 +317,7 @@ class WebGLRenderer {
       // gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
 
 
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
@@ -612,6 +613,8 @@ class WebGLRenderer {
     let roughness = [];
     let opacity = [];
     let shaderVariant = 0;
+    let repeat = false;
+    let textureScale = 1.0;
     try {
       if (modelDescription.invert_normal_map == true){
         shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP;
@@ -619,9 +622,19 @@ class WebGLRenderer {
     }
     catch{}
     try {
+      if (modelDescription.repeatTexture == true){
+        repeat = true;
+      }
+    }
+    catch{}
+    try {
+      textureScale = modelDescription.textureScale;
+    }
+    catch{}
+    try {
       for (const textureName of modelDescription.textures) {
         let textureImage = await loadTexture("textures/" + textureName);
-        let texture = createWebGLTexture(gl, textureImage, false, true);
+        let texture = createWebGLTexture(gl, textureImage, repeat, true);
         textures.push(texture);
       }
     } catch {
@@ -631,7 +644,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.normals) {
         let normalImage = await loadTexture("textures/" + textureName);
-        let normalTexture = createWebGLTexture(gl, normalImage, false, true);
+        let normalTexture = createWebGLTexture(gl, normalImage, repeat, true);
         normals.push(normalTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
@@ -642,7 +655,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.aoMaps) {
         let aoImage = await loadTexture("textures/" + textureName);
-        let aoTexture = createWebGLTexture(gl, aoImage);
+        let aoTexture = createWebGLTexture(gl, aoImage, repeat);
         aoMaps.push(aoTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO;
@@ -653,7 +666,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.heightMaps) {
         let heightMapImage = await loadTexture("textures/" + textureName);
-        let heightMapTexture = createWebGLTexture(gl, heightMapImage);
+        let heightMapTexture = createWebGLTexture(gl, heightMapImage, repeat);
         heightMaps.push(heightMapTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
@@ -664,7 +677,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.metallic) {
         let metallicImage = await loadTexture("textures/" + textureName);
-        let metallicTexture = createWebGLTexture(gl, metallicImage, false, true);
+        let metallicTexture = createWebGLTexture(gl, metallicImage, repeat, true);
         metallic.push(metallicTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -675,7 +688,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.roughness) {
         let roughnessImage = await loadTexture("textures/" + textureName);
-        let roughnessTexture = createWebGLTexture(gl, roughnessImage, false, true);
+        let roughnessTexture = createWebGLTexture(gl, roughnessImage, repeat, true);
         roughness.push(roughnessTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -685,7 +698,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.opacity) {
         let opacityImage = await loadTexture("textures/" + textureName);
-        let opacityTexture = createWebGLTexture(gl, opacityImage);
+        let opacityTexture = createWebGLTexture(gl, opacityImage, repeat);
         opacity.push(opacityTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP;
@@ -695,7 +708,7 @@ class WebGLRenderer {
 
     let objectData = await getObj("objects/" + modelDescription.model);
     console.log(objectData);
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
+    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
   printRestrictions() {
     console.log("Max texture size: " + this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));

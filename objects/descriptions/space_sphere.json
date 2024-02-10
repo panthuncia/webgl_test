@@ -1,0 +1,25 @@
+{
+    "model": "sphere.obj",
+    "matfile": "",
+    "textures": [
+      "space-cruiser-panels2_albedo.png"
+    ],
+    "normals": [
+      "space-cruiser-panels2_normal-ogl.png"
+    ],
+    "metallic": [
+        "space-cruiser-panels2_metallic.png"
+    ],
+    "roughness": [
+        "space-cruiser-panels2_roughness.png"
+    ],
+    "aoMaps": [
+      "space-cruiser-panels2_ao.png"
+    ],
+    "heightMaps":[
+      "space-cruiser-panels2_height.png"
+    ],
+    "invertRoughness": false,
+    "repeatTexture": true,
+    "textureScale": 4
+  }

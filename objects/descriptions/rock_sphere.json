@@ -1,0 +1,21 @@
+{
+    "model": "cube.obj",
+    "matfile": "",
+    "textures": [
+      "stonewall/scpgdgca_8K_Albedo.jpg"
+    ],
+    "normals": [
+      "stonewall/scpgdgca_8K_Normal.jpg"
+    ],
+    "roughness": [
+        "stonewall/scpgdgca_8K_Roughness.jpg"
+    ],
+    "heightMaps": [
+      "stonewall/scpgdgca_8K_Displacement.jpg"
+    ],
+    "invertRoughness": false,
+    "repeatTexture": true,
+    "textureScale": 1,
+    "invert_normal_map": true
+
+  }

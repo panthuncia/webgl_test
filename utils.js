@@ -221,13 +221,40 @@ async function getObj(filename) {
     });
 }
 
-function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = []) {
+function padArray(array, value, amount){
+  for(let i=0; i<amount; i++){
+    array.push(value);
+  }
+}
+
+function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
   meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
     meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, tanbit.tangents, tanbit.bitangents));
   }
-  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity);
+  if(textures.length==1 && reuseTextures){
+    padArray(textures, textures[0], meshes.length-1);
+  }
+  if(normals.length==1 && reuseTextures){
+    padArray(normals, normals[0], meshes.length-1);
+  }
+  if(aoMaps.length==1 && reuseTextures){
+    padArray(aoMaps, aoMaps[0], meshes.length-1);
+  }
+  if(heightMaps.length==1 && reuseTextures){
+    padArray(heightMaps, heightMaps[0], meshes.length-1);
+  }
+  if(metallic.length==1 && reuseTextures){
+    padArray(metallic, metallic[0], meshes.length-1);
+  }
+  if(roughness.length==1 && reuseTextures){
+    padArray(roughness, roughness[0], meshes.length-1);
+  }
+  if(opacity.length==1 && reuseTextures){
+    padArray(opacity, opacity[0], meshes.length-1);
+  }
+  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
 }
 
 async function loadTexture(url) {

@@ -3,24 +3,24 @@ async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
   let renderer = new WebGLRenderer("webgl-canvas");
-  let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
-  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_copper_sphere.json"))));
-  let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
-  let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
+  //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
+  let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
+  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
+  //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
   //terrain.transform.setLocalPosition([0, 0, -100])
-  terrain.transform.setLocalScale([2, 2, 2])
+  //terrain.transform.setLocalScale([2, 2, 2])
 
   mainObject.transform.setLocalRotation([0, 0, 0]);
-  mainObject.transform.setLocalPosition([8, 4, 0]);
-  //mainObject.transform.setLocalScale([8, 8, 8]);
+  mainObject.transform.setLocalPosition([8, 10, 0]);
+  mainObject.transform.setLocalScale([20, 20, 20]);
 
 
-  sphereObject.transform.setLocalPosition([10, 10, 10]);
-  sphereObject.transform.setLocalScale([4, 4, 4]);
+  //sphereObject.transform.setLocalPosition([10, 10, 10]);
+  //sphereObject.transform.setLocalScale([4, 4, 4]);
 
   //currentScene.objects = [terrain, mainObject, sphereObject];
-  renderer.addObject(terrain);
+  //renderer.addObject(terrain);
   renderer.addObject(mainObject);
   //renderer.addObject(sphereObject);
 
@@ -28,7 +28,7 @@ async function main() {
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 10.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   //renderer.addLight(light1);

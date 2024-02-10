@@ -171,16 +171,17 @@ class SceneNode {
 }
 
 class Material {
-  constructor(){
-    this.ambientStrength = 0.005;
+  constructor(textureScale){
+    this.ambientStrength = 5.05;
     this.specularStrength = 1.0;
+    this.textureScale = textureScale;
   }
 }
 
 class RenderableObject extends SceneNode {
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity) {
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale) {
     super();
-    this.material = new Material();
+    this.material = new Material(textureScale);
     this.shaderVariant = shaderVariant;
     this.meshes = meshes;
     this.textures = [];

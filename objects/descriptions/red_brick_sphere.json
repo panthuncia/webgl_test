@@ -1,0 +1,24 @@
+{
+    "model": "Chair.obj",
+    "matfile": "",
+    "textures": [
+      "brick/brick-wall_albedo.png"
+    ],
+    "normals": [
+      "brick/brick-wall_normal-ogl.png"
+    ],
+    "metallic": [
+        "brick/brick-wall_metallic.png"
+    ],
+    "roughness": [
+        "brick/brick-wall_roughness.png"
+    ],
+    "heightMaps": [
+      "brick/brick-wall_height.png"
+    ],
+    "invertRoughness": false,
+    "repeatTexture": true,
+    "textureScale": 8,
+    "invert_normal_map": true
+
+  }
