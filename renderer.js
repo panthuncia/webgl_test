@@ -2,6 +2,12 @@ class WebGLRenderer {
   constructor(canvasID) {
     this.canvas = document.getElementById(canvasID);
     this.gl = this.canvas.getContext("webgl2");
+    var vertElem = document.getElementById("primaryVSSource");
+    var fragElem = document.getElementById("primaryFSSource");
+    this.primaryVSSource = vertElem.text;
+    this.primaryFSSource = fragElem.text;
+
+
     //print gl restrictions, for debugging
     this.printRestrictions();
     const gl = this.gl;
@@ -62,6 +68,7 @@ class WebGLRenderer {
       SHADER_VARIANT_PBR: 0b1000,
       SHADER_VARIANT_OPACITY_MAP: 0b10000,
       SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
+      SHADER_VARIANT_WIREFRAME: 0b1000000,
     };
 
     this.shaderProgramVariants = {};
@@ -89,6 +96,8 @@ class WebGLRenderer {
     this.verticalAngle = Math.PI / 2;
     this.distanceFromOrigin = 40; // Adjust as necessary
     this.createCallbacks();
+
+    this.forceWireframe = false;
   }
   addObject(object) {
     this.currentScene.objects.push(object);
@@ -124,6 +133,9 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP) {
       defines += "#define INVERT_NORMAL_MAP\n";
     }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME) {
+      defines += "#define WIREFRAME\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -135,8 +147,8 @@ class WebGLRenderer {
   }
   async createUBOs() {
     const gl = this.gl;
-    let fsSource = primaryFSSource;
-    let vsSource = primaryVSSource;
+    let fsSource = this.primaryFSSource;
+    let vsSource = this.primaryVSSource;
     //create dummy program with all uniforms
     let shaderProgram = this.getProgram(fsSource, vsSource, 0b00000);
 
@@ -214,8 +226,8 @@ class WebGLRenderer {
   }
   createProgramVariants(shaderVariantsToCompile) {
     const gl = this.gl;
-    let fsSource = primaryFSSource;
-    let vsSource = primaryVSSource;
+    let fsSource = this.primaryFSSource;
+    let vsSource = this.primaryVSSource;
 
     for (const variantID of shaderVariantsToCompile) {
       shaderProgram = this.getProgram(fsSource, vsSource, variantID);
@@ -307,10 +319,14 @@ class WebGLRenderer {
     
     for (const object of currentScene.objects) {
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
-      if (!this.shaderProgramVariants[object.shaderVariant]) {
-        this.createProgramVariants([object.shaderVariant]);
+      let currentVariant = object.shaderVariant;
+      if(this.forceWireframe){
+        currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
       }
-      const programInfo = this.shaderProgramVariants[object.shaderVariant];
+      if (!this.shaderProgramVariants[currentVariant]) {
+        this.createProgramVariants([currentVariant]);
+      }
+      const programInfo = this.shaderProgramVariants[currentVariant];
       gl.useProgram(programInfo.program);
 
       // gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
@@ -364,7 +380,7 @@ class WebGLRenderer {
       let normalMatrix = calculateNormalMatrix(modelViewMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
-      if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
+      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
         gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
       }
       let i = 0;
@@ -380,7 +396,7 @@ class WebGLRenderer {
         textureUnit += 1;
 
         //if we have a normal map for this mesh
-        if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
+        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
           //tangent
           gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
           gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
@@ -396,21 +412,21 @@ class WebGLRenderer {
           textureUnit += 1;
         }
         //ao texture
-        if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
+        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
           gl.activeTexture(gl.TEXTURE0 + textureUnit);
           gl.bindTexture(gl.TEXTURE_2D, object.aoMaps[i]);
           gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
           textureUnit += 1;
         }
         //height texture
-        if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
+        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
           gl.activeTexture(gl.TEXTURE0 + textureUnit);
           gl.bindTexture(gl.TEXTURE_2D, object.heightMaps[i]);
           gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
           textureUnit += 1;
         }
         //PBR metallic & roughness textures
-        if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
+        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
           gl.activeTexture(gl.TEXTURE0 + textureUnit);
           gl.bindTexture(gl.TEXTURE_2D, object.metallic[i]);
           gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
@@ -421,17 +437,17 @@ class WebGLRenderer {
           textureUnit += 1;
         }
         //Opacity texture, if object uses one
-        if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
+        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
           gl.activeTexture(gl.TEXTURE0 + textureUnit);
           gl.bindTexture(gl.TEXTURE_2D, object.opacity[i]);
           gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
           textureUnit += 1;
         }
-        gl.validateProgram(programInfo.program);
-        const validationStatus = gl.getProgramParameter(shaderProgram, gl.VALIDATE_STATUS);
-        if (!validationStatus) {
-            console.error('Program validation failed:', gl.getProgramInfoLog(shaderProgram));
-        }
+        // gl.validateProgram(programInfo.program);
+        // const validationStatus = gl.getProgramParameter(shaderProgram, gl.VALIDATE_STATUS);
+        // if (!validationStatus) {
+        //     console.error('Program validation failed:', gl.getProgramInfoLog(shaderProgram));
+        // }
         gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
         gl.bindVertexArray(null);
         i += 1;
@@ -602,6 +618,27 @@ class WebGLRenderer {
 
     //update shadow cascades after camera moves
     this.updateCascades();
+  }
+  createObjectFromData(pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+    const gl = this.gl;
+    let objectData = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    let shaderVariant = 0;
+
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    var greyPixel = new Uint8Array([128, 0, 0, 255]); // RGB for grey, A for opacity
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
+
+    // Set texture parameters (optional, but good practice)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    textures = [texture];
+    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
   async loadModel(modelDescription) {
     const gl = this.gl;

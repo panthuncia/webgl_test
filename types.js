@@ -1,10 +1,11 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, tangents = null, bitangents = null, indices = null) {
+  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = null) {
     this.vertices = vertices;
     this.normals = normals;
     this.indices = indices;
     this.tangents = tangents;
     this.bitangents = bitangents;
+    this.baryCoords = baryCoords;
 
     // Create a VAO
     this.vao = gl.createVertexArray();
@@ -31,19 +32,26 @@ class Mesh {
     gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(2);
 
+    // Barycentric coord buffer
+    this.baryBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.baryBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(baryCoords), gl.STATIC_DRAW);
+    gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(3);
+
     // Tangents and bitangents (if present)
     if (tangents != null) {
       this.tangentBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(4);
 
       this.bitangentBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(4);
+      gl.vertexAttribPointer(5, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(5);
     }
 
     // Index buffer (if present)
@@ -142,6 +150,49 @@ class Transform {
   }
 }
 
+class AnimationController {
+  constructor(node) {
+    this.node = node; // The SceneNode to be animated
+    this.animationClip = null; // The current animation clip
+    this.currentTime = 0; // Current time in the animation playback
+    this.isPlaying = false; // Whether the animation is playing
+  }
+
+  setAnimationClip(animationClip) {
+    this.animationClip = animationClip;
+  }
+
+  play() {
+    this.isPlaying = true;
+    this.currentTime = 0;
+  }
+
+  stop() {
+    this.isPlaying = false;
+  }
+
+  update(deltaTime) {
+    if (!this.isPlaying || !this.animationClip) return;
+
+    this.currentTime += deltaTime;
+
+    // Loop the animation
+    if (this.currentTime > this.animationClip.duration) {
+      this.currentTime -= this.animationClip.duration;
+    }
+
+    // Update the node's transform based on the current time
+    this.updateTransform();
+  }
+
+  updateTransform() {
+    // Interpolate the position, rotation, and scale based on the current time
+    // and set them on the node's transform.
+    // This can be done by finding the two keyframes surrounding the current time
+    // for each property and interpolating between their values.
+  }
+}
+
 class SceneNode {
   constructor() {
     this.children = [];
@@ -172,7 +223,7 @@ class SceneNode {
 
 class Material {
   constructor(textureScale){
-    this.ambientStrength = 5.05;
+    this.ambientStrength = 0.01;
     this.specularStrength = 1.0;
     this.textureScale = textureScale;
   }

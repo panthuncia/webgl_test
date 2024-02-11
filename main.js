@@ -1,20 +1,34 @@
+var v0 = normalize([-1.0, -1.0,  1.0, 1], true); // Front-bottom-left
+var v1 = normalize([1.0, -1.0,  1.0, 1], true); // Front-bottom-right
+var v2 = normalize([1.0,  1.0,  1.0, 1], true); // Front-top-right
+var v3 = normalize([-1.0,  1.0,  1.0, 1], true); // Front-top-left
+var v4 = normalize([-1.0, -1.0, -1.0, 1], true); // Back-bottom-left
+var v5 = normalize([1.0, -1.0, -1.0, 1], true); // Back-bottom-right
+var v6 = normalize([1.0,  1.0, -1.0, 1], true); // Back-top-right
+var v7 = normalize([-1.0,  1.0, -1.0, 1], true); // Back-top-left
 
 async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
   let renderer = new WebGLRenderer("webgl-canvas");
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
-  let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
+  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
+  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
+
+  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 5);
+  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
+  let subdivisionData1 = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0);
+  let mainObject1 = renderer.createObjectFromData(subdivisionData1.pointsArray, subdivisionData1.normalsArray, subdivisionData1.texCoordArray);
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
   //terrain.transform.setLocalPosition([0, 0, -100])
   //terrain.transform.setLocalScale([2, 2, 2])
 
-  mainObject.transform.setLocalRotation([0, 0, 0]);
-  mainObject.transform.setLocalPosition([8, 10, 0]);
+  //mainObject.transform.setLocalRotation([0, 0, 0]);
+  //mainObject.transform.setLocalPosition([8, 10, 0]);
   mainObject.transform.setLocalScale([20, 20, 20]);
-
+  mainObject1.transform.setLocalScale([20, 20, 20]);
 
   //sphereObject.transform.setLocalPosition([10, 10, 10]);
   //sphereObject.transform.setLocalScale([4, 4, 4]);
@@ -22,13 +36,14 @@ async function main() {
   //currentScene.objects = [terrain, mainObject, sphereObject];
   //renderer.addObject(terrain);
   renderer.addObject(mainObject);
+  //renderer.addObject(mainObject1);
   //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 10.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   //renderer.addLight(light1);
@@ -38,6 +53,14 @@ async function main() {
   renderer.addLight(light5);
   //renderer.addLight(light6);
   
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'm') {
+        console.log("toggling wireframe");
+        renderer.forceWireframe = !renderer.forceWireframe;
+      }
+  });
+
+
   createDebugTriangle(renderer.gl);
   await(createDebugQuad(renderer.gl));
   async function drawScene() {

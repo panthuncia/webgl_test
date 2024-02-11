@@ -2,11 +2,5 @@
   "model": "sphere.obj",
   "textures": [
     "rocks.jpg"
-  ],
-  "normals": [
-    "rocks_normals.png"
-  ],
-  "heightMaps": [
-    "rocks_height.png"
   ]
 }

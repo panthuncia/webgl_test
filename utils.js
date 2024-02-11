@@ -227,11 +227,23 @@ function padArray(array, value, amount){
   }
 }
 
+function getBarycentricCoordinates(length){
+  let choices = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  let coords = [];
+  for (let i=0; i<length/3; i++){
+    for(let num of choices){
+      coords.push(num);
+    }
+  }
+  return coords;
+}
+
 function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
   meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
-    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, tanbit.tangents, tanbit.bitangents));
+    let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
+    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents));
   }
   if(textures.length==1 && reuseTextures){
     padArray(textures, textures[0], meshes.length-1);
@@ -499,4 +511,157 @@ function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
     let offset = baseOffset + i * 4;
     dataView.setFloat32(offset, floatArray[i], true);
   }
+}
+
+function calculateUV(a) {
+  const u = 0.5 + Math.atan2(a[2], a[0]) / (2 * Math.PI);
+  const v = 0.5 - Math.asin(a[1]) / Math.PI;
+  return [u, v];
+}
+
+function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray) {
+
+  pointsArray.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  
+  normalsArray.push(a[0], a[1], a[2]);
+  normalsArray.push(b[0], b[1], b[2]);
+  normalsArray.push(c[0], c[1], c[2]);
+
+  let aUV = calculateUV(a);
+  let bUV = calculateUV(b);
+  let cUV = calculateUV(c);
+
+  texCoordsArray.push(aUV[0], aUV[1], bUV[0], bUV[1], cUV[0], cUV[1]);
+}
+
+function dot( u, v )
+{
+    if ( u.length != v.length ) {
+        throw "dot(): vectors are not the same dimension";
+    }
+
+    var sum = 0.0;
+    for ( var i = 0; i < u.length; ++i ) {
+        sum += u[i] * v[i];
+    }
+
+    return sum;
+}
+
+function length( u )
+{
+    return Math.sqrt( dot(u, u) );
+}
+
+function normalize( u, excludeLastComponent )
+{
+    if ( excludeLastComponent ) {
+        var last = u.pop();
+    }
+
+    var len = length( u );
+
+    if ( !isFinite(len) ) {
+        throw "normalize: vector " + u + " has zero length";
+    }
+
+    for ( var i = 0; i < u.length; ++i ) {
+        u[i] /= len;
+    }
+
+    if ( excludeLastComponent ) {
+        u.push( last );
+    }
+
+    return u;
+}
+
+function mix( u, v, s )
+{
+    if ( typeof s !== "number" ) {
+        throw "mix: the last paramter " + s + " must be a number";
+    }
+
+    if ( u.length != v.length ) {
+        throw "vector dimension mismatch";
+    }
+
+    var result = [];
+    for ( var i = 0; i < u.length; ++i ) {
+        result.push( (1.0 - s) * u[i] + s * v[i] );
+    }
+
+    return result;
+}
+
+function divideTriangle(a, b, c, count, pointsArray, normalsArray, texCoordsArray) {
+  if (count > 0) {
+      var ab = mix(a, b, 0.5);
+      var ac = mix(a, c, 0.5);
+      var bc = mix(b, c, 0.5);
+
+      ab = normalize(ab, true);
+      ac = normalize(ac, true);
+      bc = normalize(bc, true);
+
+      divideTriangle(a, ab, ac, count - 1, pointsArray, normalsArray, texCoordsArray);
+      divideTriangle(ab, b, bc, count - 1, pointsArray, normalsArray, texCoordsArray);
+      divideTriangle(ac, bc, c, count - 1, pointsArray, normalsArray, texCoordsArray);
+      divideTriangle(ab, bc, ac, count - 1, pointsArray, normalsArray, texCoordsArray);
+  } else {
+      triangle(a, b, c, pointsArray, normalsArray, texCoordsArray);
+  }
+}
+
+function tetrahedron(a, b, c, d, n) {
+  let pointsArray = [];
+  let normalsArray = [];
+  let texCoordArray = [];
+  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(d, c, b, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, d, b, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray);
+
+  return {pointsArray, normalsArray, texCoordArray};
+}
+
+function cube(a, b, c, d, e, f, g, h, n) {
+  let pointsArray = [];
+  let normalsArray = [];
+  let texCoordArray = [];
+
+  // a = normalize(a);
+  // b = normalize(b);
+  // c = normalize(c);
+  // d = normalize(d);
+  // e = normalize(e);
+  // f = normalize(f);
+  // g = normalize(g);
+  // h = normalize(h);
+
+
+  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray); // a-b-c
+  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray); // a-c-d
+
+  // // Right face
+  divideTriangle(b, f, e, n, pointsArray, normalsArray, texCoordArray); // b-f-e
+  divideTriangle(b, e, a, n, pointsArray, normalsArray, texCoordArray); // b-e-a
+
+  // // Back face
+  divideTriangle(f, g, h, n, pointsArray, normalsArray, texCoordArray); // f-g-h
+  divideTriangle(f, h, e, n, pointsArray, normalsArray, texCoordArray); // f-h-e
+
+  // // Left face
+  divideTriangle(g, c, d, n, pointsArray, normalsArray, texCoordArray); // g-c-d
+  divideTriangle(g, d, h, n, pointsArray, normalsArray, texCoordArray); // g-d-h
+
+  // Top face
+  divideTriangle(b, g, f, n, pointsArray, normalsArray, texCoordArray); // d-c-g
+  divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray); // d-g-h
+
+  // Bottom face
+  divideTriangle(e, h, d, n, pointsArray, normalsArray, texCoordArray); // e-h-d
+  divideTriangle(e, d, a, n, pointsArray, normalsArray, texCoordArray); 
+
+  return {pointsArray, normalsArray, texCoordArray};
 }
