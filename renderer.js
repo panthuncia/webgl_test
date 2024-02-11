@@ -19,6 +19,7 @@ class WebGLRenderer {
 
     //scene setup
     this.currentScene = {
+      nextObjectID: 0,
       shadowScene: {},
       lights: [],
       objects: [],
@@ -104,7 +105,7 @@ class WebGLRenderer {
 
     this.horizontalAngle = Math.PI / 2;
     this.verticalAngle = Math.PI / 2;
-    this.distanceFromOrigin = 40; // Adjust as necessary
+    this.distanceFromOrigin = 25;
     this.createCallbacks();
 
     this.forceWireframe = false;
@@ -113,7 +114,13 @@ class WebGLRenderer {
     this.initLineRenderer();
   }
   addObject(object) {
-    this.currentScene.objects.push(object);
+    object.localID = this.currentScene.nextObjectID;
+    this.currentScene.objects[this.currentScene.nextObjectID] = object;
+    this.currentScene.nextObjectID++;
+    return object.localID;
+  }
+  removeObject(objectID) {
+    delete this.currentScene.objects[objectID];
   }
   addLight(light) {
     this.currentScene.lights.push(light);
@@ -303,8 +310,8 @@ class WebGLRenderer {
   }
 
   updateScene() {
-    for (let entity of this.currentScene.objects) {
-      entity.update();
+    for (let key in this.currentScene.objects) {
+      this.currentScene.objects[key].update();
     }
     for (let entity of this.currentScene.lights) {
       entity.update();
@@ -333,7 +340,8 @@ class WebGLRenderer {
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
     
-    for (const object of currentScene.objects) {
+    for (const key in currentScene.objects) {
+      let object = currentScene.objects[key];
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       let currentVariant = object.shaderVariant;
       if(this.forceWireframe){
@@ -626,13 +634,13 @@ class WebGLRenderer {
     var y = this.distanceFromOrigin * Math.cos(this.verticalAngle);
     var z = this.distanceFromOrigin * Math.sin(this.verticalAngle) * Math.sin(this.horizontalAngle);
 
-    this.currentScene.camera.position[0] = x;
-    this.currentScene.camera.position[1] = y;
-    this.currentScene.camera.position[2] = z;
+    const lookAt = this.currentScene.camera.lookAt;
+    this.currentScene.camera.position[0] = x+lookAt[0];
+    this.currentScene.camera.position[1] = y+lookAt[1];
+    this.currentScene.camera.position[2] = z+lookAt[2];
 
     // Update view matrix
-
-    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [0, 0, 0], [0, 1, 0]); // Adjust up vector as needed
+    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]); // Adjust up vector as needed
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
 
     //update shadow cascades after camera moves
@@ -774,5 +782,20 @@ class WebGLRenderer {
     console.log("Max fragment uniforms: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
     console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
     console.log("Max uniform block size: " + this.gl.getParameter(this.gl.MAX_UNIFORM_BLOCK_SIZE));
+  }
+  moveCameraForward(dist){
+    let dir = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
+    let move = vec3.create();
+    vec3.scale(move, dir, dist);
+    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
+    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
+  }
+  moveCameraRight(dist){
+    let forward = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
+    let move = vec3.create();
+    vec3.cross(move, forward, this.currentScene.camera.up);
+    vec3.scale(move, move, dist);
+    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
+    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
   }
 }

@@ -712,3 +712,19 @@ function chaikin(vertices, iterations) {
   }
   return chaikin(newVertices, iterations - 1);
 }
+
+function distance3d(p1, p2){
+  let xdiff = p2[0]-p1[0];
+  let ydiff = p2[1]-p1[1];
+  let zdiff = p2[2]-p1[2]
+  return Math.sqrt(xdiff*xdiff+ydiff*ydiff+zdiff*zdiff);
+}
+
+function lineSegmentLength(points, stopAt){
+  let length = 0;
+  for(let i=0; i<Math.min(stopAt, points.length); i++){
+    length +=distance3d(point[i], points[i+1]);
+  }
+  return length;
+}
+

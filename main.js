@@ -15,14 +15,31 @@ async function main() {
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
 
-  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 2);
+  let currentSubdivisions = 0;
+  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
-  let subdivisionData1 = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0);
-  let mainObject1 = renderer.createObjectFromData(subdivisionData1.pointsArray, subdivisionData1.normalsArray, subdivisionData1.texCoordArray);
 
-  let playTime = 5;
+  let playTime = 15;
   let animation = new AnimationClip();
-  let original_positions = [[0, 0, 0], [10, 0, 0], [0, 10, 0], [0, 0, 0], [10, 0, 0]];
+  let original_positions = [[11, 36, 17],
+  [44, 49, 23],
+  [0, 32, 30],
+  [11, 36, 47 ],
+  [50, 34, 46],
+  [2, 27, 7 ],
+  [30, 40, 4],
+  [28, 38, 39 ],
+  [36, 1, 27 ],
+  [38, 16, 7] , [11, 36, 17], [44, 49, 23]];
+  //reposition
+  for(let position of original_positions){
+    position[0] /=2;
+    position[1] /=2;
+    position[2] /=2;
+    position[0] -=13;
+    position[1] -=13;
+    position[2] -=13;
+  }
   let chaikin_iterations = 0
   positions = chaikin(original_positions, chaikin_iterations);
   let lines = linesFromPositions(positions);
@@ -31,6 +48,7 @@ async function main() {
     animation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
   }
   mainObject.animationController.setAnimationClip(animation);
+  mainObject.animationController.pause();
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
@@ -38,7 +56,7 @@ async function main() {
   //terrain.transform.setLocalScale([2, 2, 2])
 
   //mainObject.transform.setLocalRotation([0, 0, 0]);
-  //mainObject.transform.setLocalPosition([8, 10, 0]);
+  mainObject.transform.setLocalPosition(positions[0]);
   //mainObject.transform.setLocalScale([20, 20, 20]);
   //mainObject1.transform.setLocalScale([20, 20, 20]);
 
@@ -47,7 +65,7 @@ async function main() {
 
   //currentScene.objects = [terrain, mainObject, sphereObject];
   //renderer.addObject(terrain);
-  renderer.addObject(mainObject);
+  objectID = renderer.addObject(mainObject);
   //renderer.addObject(mainObject1);
   //renderer.addObject(sphereObject);
 
@@ -64,7 +82,8 @@ async function main() {
   //renderer.addLight(light4);
   renderer.addLight(light5);
   renderer.addLight(light6);
-  
+  let playing = false;
+  let firstRun = true;
   document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'm') {
         console.log("toggling wireframe");
@@ -81,7 +100,18 @@ async function main() {
       }
       positions = chaikin(original_positions, chaikin_iterations);
       lines = linesFromPositions(positions);
-    }
+      let newAnimation = new AnimationClip();
+      newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
+      for (let i=1; i<positions.length-1; i++){
+        newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
+      }
+      let oldTime = mainObject.animationController.currentTime;
+      let paused = mainObject.animationController.isPlaying;
+      mainObject.animationController.setAnimationClip(newAnimation);
+      mainObject.animationController.reset();
+      mainObject.animationController.update(oldTime, true);
+      mainObject.animationController.isPlaying = paused;
+        }
     else if (event.key.toLowerCase() === 'j'){
       chaikin_iterations -=1;
       if(chaikin_iterations<0){
@@ -89,17 +119,60 @@ async function main() {
       }
       positions = chaikin(original_positions, chaikin_iterations);
       lines = linesFromPositions(positions);
+      let newAnimation = new AnimationClip();
+      newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
+      for (let i=1; i<positions.length-1; i++){
+        newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
+      }
+      let oldTime = mainObject.animationController.currentTime;
+      let paused = mainObject.animationController.isPlaying;
+      mainObject.animationController.setAnimationClip(newAnimation);
+      mainObject.animationController.reset();
+      mainObject.animationController.update(oldTime, true);
+      mainObject.animationController.isPlaying = paused;
+    }
+    else if (event.key.toLowerCase() === 'q'){
+      currentSubdivisions-=1;
+      if (currentSubdivisions<0){
+        currentSubdivisions = 0;
+      }
+      let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+      newObject.transform = mainObject.transform;
+      newObject.animationController = mainObject.animationController;
+      newObject.animationController.node = newObject;
+      renderer.removeObject(objectID);
+      objectID = renderer.addObject(newObject);
+    }else if (event.key.toLowerCase() === 'e'){
+      currentSubdivisions+=1;
+      if (currentSubdivisions>5){
+        currentSubdivisions = 5;
+      }
+      let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+      newObject.transform = mainObject.transform;
+      newObject.animationController = mainObject.animationController;
+      newObject.animationController.node = newObject;
+      renderer.removeObject(objectID);
+      objectID = renderer.addObject(newObject);
+    }else if (event.key.toLowerCase() === 'a'){
+      if(!playing){
+        mainObject.animationController.unpause();
+        playing = true;
+      } else {
+        mainObject.animationController.pause();
+        playing = false;
+      }
     }
   });
 
-
-  createDebugTriangle(renderer.gl);
+  let lastTime = new Date().getTime() / 1000;
   await(createDebugQuad(renderer.gl));
-  var startTime = new Date().getTime() / 1000;
-  mainObject.animationController.play(startTime);
   async function drawScene() {
     let currentTime = new Date().getTime() / 1000;
-    mainObject.animationController.update(currentTime);
+    let elapsed = currentTime - lastTime;
+    lastTime = currentTime;
+    mainObject.animationController.update(elapsed);
     await(renderer.drawScene());
     renderer.drawLines(lines);
     requestAnimationFrame(drawScene);

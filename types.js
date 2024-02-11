@@ -169,81 +169,70 @@ class AnimationClip {
   addPositionKeyframe(time, position) {
     this.positionKeyframes.push(new Keyframe(this.duration+time, position));
     this.duration+=time;
-    //this.calculateDuration();
   }
 
   addRotationKeyframe(time, rotation) {
     this.rotationKeyframes.push(new Keyframe(time, rotation));
-    //this.calculateDuration();
+    this.duration+=time;
   }
 
   addScaleKeyframe(time, scale) {
     this.scaleKeyframes.push(new Keyframe(time, scale));
-    //this.calculateDuration();
+    this.duration+=time;
   }
 
-  // Calculate the duration of the animation clip
-  calculateDuration() {
-    let lastKeyframeTime = Math.max(
-      this.positionKeyframes.length ? this.positionKeyframes[this.positionKeyframes.length - 1].time : 0,
-      this.rotationKeyframes.length ? this.rotationKeyframes[this.rotationKeyframes.length - 1].time : 0,
-      this.scaleKeyframes.length ? this.scaleKeyframes[this.scaleKeyframes.length - 1].time : 0
-    );
-    this.duration = lastKeyframeTime;
-  }
   findBoundingKeyframes(currentTime){
     let prevKeyframe = this.positionKeyframes[0];
     let nextKeyframe = this.positionKeyframes[this.positionKeyframes.length - 1];
-    // let thisTime = 0;
-    // let nextTime = 0;
+    let index = 0;
     if (this.positionKeyframes.length === 0) {
       return false;
     } else {
       for (let i = 0; i < this.positionKeyframes.length - 1; i++) {
-        // thisTime +=this.positionKeyframes[i].time;
-        // nextTime +=this.positionKeyframes[i + 1].time;
         if (currentTime >= this.positionKeyframes[i].time && currentTime <= this.positionKeyframes[i+1].time) {
           prevKeyframe = this.positionKeyframes[i];
           nextKeyframe = this.positionKeyframes[i + 1];
+          index = i;
           break;
         }
       }
     }
   
-    return {position:{ prevKeyframe, nextKeyframe }};
+    return {position:{index, prevKeyframe, nextKeyframe }};
   }
 }
 
 class AnimationController {
   constructor(node) {
-    this.node = node; // The SceneNode to be animated
-    this.animationClip = null; // The current animation clip
+    this.node = node;
+    this.animationClip = null;
     this.currentTime = 0; // Current time in the animation playback
-    this.isPlaying = false; // Whether the animation is playing
-    this.startTime=0;
+    this.isPlaying = true;
   }
 
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
   }
 
-  play(startTime) {
-    this.isPlaying = true;
+  reset() {
     this.currentTime = 0;
-    this.startTime = startTime;
   }
 
-  stop() {
+  pause() {
     this.isPlaying = false;
   }
 
-  update(currentTime) {
-    if (!this.isPlaying || !this.animationClip) return;
+  unpause() {
+    this.isPlaying = true;
+  }
 
-    //this.currentTime += deltaTime;
-
+  update(elapsedTime, force = false) {
+    if (!force &&(!this.isPlaying || !this.animationClip)) return;
+    
+    
     // Loop the animation
-    this.currentTime = (currentTime-this.startTime)%this.animationClip.duration;
+    this.currentTime+=elapsedTime;
+    this.currentTime%=this.animationClip.duration;
 
     // Update the node's transform based on the current time
     this.updateTransform();
@@ -265,6 +254,7 @@ class SceneNode {
     this.parent = null;
     this.transform = new Transform();
     this.animationController = new AnimationController(this);
+    this.localID = 0;
   }
   addChild(node) {
     this.children.push(node);
