@@ -22,8 +22,9 @@ async function main() {
 
   let playTime = 5;
   let animation = new AnimationClip();
-  let positions = [[0, 0, 0], [10, 0, 0], [0, 10, 0], [0, 0, 0], [10, 0, 0]];
-  positions = chaikin(positions, 10);
+  let original_positions = [[0, 0, 0], [10, 0, 0], [0, 10, 0], [0, 0, 0], [10, 0, 0]];
+  let chaikin_iterations = 0
+  positions = chaikin(original_positions, chaikin_iterations);
   let lines = linesFromPositions(positions);
   animation.addPositionKeyframe(0, new Transform(positions[0]));
   for (let i=1; i<positions.length-1; i++){
@@ -65,14 +66,30 @@ async function main() {
   renderer.addLight(light6);
   
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'm') {
+    if (event.key.toLowerCase() === 'm') {
         console.log("toggling wireframe");
         renderer.forceWireframe = !renderer.forceWireframe;
       }
-    if (event.key === 'l') {
+    else if (event.key.toLowerCase() === 'l') {
         console.log("toggling gouraud");
         renderer.forgeGouraud = !renderer.forgeGouraud;
       }
+    else if (event.key.toLowerCase() === 'i'){
+      chaikin_iterations +=1;
+      if(chaikin_iterations>8){
+        chaikin_iterations = 8;
+      }
+      positions = chaikin(original_positions, chaikin_iterations);
+      lines = linesFromPositions(positions);
+    }
+    else if (event.key.toLowerCase() === 'j'){
+      chaikin_iterations -=1;
+      if(chaikin_iterations<0){
+        chaikin_iterations = 0;
+      }
+      positions = chaikin(original_positions, chaikin_iterations);
+      lines = linesFromPositions(positions);
+    }
   });
 
 
