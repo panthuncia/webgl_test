@@ -1,11 +1,11 @@
-var v0 = normalize([-1.0, -1.0,  1.0, 1], true); // Front-bottom-left
-var v1 = normalize([1.0, -1.0,  1.0, 1], true); // Front-bottom-right
-var v2 = normalize([1.0,  1.0,  1.0, 1], true); // Front-top-right
-var v3 = normalize([-1.0,  1.0,  1.0, 1], true); // Front-top-left
-var v4 = normalize([-1.0, -1.0, -1.0, 1], true); // Back-bottom-left
-var v5 = normalize([1.0, -1.0, -1.0, 1], true); // Back-bottom-right
-var v6 = normalize([1.0,  1.0, -1.0, 1], true); // Back-top-right
-var v7 = normalize([-1.0,  1.0, -1.0, 1], true); // Back-top-left
+var v0 = normalize([-1.0, -1.0,  1.0, 1], true);
+var v1 = normalize([1.0, -1.0,  1.0, 1], true);
+var v2 = normalize([1.0,  1.0,  1.0, 1], true);
+var v3 = normalize([-1.0,  1.0,  1.0, 1], true);
+var v4 = normalize([-1.0, -1.0, -1.0, 1], true);
+var v5 = normalize([1.0, -1.0, -1.0, 1], true);
+var v6 = normalize([1.0,  1.0, -1.0, 1], true);
+var v7 = normalize([-1.0,  1.0, -1.0, 1], true);
 
 async function main() {
 
@@ -15,10 +15,21 @@ async function main() {
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
 
-  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 5);
+  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 2);
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
   let subdivisionData1 = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0);
   let mainObject1 = renderer.createObjectFromData(subdivisionData1.pointsArray, subdivisionData1.normalsArray, subdivisionData1.texCoordArray);
+
+  let playTime = 5;
+  let animation = new AnimationClip();
+  let positions = [[0, 0, 0], [10, 0, 0], [0, 10, 0], [0, 0, 0], [10, 0, 0]];
+  positions = chaikin(positions, 10);
+  let lines = linesFromPositions(positions);
+  animation.addPositionKeyframe(0, new Transform(positions[0]));
+  for (let i=1; i<positions.length-1; i++){
+    animation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
+  }
+  mainObject.animationController.setAnimationClip(animation);
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
@@ -27,8 +38,8 @@ async function main() {
 
   //mainObject.transform.setLocalRotation([0, 0, 0]);
   //mainObject.transform.setLocalPosition([8, 10, 0]);
-  mainObject.transform.setLocalScale([20, 20, 20]);
-  mainObject1.transform.setLocalScale([20, 20, 20]);
+  //mainObject.transform.setLocalScale([20, 20, 20]);
+  //mainObject1.transform.setLocalScale([20, 20, 20]);
 
   //sphereObject.transform.setLocalPosition([10, 10, 10]);
   //sphereObject.transform.setLocalScale([4, 4, 4]);
@@ -51,20 +62,29 @@ async function main() {
   //renderer.addLight(light3);
   //renderer.addLight(light4);
   renderer.addLight(light5);
-  //renderer.addLight(light6);
+  renderer.addLight(light6);
   
   document.addEventListener('keydown', (event) => {
     if (event.key === 'm') {
         console.log("toggling wireframe");
         renderer.forceWireframe = !renderer.forceWireframe;
       }
+    if (event.key === 'l') {
+        console.log("toggling gouraud");
+        renderer.forgeGouraud = !renderer.forgeGouraud;
+      }
   });
 
 
   createDebugTriangle(renderer.gl);
   await(createDebugQuad(renderer.gl));
+  var startTime = new Date().getTime() / 1000;
+  mainObject.animationController.play(startTime);
   async function drawScene() {
+    let currentTime = new Date().getTime() / 1000;
+    mainObject.animationController.update(currentTime);
     await(renderer.drawScene());
+    renderer.drawLines(lines);
     requestAnimationFrame(drawScene);
   }
   requestAnimationFrame(drawScene);

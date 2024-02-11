@@ -150,46 +150,112 @@ class Transform {
   }
 }
 
+class Keyframe {
+  constructor(time, transform) {
+    this.time = time;
+    this.transform = transform;
+  }
+}
+
+class AnimationClip {
+  constructor() {
+    this.positionKeyframes = [];
+    this.rotationKeyframes = [];
+    this.scaleKeyframes = [];
+    this.duration = 0;
+  }
+
+  // Add keyframes to the animation clip
+  addPositionKeyframe(time, position) {
+    this.positionKeyframes.push(new Keyframe(this.duration+time, position));
+    this.duration+=time;
+    //this.calculateDuration();
+  }
+
+  addRotationKeyframe(time, rotation) {
+    this.rotationKeyframes.push(new Keyframe(time, rotation));
+    //this.calculateDuration();
+  }
+
+  addScaleKeyframe(time, scale) {
+    this.scaleKeyframes.push(new Keyframe(time, scale));
+    //this.calculateDuration();
+  }
+
+  // Calculate the duration of the animation clip
+  calculateDuration() {
+    let lastKeyframeTime = Math.max(
+      this.positionKeyframes.length ? this.positionKeyframes[this.positionKeyframes.length - 1].time : 0,
+      this.rotationKeyframes.length ? this.rotationKeyframes[this.rotationKeyframes.length - 1].time : 0,
+      this.scaleKeyframes.length ? this.scaleKeyframes[this.scaleKeyframes.length - 1].time : 0
+    );
+    this.duration = lastKeyframeTime;
+  }
+  findBoundingKeyframes(currentTime){
+    let prevKeyframe = this.positionKeyframes[0];
+    let nextKeyframe = this.positionKeyframes[this.positionKeyframes.length - 1];
+    // let thisTime = 0;
+    // let nextTime = 0;
+    if (this.positionKeyframes.length === 0) {
+      return false;
+    } else {
+      for (let i = 0; i < this.positionKeyframes.length - 1; i++) {
+        // thisTime +=this.positionKeyframes[i].time;
+        // nextTime +=this.positionKeyframes[i + 1].time;
+        if (currentTime >= this.positionKeyframes[i].time && currentTime <= this.positionKeyframes[i+1].time) {
+          prevKeyframe = this.positionKeyframes[i];
+          nextKeyframe = this.positionKeyframes[i + 1];
+          break;
+        }
+      }
+    }
+  
+    return {position:{ prevKeyframe, nextKeyframe }};
+  }
+}
+
 class AnimationController {
   constructor(node) {
     this.node = node; // The SceneNode to be animated
     this.animationClip = null; // The current animation clip
     this.currentTime = 0; // Current time in the animation playback
     this.isPlaying = false; // Whether the animation is playing
+    this.startTime=0;
   }
 
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
   }
 
-  play() {
+  play(startTime) {
     this.isPlaying = true;
     this.currentTime = 0;
+    this.startTime = startTime;
   }
 
   stop() {
     this.isPlaying = false;
   }
 
-  update(deltaTime) {
+  update(currentTime) {
     if (!this.isPlaying || !this.animationClip) return;
 
-    this.currentTime += deltaTime;
+    //this.currentTime += deltaTime;
 
     // Loop the animation
-    if (this.currentTime > this.animationClip.duration) {
-      this.currentTime -= this.animationClip.duration;
-    }
+    this.currentTime = (currentTime-this.startTime)%this.animationClip.duration;
 
     // Update the node's transform based on the current time
     this.updateTransform();
   }
 
   updateTransform() {
-    // Interpolate the position, rotation, and scale based on the current time
-    // and set them on the node's transform.
-    // This can be done by finding the two keyframes surrounding the current time
-    // for each property and interpolating between their values.
+    let boundingFrames = this.animationClip.findBoundingKeyframes(this.currentTime);
+    const timeElapsed = this.currentTime - boundingFrames.position.prevKeyframe.time;
+    const diff = boundingFrames.position.nextKeyframe.time-boundingFrames.position.prevKeyframe.time;
+    const t = diff > 0 ? timeElapsed / diff : 0;
+    let interpolatedPosition = lerpTransform(boundingFrames.position.prevKeyframe.transform, boundingFrames.position.nextKeyframe.transform, t);
+    this.node.transform.setLocalPosition(interpolatedPosition.pos);
   }
 }
 
@@ -198,6 +264,7 @@ class SceneNode {
     this.children = [];
     this.parent = null;
     this.transform = new Transform();
+    this.animationController = new AnimationController(this);
   }
   addChild(node) {
     this.children.push(node);

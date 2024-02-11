@@ -665,3 +665,50 @@ function cube(a, b, c, d, e, f, g, h, n) {
 
   return {pointsArray, normalsArray, texCoordArray};
 }
+
+function lerpTransform(transformA, transformB, t) {
+  // Interpolate position
+  let newPos = vec3.create();
+  vec3.lerp(newPos, transformA.pos, transformB.pos, t);
+
+  // Interpolate rotation
+  let newRot = quat.create();
+  quat.slerp(newRot, transformA.rot, transformB.rot, t);
+
+  // Interpolate scale
+  let newScale = vec3.create();
+  vec3.lerp(newScale, transformA.scale, transformB.scale, t);
+
+  let newTransform = new Transform(newPos, [0, 0, 0], newScale);
+  newTransform.rot = newRot;
+
+  return newTransform;
+}
+
+function linesFromPositions(positions){
+  let lines = [];
+  for(let i=0; i<positions.length-1; i++){
+    lines.push(positions[i][0], positions[i][1], positions[i][2], positions[i+1][0], positions[i+1][1], positions[i+1][2]);
+  }
+  return lines;
+}
+
+function chaikin(vertices, iterations) {
+
+  if (iterations === 0) {
+      return vertices;
+  }
+
+  var newVertices = [];
+
+  for(var i = 0; i < vertices.length - 1; i++) {
+      var v0 = vertices[i];
+      var v1 = vertices[i + 1];
+
+      var p0 = mix(v0, v1, 0.25);
+      var p1 = mix(v0, v1, 0.75);
+
+      newVertices.push(p0, p1);
+  }
+  return chaikin(newVertices, iterations - 1);
+}

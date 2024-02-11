@@ -60,6 +60,15 @@ class WebGLRenderer {
     this.MAX_POINT_LIGHTS = 2;
     this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS + this.MAX_SPOT_LIGHTS + this.MAX_POINT_LIGHTS;
 
+    this.standardHeader = `#version 300 es
+    #define MAX_DIRECTIONAL_LIGHTS `+this.MAX_DIRECTIONAL_LIGHTS+`
+    #define MAX_SPOT_LIGHTS `+this.MAX_SPOT_LIGHTS+`
+    #define MAX_POINT_LIGHTS `+this.MAX_POINT_LIGHTS+`
+    #define MAX_LIGHTS `+this.MAX_LIGHTS+`
+    #define NUM_CASCADE_SPLITS `+this.NUM_SHADOW_CASCADES+`
+    precision highp float;
+    precision highp int;\n`
+
     //shader variants for conditional compilation
     this.SHADER_VARIANTS = {
       SHADER_VARIANT_NORMAL_MAP: 0b1,
@@ -69,6 +78,7 @@ class WebGLRenderer {
       SHADER_VARIANT_OPACITY_MAP: 0b10000,
       SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
       SHADER_VARIANT_WIREFRAME: 0b1000000,
+      SHADER_VARIANT_FORCE_GOURAUD: 0b10000000,
     };
 
     this.shaderProgramVariants = {};
@@ -98,6 +108,9 @@ class WebGLRenderer {
     this.createCallbacks();
 
     this.forceWireframe = false;
+    this.forgeGouraud = false;
+
+    this.initLineRenderer();
   }
   addObject(object) {
     this.currentScene.objects.push(object);
@@ -114,7 +127,7 @@ class WebGLRenderer {
   getProgram(fsSource, vsSource, variantID) {
     const gl = this.gl;
 
-    let defines = "#version 300 es\n";
+    let defines = this.standardHeader;
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
       defines += "#define USE_NORMAL_MAP\n";
     }
@@ -135,6 +148,9 @@ class WebGLRenderer {
     }
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME) {
       defines += "#define WIREFRAME\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD) {
+      defines += "#define GOURAUD\n";
     }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
@@ -157,9 +173,9 @@ class WebGLRenderer {
     this.buffers.lightUBOBindingLocation = 2;
 
     //get uniform block info
-    const perFrameBlockName = "FSPerFrame";
-    const perMaterialBlockName = "FSPerMaterial";
-    const lightBlockName = "FSLightInfo";
+    const perFrameBlockName = "PerFrame";
+    const perMaterialBlockName = "PerMaterial";
+    const lightBlockName = "LightInfo";
     const perFrameBlockIndex = gl.getUniformBlockIndex(shaderProgram, perFrameBlockName);
     const perMaterialBlockIndex = gl.getUniformBlockIndex(shaderProgram, perMaterialBlockName);
     const lightBlockIndex = gl.getUniformBlockIndex(shaderProgram, lightBlockName);
@@ -233,15 +249,15 @@ class WebGLRenderer {
       shaderProgram = this.getProgram(fsSource, vsSource, variantID);
 
       //bind UBOs
-      let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "FSPerFrame");
+      let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "PerFrame");
       gl.uniformBlockBinding(shaderProgram, perFrameIndex, this.buffers.perFrameUBOBindingLocation);
       gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perFrameUBOBindingLocation, this.buffers.perFrameUBO);
 
-      let perMaterialIndex = gl.getUniformBlockIndex(shaderProgram, "FSPerMaterial");
+      let perMaterialIndex = gl.getUniformBlockIndex(shaderProgram, "PerMaterial");
       gl.uniformBlockBinding(shaderProgram, perMaterialIndex, this.buffers.perMaterialUBOBindingLocation);
       gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBOBindingLocation, this.buffers.perMaterialUBO);
 
-      let lightInfoIndex = gl.getUniformBlockIndex(shaderProgram, "FSLightInfo");
+      let lightInfoIndex = gl.getUniformBlockIndex(shaderProgram, "LightInfo");
       gl.uniformBlockBinding(shaderProgram, lightInfoIndex, this.buffers.lightUBOBindingLocation);
       gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.lightUBOBindingLocation, this.buffers.lightUBO);
 
@@ -322,6 +338,9 @@ class WebGLRenderer {
       let currentVariant = object.shaderVariant;
       if(this.forceWireframe){
         currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+      }
+      if(this.forgeGouraud){
+        currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD;
       }
       if (!this.shaderProgramVariants[currentVariant]) {
         this.createProgramVariants([currentVariant]);
@@ -629,7 +648,7 @@ class WebGLRenderer {
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    var greyPixel = new Uint8Array([128, 0, 0, 255]); // RGB for grey, A for opacity
+    var greyPixel = new Uint8Array([255, 0, 0, 255]); // RGB for grey, A for opacity
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
 
     // Set texture parameters (optional, but good practice)
