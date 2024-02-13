@@ -25,6 +25,7 @@ class WebGLRenderer {
       numLights: 0,
       objects: {},
       numObjects: 0,
+      sceneRoot: new SceneNode(),
       camera: {
         position: vec3.create(),
         lookAt: vec3.fromValues(0, 0, 0),
@@ -114,11 +115,10 @@ class WebGLRenderer {
     this.forceGouraud = false;
 
     this.initLineRenderer();
-    this.sceneRoot = new SceneNode();
   }
   addObject(object) {
     this.numObjects++;
-    this.sceneRoot.addChild(object);
+    this.currentScene.sceneRoot.addChild(object);
     object.localID = this.currentScene.nextObjectID;
     this.currentScene.objects[this.currentScene.nextObjectID] = object;
     this.currentScene.nextObjectID++;
@@ -138,7 +138,7 @@ class WebGLRenderer {
   }
   addLight(light) {
     this.currentScene.numLights++;
-    this.sceneRoot.addChild(light);
+    this.currentScene.sceneRoot.addChild(light);
     light.localID = this.currentScene.nextObjectID;
     this.currentScene.lights[this.currentScene.nextObjectID] = light;
     this.currentScene.nextObjectID++;
