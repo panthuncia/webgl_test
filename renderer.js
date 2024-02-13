@@ -299,7 +299,6 @@ class WebGLRenderer {
       };
       //conditional attributes and uniforms
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        //programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
         programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, "a_tangent");
         programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, "a_bitangent");
         programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, "u_normalMap");
@@ -368,8 +367,6 @@ class WebGLRenderer {
       const programInfo = this.shaderProgramVariants[currentVariant];
       gl.useProgram(programInfo.program);
 
-      // gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
-      // gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
@@ -377,15 +374,6 @@ class WebGLRenderer {
 
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
-
-      // gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
-      // gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
-
-      //bind uniform buffers
 
       //bind shadow maps
 
