@@ -114,9 +114,11 @@ class WebGLRenderer {
     this.forceGouraud = false;
 
     this.initLineRenderer();
+    this.sceneRoot = new SceneNode();
   }
   addObject(object) {
     this.numObjects++;
+    this.sceneRoot.addChild(object);
     object.localID = this.currentScene.nextObjectID;
     this.currentScene.objects[this.currentScene.nextObjectID] = object;
     this.currentScene.nextObjectID++;
@@ -129,10 +131,14 @@ class WebGLRenderer {
       object.parent.removeChild(objectID);
     }
     delete this.currentScene.objects[objectID];
-
+  }
+  getObjectById(objectID){
+    let object = this.currentScene.objects[objectID];
+    return  object === undefined ? this.currentScene.lights[objectID] : object;
   }
   addLight(light) {
     this.currentScene.numLights++;
+    this.sceneRoot.addChild(light);
     light.localID = this.currentScene.nextObjectID;
     this.currentScene.lights[this.currentScene.nextObjectID] = light;
     this.currentScene.nextObjectID++;

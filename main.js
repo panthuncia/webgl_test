@@ -28,7 +28,6 @@ async function main() {
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 15;
-  let animation = new AnimationClip();
   let original_positions = [[11, 36, 17],
   [44, 49, 23],
   [0, 32, 30],
@@ -48,8 +47,9 @@ async function main() {
     position[1] -=13;
     position[2] -=13;
   }
-  let chaikin_iterations = 0
-  changeChaikin(0);
+  let chaikin_iterations = 0;
+  lines = {}
+  lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
 
   mainObject.animationController.pause();
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
@@ -63,15 +63,25 @@ async function main() {
   //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
+  renderer.addLight(light1);
+
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
+  let light_positions = [[5, 3, 5],
+  [5, 3, -5],
+  [-5, 3, -5],
+  [-5, 3, 5 ],
+  [5, 3, 5],
+  [5, 3, -5]];
+
+  lines[light1.localID] = setChaikin(light1, light_positions, 8);
+
   mainObject.addChild(light1);
 
-  renderer.addLight(light1);
   //renderer.addLight(light2);
   //renderer.addLight(light3);
   //renderer.addLight(light4);
@@ -79,22 +89,15 @@ async function main() {
   //renderer.addLight(light6);
   let playing = false;
 
-  function changeChaikin(amount){
-    chaikin_iterations +=amount;
-      if(chaikin_iterations>8){
-        chaikin_iterations = 8;
-      }
-      if(chaikin_iterations<0){
-        chaikin_iterations = 0;
-      }
-      positions = chaikin(original_positions, chaikin_iterations);
-      lines = linesFromPositions(positions);
+  function setChaikin(object, points, amount){
+      let positions = chaikin(points, amount);
       let newAnimation = new AnimationClip();
       newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
       for (let i=1; i<positions.length-1; i++){
         newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
       }
-      mainObject.animationController.setAnimationClip(newAnimation);
+      object.animationController.setAnimationClip(newAnimation);
+      return linesFromPositions(positions);
   }
 
   function changeSphereSubdivision(amount){
@@ -127,9 +130,17 @@ async function main() {
         renderer.forceGouraud = !renderer.forceGouraud;
       }
     else if (event.key.toLowerCase() === 'i'){
-      changeChaikin(1);
+      chaikin_iterations++
+      if(chaikin_iterations>8){
+        chaikin_iterations = 8;
+      }
+      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
     }else if (event.key.toLowerCase() === 'j'){
-      changeChaikin(-1);
+      chaikin_iterations--;
+      if(chaikin_iterations<0){
+        chaikin_iterations = 0;
+      }
+      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
     }else if (event.key.toLowerCase() === 'q'){
       changeSphereSubdivision(-1);
     }else if (event.key.toLowerCase() === 'e'){
@@ -146,7 +157,10 @@ async function main() {
     lastTime = currentTime;
     mainObject.animationController.update(elapsed);
     await(renderer.drawScene());
-    renderer.drawLines(lines);
+    for (let key in lines){
+      let object = renderer.getObjectById(key);
+      renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
+    }
     requestAnimationFrame(drawScene);
   }
   requestAnimationFrame(drawScene);

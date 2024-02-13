@@ -261,6 +261,10 @@ class SceneNode {
   }
   addChild(node) {
     this.children[node.localID] = node;
+    //a node can only inheret from one parent, and may only be a child of its parent
+    if (node.parent != null){
+      node.parent.removeChild(node.localID);
+    }
     node.parent = this;
   }
   removeChild(childId){
