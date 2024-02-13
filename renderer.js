@@ -111,7 +111,7 @@ class WebGLRenderer {
     this.createCallbacks();
 
     this.forceWireframe = false;
-    this.forgeGouraud = false;
+    this.forceGouraud = false;
 
     this.initLineRenderer();
   }
@@ -359,7 +359,7 @@ class WebGLRenderer {
       if(this.forceWireframe){
         currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
       }
-      if(this.forgeGouraud){
+      if(this.forceGouraud){
         currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD;
       }
       if (!this.shaderProgramVariants[currentVariant]) {

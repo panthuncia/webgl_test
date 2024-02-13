@@ -11,6 +11,7 @@ async function main() {
 
   //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
   let renderer = new WebGLRenderer("webgl-canvas");
+  await(createDebugQuad(renderer.gl));
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
@@ -93,36 +94,12 @@ async function main() {
   //renderer.addLight(light5);
   //renderer.addLight(light6);
   let playing = false;
-  document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'm') {
-        console.log("toggling wireframe");
-        renderer.forceWireframe = !renderer.forceWireframe;
-      }
-    else if (event.key.toLowerCase() === 'l') {
-        console.log("toggling gouraud");
-        renderer.forgeGouraud = !renderer.forgeGouraud;
-      }
-    else if (event.key.toLowerCase() === 'i'){
-      chaikin_iterations +=1;
+
+  function changeChaikin(amount){
+    chaikin_iterations +=amount;
       if(chaikin_iterations>8){
         chaikin_iterations = 8;
       }
-      positions = chaikin(original_positions, chaikin_iterations);
-      lines = linesFromPositions(positions);
-      let newAnimation = new AnimationClip();
-      newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
-      for (let i=1; i<positions.length-1; i++){
-        newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
-      }
-      let oldTime = mainObject.animationController.currentTime;
-      let paused = mainObject.animationController.isPlaying;
-      mainObject.animationController.setAnimationClip(newAnimation);
-      mainObject.animationController.reset();
-      mainObject.animationController.update(oldTime, true);
-      mainObject.animationController.isPlaying = paused;
-        }
-    else if (event.key.toLowerCase() === 'j'){
-      chaikin_iterations -=1;
       if(chaikin_iterations<0){
         chaikin_iterations = 0;
       }
@@ -133,40 +110,52 @@ async function main() {
       for (let i=1; i<positions.length-1; i++){
         newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
       }
-      let oldTime = mainObject.animationController.currentTime;
-      let paused = mainObject.animationController.isPlaying;
       mainObject.animationController.setAnimationClip(newAnimation);
-      mainObject.animationController.reset();
-      mainObject.animationController.update(oldTime, true);
-      mainObject.animationController.isPlaying = paused;
+  }
+
+  function changeSphereSubdivision(amount){
+    currentSubdivisions+=amount;
+    if (currentSubdivisions>5){
+      currentSubdivisions = 5;
     }
-    else if (event.key.toLowerCase() === 'q'){
-      currentSubdivisions-=1;
-      if (currentSubdivisions<0){
-        currentSubdivisions = 0;
+    if (currentSubdivisions<0){
+      currentSubdivisions = 0;
+    }
+    let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
+    renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+  }
+
+  function toggleAnimation(){
+    if(!playing){
+      mainObject.animationController.unpause();
+      playing = true;
+    } else {
+      mainObject.animationController.pause();
+      playing = false;
+    }
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'm') {
+        renderer.forceWireframe = !renderer.forceWireframe;
       }
-      let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+    else if (event.key.toLowerCase() === 'l') {
+        renderer.forceGouraud = !renderer.forceGouraud;
+      }
+    else if (event.key.toLowerCase() === 'i'){
+      changeChaikin(1);
+    }else if (event.key.toLowerCase() === 'j'){
+      changeChaikin(-1);
+    }else if (event.key.toLowerCase() === 'q'){
+      changeSphereSubdivision(-1);
     }else if (event.key.toLowerCase() === 'e'){
-      currentSubdivisions+=1;
-      if (currentSubdivisions>5){
-        currentSubdivisions = 5;
-      }
-      let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+      changeSphereSubdivision(1);
     }else if (event.key.toLowerCase() === 'a'){
-      if(!playing){
-        mainObject.animationController.unpause();
-        playing = true;
-      } else {
-        mainObject.animationController.pause();
-        playing = false;
-      }
+      toggleAnimation();
     }
   });
-
+  
   let lastTime = new Date().getTime() / 1000;
-  await(createDebugQuad(renderer.gl));
   async function drawScene() {
     let currentTime = new Date().getTime() / 1000;
     let elapsed = currentTime - lastTime;
