@@ -17,14 +17,14 @@ async function main() {
 
   let currentSubdivisions = 0;
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-  let textureImage = await loadTexture("textures/stonewall/scpgdgca_8K_Albedo.jpg");
-  let texture = createWebGLTexture(renderer.gl, textureImage, true, true);
-  let normalImage = await loadTexture("textures/stonewall/scpgdgca_8K_Normal.jpg");
-  let normal = createWebGLTexture(renderer.gl, normalImage, true, true);
-  let heightImage = await loadTexture("textures/stonewall/scpgdgca_8K_Displacement.jpg");
-  let height = createWebGLTexture(renderer.gl, heightImage, true, true);
-  let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
-  let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
+  // let textureImage = await loadTexture("textures/stonewall/scpgdgca_8K_Albedo.jpg");
+  // let texture = createWebGLTexture(renderer.gl, textureImage, true, true);
+  // let normalImage = await loadTexture("textures/stonewall/scpgdgca_8K_Normal.jpg");
+  // let normal = createWebGLTexture(renderer.gl, normalImage, true, true);
+  // let heightImage = await loadTexture("textures/stonewall/scpgdgca_8K_Displacement.jpg");
+  // let height = createWebGLTexture(renderer.gl, heightImage, true, true);
+  // let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
+  // let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 15;
@@ -84,14 +84,15 @@ async function main() {
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
+  mainObject.addChild(light1);
+
   renderer.addLight(light1);
-  renderer.addLight(light2);
+  //renderer.addLight(light2);
   //renderer.addLight(light3);
   //renderer.addLight(light4);
   //renderer.addLight(light5);
   //renderer.addLight(light6);
   let playing = false;
-  let firstRun = true;
   document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'm') {
         console.log("toggling wireframe");
@@ -145,24 +146,14 @@ async function main() {
         currentSubdivisions = 0;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
-      newObject.transform = mainObject.transform;
-      newObject.animationController = mainObject.animationController;
-      newObject.animationController.node = newObject;
-      renderer.removeObject(objectID);
-      objectID = renderer.addObject(newObject);
+      renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
     }else if (event.key.toLowerCase() === 'e'){
       currentSubdivisions+=1;
       if (currentSubdivisions>5){
         currentSubdivisions = 5;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
-      newObject.transform = mainObject.transform;
-      newObject.animationController = mainObject.animationController;
-      newObject.animationController.node = newObject;
-      renderer.removeObject(objectID);
-      objectID = renderer.addObject(newObject);
+      renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
     }else if (event.key.toLowerCase() === 'a'){
       if(!playing){
         mainObject.animationController.unpause();

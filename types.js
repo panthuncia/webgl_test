@@ -251,23 +251,25 @@ class AnimationController {
 
 class SceneNode {
   constructor() {
-    this.children = [];
+    this.children = {};
     this.parent = null;
     this.transform = new Transform();
     this.animationController = new AnimationController(this);
     this.localID = 0;
   }
   addChild(node) {
-    this.children.push(node);
+    this.children[node.localID] = node;
     node.parent = this;
+  }
+  removeChild(childId){
+    delete this.children[childId];
   }
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
-      return;
     }
-    for (child of this.children) {
-      child.update();
+    for (let childKey in this.children) {
+      this.children[childKey].update();
     }
   }
   forceUpdate() {
@@ -276,13 +278,16 @@ class SceneNode {
     } else {
       this.transform.computeLocalModelMatrix();
     }
+    for (let childKey in this.children) {
+      this.children[childKey].forceUpdate();
+    }
   }
 }
 
 class Material {
   constructor(textureScale){
     this.ambientStrength = 0.01;
-    this.specularStrength = 1.0;
+    this.specularStrength = 2.0;
     this.textureScale = textureScale;
   }
 }
@@ -290,9 +295,6 @@ class Material {
 class RenderableObject extends SceneNode {
   constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale) {
     super();
-    this.material = new Material(textureScale);
-    this.shaderVariant = shaderVariant;
-    this.meshes = meshes;
     this.textures = [];
     this.normals = [];
     this.aoMaps = [];
@@ -300,6 +302,13 @@ class RenderableObject extends SceneNode {
     this.metallic = [];
     this.roughness = [];
     this.opacity = [];
+    this.setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+  }
+
+  setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale){
+    this.material = new Material(textureScale);
+    this.shaderVariant = shaderVariant;
+    this.meshes = meshes;
     for (let i = 0; i < meshes.length; i++) {
       if (textures.length >= i + 1) {
         this.textures.push(textures[i]);
@@ -467,10 +476,9 @@ class Light extends SceneNode {
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
-      return;
     }
-    for (child of this.children) {
-      child.update();
+    for (let childKey in this.children) {
+      this.children[childKey].update();
     }
   }
   forceUpdate() {
@@ -479,6 +487,9 @@ class Light extends SceneNode {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
       this.transform.computeLocalModelMatrix();
+    }
+    for (let childKey in this.children) {
+      this.children[childKey].forceUpdate();
     }
     //recalculate view matrix with new location
     switch (this.type) {

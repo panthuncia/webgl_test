@@ -236,7 +236,7 @@ function getBarycentricCoordinates(length){
   return coords;
 }
 
-function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
+function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], reuseTextures = true){
   meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
@@ -264,7 +264,17 @@ function createRenderable(gl, data, shaderVariant, textures = [], normals = [], 
   if(opacity.length==1 && reuseTextures){
     padArray(opacity, opacity[0], meshes.length-1);
   }
-  return new RenderableObject(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+  return {meshes, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity}
+}
+
+function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
+  newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures);
+  return new RenderableObject(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
+}
+
+function updateRenderable(gl, renderable, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
+  newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures)
+  return renderable.setData(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
 }
 
 async function loadTexture(url) {

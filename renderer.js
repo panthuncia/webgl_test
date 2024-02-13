@@ -21,8 +21,10 @@ class WebGLRenderer {
     this.currentScene = {
       nextObjectID: 0,
       shadowScene: {},
-      lights: [],
-      objects: [],
+      lights: {},
+      numLights: 0,
+      objects: {},
+      numObjects: 0,
       camera: {
         position: vec3.create(),
         lookAt: vec3.fromValues(0, 0, 0),
@@ -114,17 +116,27 @@ class WebGLRenderer {
     this.initLineRenderer();
   }
   addObject(object) {
+    this.numObjects++;
     object.localID = this.currentScene.nextObjectID;
     this.currentScene.objects[this.currentScene.nextObjectID] = object;
     this.currentScene.nextObjectID++;
     return object.localID;
   }
   removeObject(objectID) {
+    this.numObjects--;
+    let object = this.currentScene.objects[objectID];
+    if (object.parent != null){
+      object.parent.removeChild(objectID);
+    }
     delete this.currentScene.objects[objectID];
+
   }
   addLight(light) {
-    this.currentScene.lights.push(light);
-    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.lights.length, true);
+    this.currentScene.numLights++;
+    light.localID = this.currentScene.nextObjectID;
+    this.currentScene.lights[this.currentScene.nextObjectID] = light;
+    this.currentScene.nextObjectID++;
+    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
     this.initLightVectors();
     
     if (light.type == LightType.DIRECTIONAL){
@@ -313,8 +325,8 @@ class WebGLRenderer {
     for (let key in this.currentScene.objects) {
       this.currentScene.objects[key].update();
     }
-    for (let entity of this.currentScene.lights) {
-      entity.update();
+    for (let key in this.currentScene.lights) {
+      this.currentScene.lights[key].update();
     }
   }
 
@@ -484,12 +496,13 @@ class WebGLRenderer {
     this.updateCamera();
   }
   updateLights() {
-    this.currentScene.numLights = this.currentScene.lights.length;
     let spotNum = 0;
     let pointNum = 0;
-    for (let i = 0; i < this.currentScene.lights.length; i++) {
-      
-      let lightPosWorld = this.currentScene.lights[i].transform.pos;
+    let i=0;
+    for (let key in this.currentScene.lights) {
+      let light = this.currentScene.lights[key];
+
+      let lightPosWorld = light.transform.getGlobalPosition();
       let lightPosView = vec3.create();
       vec3.transformMat4(lightPosView, lightPosWorld, this.matrices.viewMatrix);
 
@@ -498,18 +511,18 @@ class WebGLRenderer {
       this.currentScene.lightPositionsData[i * 4 + 2] = lightPosView[2];
       this.currentScene.lightPositionsData[i * 4 + 3] = 0; //padding for uniform block alignment, unused in shader
 
-      this.currentScene.lightAttenuationsData[i * 4] = this.currentScene.lights[i].constantAttenuation;
-      this.currentScene.lightAttenuationsData[i * 4 + 1] = this.currentScene.lights[i].linearAttenuation;
-      this.currentScene.lightAttenuationsData[i * 4 + 2] = this.currentScene.lights[i].quadraticAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4] = light.constantAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4 + 1] = light.linearAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4 + 2] = light.quadraticAttenuation;
 
-      let lightColor = this.currentScene.lights[i].color;
-      let lightIntensity = this.currentScene.lights[i].intensity;
+      let lightColor = light.color;
+      let lightIntensity = light.intensity;
       this.currentScene.lightColorsData[i * 4] = lightColor[0] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
-      let lightDirWorld = this.currentScene.lights[i].getLightDir();
+      let lightDirWorld = light.getLightDir();
       let lightDirView = vec3.create();
       let viewMatrix3x3 = mat3.create();
       mat3.fromMat4(viewMatrix3x3, this.matrices.viewMatrix); // Extract the upper-left 3x3 part
@@ -519,28 +532,29 @@ class WebGLRenderer {
       this.currentScene.lightDirectionsData[i * 4 + 1] = lightDirView[1];
       this.currentScene.lightDirectionsData[i * 4 + 2] = lightDirView[2];
 
-      this.currentScene.lightPropertiesData[i * 4] = this.currentScene.lights[i].type;
-      if (this.currentScene.lights[i].type == LightType.SPOT) {
-        this.currentScene.lightPropertiesData[i * 4 + 1] = this.currentScene.lights[i].innerConeCos;
-        this.currentScene.lightPropertiesData[i * 4 + 2] = this.currentScene.lights[i].outerConeCos;
+      this.currentScene.lightPropertiesData[i * 4] = light.type;
+      if (light.type == LightType.SPOT) {
+        this.currentScene.lightPropertiesData[i * 4 + 1] = light.innerConeCos;
+        this.currentScene.lightPropertiesData[i * 4 + 2] = light.outerConeCos;
       }
 
-      switch (this.currentScene.lights[i].type){
+      switch (light.type){
         case LightType.SPOT:
-          if (this.currentScene.lights[i].dirtyFlag){
-            dataViewSetMatrix(this.buffers.lightDataView, this.currentScene.lights[i].lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
-            this.currentScene.lights[i].dirtyFlag = false;
+          if (light.dirtyFlag){
+            dataViewSetMatrix(this.buffers.lightDataView, light.lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
+            light.dirtyFlag = false;
           }
           spotNum++;
           break;
         case LightType.POINT:
-          if (this.currentScene.lights[i].dirtyFlag){
-            dataViewSetMatrixArray(this.buffers.lightDataView, this.currentScene.lights[i].lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
-            this.currentScene.lights[i].dirtyFlag = false;
+          if (light.dirtyFlag){
+            dataViewSetMatrixArray(this.buffers.lightDataView, light.lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
+            light.dirtyFlag = false;
           }
           pointNum++;
           break;
       }
+      i++
     }
 
     //update buffer data
@@ -580,8 +594,8 @@ class WebGLRenderer {
       var deltaX = newX - this.lastMouseX;
       var deltaY = newY - this.lastMouseY;
 
-      this.horizontalAngle += deltaX * 0.005; // Adjust sensitivity
-      this.verticalAngle -= deltaY * 0.005; // Adjust sensitivity
+      this.horizontalAngle += deltaX * 0.005; // sensitivity
+      this.verticalAngle -= deltaY * 0.005; // sensitivity
       //console.log(verticalAngle)
       if (this.verticalAngle < 0.0000001) {
         this.verticalAngle = 0.0000001;
@@ -596,23 +610,22 @@ class WebGLRenderer {
       this.lastMouseY = newY;
     };
 
-    // Scroll wheel event listener
     this.canvas.addEventListener("wheel", (event) => {
       // Determine the direction of scrolling (normalize across different browsers)
       let delta = Math.sign(event.deltaY);
 
-      // Adjust zoom level
-      this.distanceFromOrigin += delta * 1; // Adjust zoom speed as necessary
-      this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Prevents zooming too close, adjust as necessary
+      this.distanceFromOrigin += delta * 1; // Zoom speed
+      this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Zoom limit
 
       // Update camera
       this.updateCamera();
     });
   }
   updateCascades(){
-    //update directional light shadow cascades
+    // Update directional light shadow cascades
     let lightSpaceMatrices = [];
-    for (let light of this.currentScene.lights) {
+    for (let key in this.currentScene.lights) {
+      let light = this.currentScene.lights[key];
       if (light.type == LightType.DIRECTIONAL) {
         light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, light, this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
         for (let cascade of light.cascades){
@@ -640,10 +653,10 @@ class WebGLRenderer {
     this.currentScene.camera.position[2] = z+lookAt[2];
 
     // Update view matrix
-    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]); // Adjust up vector as needed
+    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]);
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
 
-    //update shadow cascades after camera moves
+    // Update shadow cascades after camera moves
     this.updateCascades();
   }
   createObjectFromData(pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
@@ -657,10 +670,9 @@ class WebGLRenderer {
       var texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, texture);
 
-      var greyPixel = new Uint8Array([255, 0, 0, 255]); // RGB for grey, A for opacity
+      var greyPixel = new Uint8Array([255, 0, 0, 255]);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
 
-      // Set texture parameters (optional, but good practice)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -677,6 +689,38 @@ class WebGLRenderer {
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
     }
     return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+  }
+
+  setObjectData(object, pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+    const gl = this.gl;
+    let objectData = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    let shaderVariant = 0;
+
+    if (textures.length == 0){
+      var texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      var greyPixel = new Uint8Array([255, 0, 0, 255]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
+
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      textures = [texture];
+    }
+    if (normals.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
+    }
+    if (heightMaps.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
+    }
+    if (metallic.length > 0 || roughness.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
+    }
+    return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0)
   }
   async loadModel(modelDescription) {
     const gl = this.gl;
