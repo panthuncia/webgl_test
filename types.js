@@ -257,7 +257,7 @@ class SceneNode {
     this.parent = null;
     this.transform = new Transform();
     this.animationController = new AnimationController(this);
-    this.localID = 0;
+    this.localID = -1;
   }
   addChild(node) {
     this.children[node.localID] = node;
@@ -285,7 +285,7 @@ class SceneNode {
       this.transform.computeLocalModelMatrix();
     }
     for (let childKey in this.children) {
-      this.children[childKey].forceUpdate();
+      this.children[childKey].update();
     }
   }
 }

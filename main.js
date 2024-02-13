@@ -26,6 +26,8 @@ async function main() {
   // let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
   // let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
+  objectID = renderer.addObject(mainObject);
+
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 15;
   let original_positions = [[11, 36, 17],
@@ -59,7 +61,6 @@ async function main() {
 
   //currentScene.objects = [terrain, mainObject, sphereObject];
   //renderer.addObject(terrain);
-  objectID = renderer.addObject(mainObject);
   //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
@@ -156,6 +157,7 @@ async function main() {
     let elapsed = currentTime - lastTime;
     lastTime = currentTime;
     mainObject.animationController.update(elapsed);
+    light1.animationController.update(elapsed);
     await(renderer.drawScene());
     for (let key in lines){
       let object = renderer.getObjectById(key);

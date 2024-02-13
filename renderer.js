@@ -118,8 +118,8 @@ class WebGLRenderer {
   }
   addObject(object) {
     this.numObjects++;
-    this.currentScene.sceneRoot.addChild(object);
     object.localID = this.currentScene.nextObjectID;
+    this.currentScene.sceneRoot.addChild(object);
     this.currentScene.objects[this.currentScene.nextObjectID] = object;
     this.currentScene.nextObjectID++;
     return object.localID;
@@ -138,8 +138,8 @@ class WebGLRenderer {
   }
   addLight(light) {
     this.currentScene.numLights++;
-    this.currentScene.sceneRoot.addChild(light);
     light.localID = this.currentScene.nextObjectID;
+    this.currentScene.sceneRoot.addChild(light);
     this.currentScene.lights[this.currentScene.nextObjectID] = light;
     this.currentScene.nextObjectID++;
     this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
@@ -327,12 +327,7 @@ class WebGLRenderer {
   }
 
   updateScene() {
-    for (let key in this.currentScene.objects) {
-      this.currentScene.objects[key].update();
-    }
-    for (let key in this.currentScene.lights) {
-      this.currentScene.lights[key].update();
-    }
+    this.currentScene.sceneRoot.forceUpdate();
   }
 
   async drawScene() {
