@@ -211,6 +211,8 @@ class AnimationController {
 
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
+    //dummy update to fix positions
+    this.updateTransform(0);
   }
 
   reset() {

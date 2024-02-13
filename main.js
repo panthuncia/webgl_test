@@ -9,7 +9,6 @@ var v7 = normalize([-1.0,  1.0, -1.0, 1], true);
 
 async function main() {
 
-  //let programInfo = await createProgramVariants("shaders/vertex.glsl", "shaders/fragment.glsl");
   let renderer = new WebGLRenderer("webgl-canvas");
   await(createDebugQuad(renderer.gl));
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
@@ -50,32 +49,17 @@ async function main() {
     position[2] -=13;
   }
   let chaikin_iterations = 0
-  positions = chaikin(original_positions, chaikin_iterations);
-  let lines = linesFromPositions(positions);
-  animation.addPositionKeyframe(0, new Transform(positions[0]));
-  for (let i=1; i<positions.length-1; i++){
-    animation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
-  }
-  mainObject.animationController.setAnimationClip(animation);
+  changeChaikin(0);
+
   mainObject.animationController.pause();
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
-  //terrain.transform.setLocalPosition([0, 0, -100])
-  //terrain.transform.setLocalScale([2, 2, 2])
 
-  //mainObject.transform.setLocalRotation([0, 0, 0]);
-  mainObject.transform.setLocalPosition(positions[0]);
-  //mainObject.transform.setLocalScale([20, 20, 20]);
-  //mainObject1.transform.setLocalScale([20, 20, 20]);
-
-  //sphereObject.transform.setLocalPosition([10, 10, 10]);
-  //sphereObject.transform.setLocalScale([4, 4, 4]);
 
   //currentScene.objects = [terrain, mainObject, sphereObject];
   //renderer.addObject(terrain);
   objectID = renderer.addObject(mainObject);
-  //renderer.addObject(mainObject1);
   //renderer.addObject(sphereObject);
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
