@@ -520,41 +520,11 @@ function calculateUV(a) {
   return [u, v];
 }
 
-function calculateNormal(vertices) {
-  // Initialize the normal vector components
-  let nx = 0, ny = 0, nz = 0;
-
-  // Loop through each vertex
-  for (let i = 0; i < vertices.length; i++) {
-      // Current vertex
-      const current = vertices[i];
-      // Next vertex (with wrap-around)
-      const next = vertices[(i + 1) % vertices.length];
-
-      // Calculate the cross product components
-      nx += (current[1] - next[1]) * (current[2] + next[2]);
-      ny += (current[2] - next[2]) * (current[0] + next[0]);
-      nz += (current[0] - next[0]) * (current[1] + next[1]);
-  }
-
-  // Optionally normalize the resulting vector
-  const length = Math.sqrt(nx * nx + ny * ny + nz * nz);
-  if (length === 0) {
-      return {x: 0, y: 0, z: 0}; // Prevent division by zero
-  }
-
-  return {
-      x: nx / length,
-      y: ny / length,
-      z: nz / length
-  };
-}
-
 function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray) {
 
   pointsArray.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
   
-  normal = calculateNormal([a, b, c]);
+  //normal = calculateNormal([a, b, c]);
 
   // normalsArray.push(normal.x, normal.y, normal.z);
   // normalsArray.push(normal.x, normal.y, normal.z);
