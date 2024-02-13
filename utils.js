@@ -514,8 +514,13 @@ function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
 }
 
 function calculateUV(a) {
-  const u = 0.5 + Math.atan2(a[2], a[0]) / (2 * Math.PI);
-  const v = 0.5 - Math.asin(a[1]) / Math.PI;
+  let theta = Math.atan2(a[1], a[0]);
+  const phi = Math.acos(a[2]/Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]))
+  if (theta<0){
+    theta +=2*Math.PI;
+  }
+  const u = theta/ (2*Math.PI);
+  const v = phi/Math.PI;
   return [u, v];
 }
 
@@ -630,52 +635,34 @@ function cube(a, b, c, d, e, f, g, h, n) {
   let normalsArray = [];
   let texCoordArray = [];
 
-  // a = normalize(a);
-  // b = normalize(b);
-  // c = normalize(c);
-  // d = normalize(d);
-  // e = normalize(e);
-  // f = normalize(f);
-  // g = normalize(g);
-  // h = normalize(h);
+  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray);
 
+  divideTriangle(b, f, e, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(b, e, a, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray); // a-b-c
-  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray); // a-c-d
+  divideTriangle(f, g, h, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(f, h, e, n, pointsArray, normalsArray, texCoordArray);
 
-  // // Right face
-  divideTriangle(b, f, e, n, pointsArray, normalsArray, texCoordArray); // b-f-e
-  divideTriangle(b, e, a, n, pointsArray, normalsArray, texCoordArray); // b-e-a
+  divideTriangle(g, c, d, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(g, d, h, n, pointsArray, normalsArray, texCoordArray);
 
-  // // Back face
-  divideTriangle(f, g, h, n, pointsArray, normalsArray, texCoordArray); // f-g-h
-  divideTriangle(f, h, e, n, pointsArray, normalsArray, texCoordArray); // f-h-e
+  divideTriangle(b, g, f, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray);
 
-  // // Left face
-  divideTriangle(g, c, d, n, pointsArray, normalsArray, texCoordArray); // g-c-d
-  divideTriangle(g, d, h, n, pointsArray, normalsArray, texCoordArray); // g-d-h
-
-  // Top face
-  divideTriangle(b, g, f, n, pointsArray, normalsArray, texCoordArray); // d-c-g
-  divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray); // d-g-h
-
-  // Bottom face
-  divideTriangle(e, h, d, n, pointsArray, normalsArray, texCoordArray); // e-h-d
+  divideTriangle(e, h, d, n, pointsArray, normalsArray, texCoordArray);
   divideTriangle(e, d, a, n, pointsArray, normalsArray, texCoordArray); 
 
   return {pointsArray, normalsArray, texCoordArray};
 }
 
 function lerpTransform(transformA, transformB, t) {
-  // Interpolate position
   let newPos = vec3.create();
   vec3.lerp(newPos, transformA.pos, transformB.pos, t);
 
-  // Interpolate rotation
   let newRot = quat.create();
   quat.slerp(newRot, transformA.rot, transformB.rot, t);
 
-  // Interpolate scale
   let newScale = vec3.create();
   vec3.lerp(newScale, transformA.scale, transformB.scale, t);
 
@@ -711,20 +698,5 @@ function chaikin(vertices, iterations) {
       newVertices.push(p0, p1);
   }
   return chaikin(newVertices, iterations - 1);
-}
-
-function distance3d(p1, p2){
-  let xdiff = p2[0]-p1[0];
-  let ydiff = p2[1]-p1[1];
-  let zdiff = p2[2]-p1[2]
-  return Math.sqrt(xdiff*xdiff+ydiff*ydiff+zdiff*zdiff);
-}
-
-function lineSegmentLength(points, stopAt){
-  let length = 0;
-  for(let i=0; i<Math.min(stopAt, points.length); i++){
-    length +=distance3d(point[i], points[i+1]);
-  }
-  return length;
 }
 

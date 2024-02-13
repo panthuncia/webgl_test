@@ -17,8 +17,16 @@ async function main() {
 
   let currentSubdivisions = 0;
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
-
+  let textureImage = await loadTexture("textures/stonewall/scpgdgca_8K_Albedo.jpg");
+  let texture = createWebGLTexture(renderer.gl, textureImage, true, true);
+  let normalImage = await loadTexture("textures/stonewall/scpgdgca_8K_Normal.jpg");
+  let normal = createWebGLTexture(renderer.gl, normalImage, true, true);
+  let heightImage = await loadTexture("textures/stonewall/scpgdgca_8K_Displacement.jpg");
+  let height = createWebGLTexture(renderer.gl, heightImage, true, true);
+  let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
+  let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
+  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
+  mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 15;
   let animation = new AnimationClip();
   let original_positions = [[11, 36, 17],
@@ -69,19 +77,19 @@ async function main() {
   //renderer.addObject(mainObject1);
   //renderer.addObject(sphereObject);
 
-  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
+  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 80.0, 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  //renderer.addLight(light1);
-  //renderer.addLight(light2);
+  renderer.addLight(light1);
+  renderer.addLight(light2);
   //renderer.addLight(light3);
   //renderer.addLight(light4);
-  renderer.addLight(light5);
-  renderer.addLight(light6);
+  //renderer.addLight(light5);
+  //renderer.addLight(light6);
   let playing = false;
   let firstRun = true;
   document.addEventListener('keydown', (event) => {
@@ -137,7 +145,7 @@ async function main() {
         currentSubdivisions = 0;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
       newObject.transform = mainObject.transform;
       newObject.animationController = mainObject.animationController;
       newObject.animationController.node = newObject;
@@ -149,7 +157,7 @@ async function main() {
         currentSubdivisions = 5;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
       newObject.transform = mainObject.transform;
       newObject.animationController = mainObject.animationController;
       newObject.animationController.node = newObject;

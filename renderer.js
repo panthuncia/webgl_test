@@ -653,18 +653,29 @@ class WebGLRenderer {
     }
     let shaderVariant = 0;
 
-    var texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (textures.length == 0){
+      var texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    var greyPixel = new Uint8Array([255, 0, 0, 255]); // RGB for grey, A for opacity
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
+      var greyPixel = new Uint8Array([255, 0, 0, 255]); // RGB for grey, A for opacity
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
 
-    // Set texture parameters (optional, but good practice)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    textures = [texture];
+      // Set texture parameters (optional, but good practice)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      textures = [texture];
+    }
+    if (normals.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
+    }
+    if (heightMaps.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
+    }
+    if (metallic.length > 0 || roughness.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
+    }
     return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
   async loadModel(modelDescription) {

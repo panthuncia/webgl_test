@@ -7,7 +7,7 @@ class Mesh {
     this.bitangents = bitangents;
     this.baryCoords = baryCoords;
 
-    // Create a VAO
+    // Create VAO
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
 
@@ -61,7 +61,7 @@ class Mesh {
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
     }
 
-    // Unbind the VAO
+    // Unbind VAO
     gl.bindVertexArray(null);
   }
 }
@@ -103,8 +103,8 @@ class Transform {
     this.isDirty = true;
   }
   setLocalRotation(rot) {
-    //Why TF does quat.fromEuler use degrees
-    //Who uses degrees
+    // Why TF does quat.fromEuler use degrees
+    // Who uses degrees
     quat.fromEuler(this.rot, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
@@ -117,7 +117,7 @@ class Transform {
 
     // Calculate the rotation quaternion
     let rotationQuat = quat.create();
-
+    // Handlers for parallel and anti-parallel special cases
     if (dotProduct < -0.9999) {
       // The vectors are anti-parallel
       // Find an arbitrary perpendicular axis
@@ -165,7 +165,6 @@ class AnimationClip {
     this.duration = 0;
   }
 
-  // Add keyframes to the animation clip
   addPositionKeyframe(time, position) {
     this.positionKeyframes.push(new Keyframe(this.duration+time, position));
     this.duration+=time;
@@ -234,7 +233,9 @@ class AnimationController {
     this.currentTime+=elapsedTime;
     this.currentTime%=this.animationClip.duration;
 
-    // Update the node's transform based on the current time
+    // Update the relevant node's transform based on the current time
+    // Hard update for now, should really have some kind of "soft update"
+    // to account for other offsets or animation blending
     this.updateTransform();
   }
 
