@@ -183,14 +183,12 @@ function calculateTangentsBitangents(positions, normals, uvs) {
     };
 
     // Store the tangent and bitangent for each vertex of the triangle
-    //tangents.push(...Array(9).fill(tangent));
     tangents.push(tangent.x, tangent.y, tangent.z);
     tangents.push(tangent.x, tangent.y, tangent.z);
     tangents.push(tangent.x, tangent.y, tangent.z);
     bitangents.push(bitangent.x, bitangent.y, bitangent.z);
     bitangents.push(bitangent.x, bitangent.y, bitangent.z);
     bitangents.push(bitangent.x, bitangent.y, bitangent.z);
-    //bitangents.push(...Array(9).fill(bitangent));
     j += 6;
   }
 
@@ -467,10 +465,8 @@ function createCubemap(gl) {
   faceInfos.forEach((faceInfo) => {
     const { target, url } = faceInfo;
 
-    // Setup each face so it's immediately renderable
     gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
 
-    // Asynchronously load an image
     const image = new Image();
     image.onload = function () {
       gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
@@ -524,10 +520,46 @@ function calculateUV(a) {
   return [u, v];
 }
 
+function calculateNormal(vertices) {
+  // Initialize the normal vector components
+  let nx = 0, ny = 0, nz = 0;
+
+  // Loop through each vertex
+  for (let i = 0; i < vertices.length; i++) {
+      // Current vertex
+      const current = vertices[i];
+      // Next vertex (with wrap-around)
+      const next = vertices[(i + 1) % vertices.length];
+
+      // Calculate the cross product components
+      nx += (current[1] - next[1]) * (current[2] + next[2]);
+      ny += (current[2] - next[2]) * (current[0] + next[0]);
+      nz += (current[0] - next[0]) * (current[1] + next[1]);
+  }
+
+  // Optionally normalize the resulting vector
+  const length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  if (length === 0) {
+      return {x: 0, y: 0, z: 0}; // Prevent division by zero
+  }
+
+  return {
+      x: nx / length,
+      y: ny / length,
+      z: nz / length
+  };
+}
+
 function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray) {
 
   pointsArray.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
   
+  normal = calculateNormal([a, b, c]);
+
+  // normalsArray.push(normal.x, normal.y, normal.z);
+  // normalsArray.push(normal.x, normal.y, normal.z);
+  // normalsArray.push(normal.x, normal.y, normal.z);
+
   normalsArray.push(a[0], a[1], a[2]);
   normalsArray.push(b[0], b[1], b[2]);
   normalsArray.push(c[0], c[1], c[2]);
@@ -638,20 +670,20 @@ function cube(a, b, c, d, e, f, g, h, n) {
   divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray);
   divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(b, f, e, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(b, e, a, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(e, f, b, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, e, b, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(f, g, h, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(f, h, e, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(h, g, f, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(e, h, f, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(g, c, d, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(g, d, h, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(d, c, g, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(h, d, g, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(b, g, f, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(f, g, b, n, pointsArray, normalsArray, texCoordArray);
   divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray);
 
-  divideTriangle(e, h, d, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(e, d, a, n, pointsArray, normalsArray, texCoordArray); 
+  divideTriangle(d, h, e, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, d, e, n, pointsArray, normalsArray, texCoordArray); 
 
   return {pointsArray, normalsArray, texCoordArray};
 }

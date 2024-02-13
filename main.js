@@ -25,7 +25,7 @@ async function main() {
   let height = createWebGLTexture(renderer.gl, heightImage, true, true);
   let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
   let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
-  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
+  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 15;
   let animation = new AnimationClip();
@@ -77,7 +77,7 @@ async function main() {
   //renderer.addObject(mainObject1);
   //renderer.addObject(sphereObject);
 
-  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 80.0, 1.0, 0.09, 0.032);
+  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
   let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
@@ -145,7 +145,7 @@ async function main() {
         currentSubdivisions = 0;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
       newObject.transform = mainObject.transform;
       newObject.animationController = mainObject.animationController;
       newObject.animationController.node = newObject;
@@ -157,7 +157,7 @@ async function main() {
         currentSubdivisions = 5;
       }
       let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray, [texture], [normal], [], [height], [], [roughness], [], 2.0);
+      let newObject = renderer.createObjectFromData(newData.pointsArray, newData.normalsArray, newData.texCoordArray);
       newObject.transform = mainObject.transform;
       newObject.animationController = mainObject.animationController;
       newObject.animationController.node = newObject;
