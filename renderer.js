@@ -19,11 +19,12 @@ class WebGLRenderer {
 
     //scene setup
     this.currentScene = {
-      nextObjectID: 0,
+      nextNodeID: 0,
       shadowScene: {},
       lights: {},
       numLights: 0,
       objects: {},
+      nodes: {},
       numObjects: 0,
       sceneRoot: new SceneNode(),
       camera: {
@@ -83,6 +84,7 @@ class WebGLRenderer {
       SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
       SHADER_VARIANT_WIREFRAME: 0b1000000,
       SHADER_VARIANT_FORCE_GOURAUD: 0b10000000,
+      SHADER_VARIANT_SKIP_LIGHTING: 0b100000000,
     };
 
     this.shaderProgramVariants = {};
@@ -118,11 +120,18 @@ class WebGLRenderer {
   }
   addObject(object) {
     this.numObjects++;
-    object.localID = this.currentScene.nextObjectID;
+    object.localID = this.currentScene.nextNodeID;
     this.currentScene.sceneRoot.addChild(object);
-    this.currentScene.objects[this.currentScene.nextObjectID] = object;
-    this.currentScene.nextObjectID++;
+    this.currentScene.objects[this.currentScene.nextNodeID] = object;
+    this.currentScene.nextNodeID++;
     return object.localID;
+  }
+  addNode(node) {
+    node.localID = this.currentScene.nextNodeID;
+    this.currentScene.sceneRoot.addChild(node);
+    this.currentScene.nodes[this.currentScene.nextNodeID] = node;
+    this.currentScene.nextNodeID++;
+    return node.localID;
   }
   removeObject(objectID) {
     this.numObjects--;
@@ -132,16 +141,21 @@ class WebGLRenderer {
     }
     delete this.currentScene.objects[objectID];
   }
-  getObjectById(objectID){
+  getEntityById(objectID){
     let object = this.currentScene.objects[objectID];
-    return  object === undefined ? this.currentScene.lights[objectID] : object;
+    if (object === undefined){
+      object = this.currentScene.lights[objectID];
+    } if (object === undefined) {
+      object = this.currentScene.nodes[objectID];
+    }
+    return  object;
   }
   addLight(light) {
     this.currentScene.numLights++;
-    light.localID = this.currentScene.nextObjectID;
+    light.localID = this.currentScene.nextNodeID;
     this.currentScene.sceneRoot.addChild(light);
-    this.currentScene.lights[this.currentScene.nextObjectID] = light;
-    this.currentScene.nextObjectID++;
+    this.currentScene.lights[this.currentScene.nextNodeID] = light;
+    this.currentScene.nextNodeID++;
     this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
     this.initLightVectors();
     
@@ -176,6 +190,9 @@ class WebGLRenderer {
     }
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD) {
       defines += "#define GOURAUD\n";
+    } 
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
+      defines += "#define SKIP_LIGHTING\n";
     }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
@@ -648,13 +665,15 @@ class WebGLRenderer {
     // Update shadow cascades after camera moves
     this.updateCascades();
   }
-  createObjectFromData(pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+  createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
     const gl = this.gl;
     let objectData = {
       geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
     }
     let shaderVariant = 0;
-
+    if (skipLighting){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
     if (textures.length == 0){
       var texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -679,6 +698,32 @@ class WebGLRenderer {
     }
     return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
+
+  createObjectFromData(pointsArray, normalsArray, texcoords, color, skipLighting = false, ambientStrength = 0.01){
+    const gl = this.gl;
+    let objectData = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    let shaderVariant = 0;
+    if (skipLighting){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    var pixel = new Uint8Array(color);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    let renderable = createRenderable(gl, objectData, shaderVariant, [texture], [], [], [], [], [], [], []);
+    renderable.material.ambientStrength = ambientStrength;
+    return renderable;
+  }
+
 
   setObjectData(object, pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
     const gl = this.gl;

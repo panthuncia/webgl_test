@@ -14,9 +14,11 @@ async function main() {
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
-
+  let animatedObjects = [];
   let currentSubdivisions = 0;
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
+  let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4);
+
   // let textureImage = await loadTexture("textures/stonewall/scpgdgca_8K_Albedo.jpg");
   // let texture = createWebGLTexture(renderer.gl, textureImage, true, true);
   // let normalImage = await loadTexture("textures/stonewall/scpgdgca_8K_Normal.jpg");
@@ -25,7 +27,7 @@ async function main() {
   // let height = createWebGLTexture(renderer.gl, heightImage, true, true);
   // let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
   // let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
-  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray);
+  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [255, 0, 0, 255]);
   objectID = renderer.addObject(mainObject);
 
   mainObject.transform.setLocalScale([3, 3, 3]);
@@ -51,9 +53,9 @@ async function main() {
   }
   let chaikin_iterations = 0;
   lines = {}
-  lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
-
+  lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
   mainObject.animationController.pause();
+  animatedObjects.push(mainObject);
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
   //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
 
@@ -63,15 +65,6 @@ async function main() {
   //renderer.addObject(terrain);
   //renderer.addObject(sphereObject);
 
-  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
-  renderer.addLight(light1);
-
-  let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 1.0, 1.0, 0.09, 0.032);
-  let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
-  let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
-  let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
-
   let light_positions = [[5, 3, 5],
   [5, 3, -5],
   [-5, 3, -5],
@@ -79,9 +72,41 @@ async function main() {
   [5, 3, 5],
   [5, 3, -5]];
 
-  lines[light1.localID] = setChaikin(light1, light_positions, 8);
+  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
+  renderer.addLight(light1);
+  let light1Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light1.color[0]*255, light1.color[1]*255, light1.color[2]*255, 255], true, 40.0);
+  light1Object.transform.setLocalScale([0.4, 0.4, 0.4]);
+  renderer.addObject(light1Object);
+  light1.addChild(light1Object);
+
+  let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
+  renderer.addLight(light2);
+  let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], true, 40.0);
+  light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
+  renderer.addObject(light2Object);
+  light2.addChild(light2Object);
+
+
+  let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
+  let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
+  let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
+
+
+  lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
+  animatedObjects.push(light1);
+  light1.animationController.pause();
 
   mainObject.addChild(light1);
+
+  let light2ScaleObject = new SceneNode();
+  light2ScaleObject.transform.setLocalScale([3, 3, 3]);
+  renderer.addNode(light2ScaleObject);
+  light2ScaleObject.addChild(light2);
+
+  lines[light2.localID] = setChaikin(light2, light_positions, 8, playTime);
+  animatedObjects.push(light2)
+  light2.animationController.pause();
 
   //renderer.addLight(light2);
   //renderer.addLight(light3);
@@ -90,7 +115,7 @@ async function main() {
   //renderer.addLight(light6);
   let playing = false;
 
-  function setChaikin(object, points, amount){
+  function setChaikin(object, points, amount, playTime){
       let positions = chaikin(points, amount);
       let newAnimation = new AnimationClip();
       newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
@@ -115,10 +140,15 @@ async function main() {
 
   function toggleAnimation(){
     if(!playing){
-      mainObject.animationController.unpause();
+      for (let anim of animatedObjects){
+        anim.animationController.unpause();
+      }
+      //mainObject.animationController.unpause();
       playing = true;
     } else {
-      mainObject.animationController.pause();
+      for (let anim of animatedObjects){
+        anim.animationController.pause();
+      }
       playing = false;
     }
   }
@@ -135,13 +165,13 @@ async function main() {
       if(chaikin_iterations>8){
         chaikin_iterations = 8;
       }
-      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
+      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
     }else if (event.key.toLowerCase() === 'j'){
       chaikin_iterations--;
       if(chaikin_iterations<0){
         chaikin_iterations = 0;
       }
-      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations);
+      lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
     }else if (event.key.toLowerCase() === 'q'){
       changeSphereSubdivision(-1);
     }else if (event.key.toLowerCase() === 'e'){
@@ -156,11 +186,13 @@ async function main() {
     let currentTime = new Date().getTime() / 1000;
     let elapsed = currentTime - lastTime;
     lastTime = currentTime;
-    mainObject.animationController.update(elapsed);
-    light1.animationController.update(elapsed);
+    for (let anim of animatedObjects){
+      anim.animationController.update(elapsed);
+    }
+    
     await(renderer.drawScene());
     for (let key in lines){
-      let object = renderer.getObjectById(key);
+      let object = renderer.getEntityById(key);
       renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
     }
     requestAnimationFrame(drawScene);
