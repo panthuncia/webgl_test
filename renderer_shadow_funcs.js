@@ -175,8 +175,8 @@ WebGLRenderer.prototype.initShadowScene = async function () {
 
 WebGLRenderer.prototype.createShadowProgram = async function () {
   const gl = this.gl;
-  let fsSource = await loadText("shaders/fragment_shadow.glsl");
-  let vsSource = await loadText("shaders/vertex_shadow.glsl");
+  let fsSource = this.shadowFSSource;
+  let vsSource = this.shadowVSSource;
   vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
   fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
   this.currentScene.shadowScene.shadowProgram = gl.createProgram();

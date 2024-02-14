@@ -1,9 +1,8 @@
+//normal matrix as inverse-transpose of model-view matrix
 function calculateNormalMatrix(modelViewMatrix) {
-  // Create a new 3x3 matrix as a subset of the model-view matrix
-  var normalMatrix = mat3.create(); // Using glMatrix library for matrix operations
-  mat3.fromMat4(normalMatrix, modelViewMatrix); // Extract the upper-left 3x3 part
+  var normalMatrix = mat3.create();
+  mat3.fromMat4(normalMatrix, modelViewMatrix);
 
-  // Invert and transpose the matrix
   mat3.invert(normalMatrix, normalMatrix);
   mat3.transpose(normalMatrix, normalMatrix);
 
@@ -149,40 +148,43 @@ function parseOBJ(text) {
   };
 }
 
+//calculates the tangents and bitangents for a list of positions on a mesh
+//used for tangent-space operations such as normal mapping and parallax
 function calculateTangentsBitangents(positions, normals, uvs) {
   let tangents = [];
   let bitangents = [];
   let j = 0;
   for (let i = 0; i < positions.length; i += 9) {
-    // Extract vertices and UVs for the current triangle
+    // vertices
     let v0 = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
     let v1 = { x: positions[i + 3], y: positions[i + 4], z: positions[i + 5] };
     let v2 = { x: positions[i + 6], y: positions[i + 7], z: positions[i + 8] };
 
+    //uvs
     let uv0 = { u: uvs[j], v: uvs[j + 1] };
     let uv1 = { u: uvs[j + 2], v: uvs[j + 3] };
     let uv2 = { u: uvs[j + 4], v: uvs[j + 5] };
 
-    // Calculate the deltas
+    //deltas
     let deltaPos1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
     let deltaPos2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
     let deltaUV1 = { u: uv1.u - uv0.u, v: uv1.v - uv0.v };
     let deltaUV2 = { u: uv2.u - uv0.u, v: uv2.v - uv0.v };
 
-    // Calculate the tangent and bitangent
+    //tangent
     let r = 1.0 / (deltaUV1.u * deltaUV2.v - deltaUV1.v * deltaUV2.u);
     let tangent = {
       x: (deltaPos1.x * deltaUV2.v - deltaPos2.x * deltaUV1.v) * r,
       y: (deltaPos1.y * deltaUV2.v - deltaPos2.y * deltaUV1.v) * r,
       z: (deltaPos1.z * deltaUV2.v - deltaPos2.z * deltaUV1.v) * r,
     };
+    //bitangent
     let bitangent = {
       x: (deltaPos2.x * deltaUV1.u - deltaPos1.x * deltaUV2.u) * r,
       y: (deltaPos2.y * deltaUV1.u - deltaPos1.y * deltaUV2.u) * r,
       z: (deltaPos2.z * deltaUV1.u - deltaPos1.z * deltaUV2.u) * r,
     };
 
-    // Store the tangent and bitangent for each vertex of the triangle
     tangents.push(tangent.x, tangent.y, tangent.z);
     tangents.push(tangent.x, tangent.y, tangent.z);
     tangents.push(tangent.x, tangent.y, tangent.z);
@@ -225,6 +227,7 @@ function padArray(array, value, amount){
   }
 }
 
+//create an array of barycentric coordinates
 function getBarycentricCoordinates(length){
   let choices = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   let coords = [];
@@ -236,6 +239,7 @@ function getBarycentricCoordinates(length){
   return coords;
 }
 
+//Calculate tangents, bitangents (for tangent-space operations such as normal mapping & parallax), barycentric coordinates (for wireframe), and pad arrays if necessary
 function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], reuseTextures = true){
   meshes = [];
   for (const geometry of data.geometries) {
@@ -267,11 +271,13 @@ function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], h
   return {meshes, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity}
 }
 
+//create a renderable object from data
 function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
   newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures);
   return new RenderableObject(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
 }
 
+//update the data associated with a renderable object
 function updateRenderable(gl, renderable, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
   newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures)
   return renderable.setData(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
@@ -334,6 +340,7 @@ async function loadJson(url) {
   }
 }
 
+//find the corners of a camera frustrum
 function getFrustumCorners(fov, aspect, zNear, zFar, inverseViewMatrix) {
   let tanFov = Math.tan(fov / 2);
 
@@ -356,6 +363,7 @@ function getFrustumCorners(fov, aspect, zNear, zFar, inverseViewMatrix) {
   return corners;
 }
 
+// Find the center of a camera frustrum
 function getFrustumCenter(cameraPosition, cameraForward, zNear, zFar) {
   let nearCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zNear);
   let farCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zFar);
@@ -364,6 +372,7 @@ function getFrustumCenter(cameraPosition, cameraForward, zNear, zFar) {
   return frustumCenter;
 }
 
+// Computes an axis-aligned bounding box for a set of points
 function computeAABB(points) {
   let min = vec3.fromValues(Infinity, Infinity, Infinity);
   let max = vec3.fromValues(-Infinity, -Infinity, -Infinity);
@@ -376,12 +385,14 @@ function computeAABB(points) {
   return [min, max];
 }
 
+// Get a forward vector from a position and target
 function calculateForwardVector(cameraPosition, targetPosition) {
   let forwardVector = vec3.subtract(vec3.create(), targetPosition, cameraPosition);
   vec3.normalize(forwardVector, forwardVector);
   return forwardVector;
 }
 
+// Combination of linear and logarithmic shadow cascade falloff
 function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.5) {
   let splits = [];
   let end = Math.min(zFar, maxDist);
@@ -399,21 +410,7 @@ function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.5)
   return splits;
 }
 
-// function getOrthographicFromCorners(corners) {
-//   let [min, max] = computeAABB(corners);
-
-//   let left = min[0];
-//   let right = max[0];
-//   let bottom = min[1];
-//   let top = max[1];
-//   let near = min[2];
-//   let far = max[2];
-
-//   //return mat4.ortho(mat4.create(), left, right, top, bottom, near, far);
-//   //return mat4.ortho(mat4.create(), -50, 50, -50, 50, -50, 50);
-//   return mat4.ortho(mat4.create(), min[0]/5, max[0]/5, min[1]/5, max[1]/5, -max[2]/5, -min[2]/5);
-// }
-
+// Create view matrix for a directional light, where direction matters more than position
 function createDirectionalLightViewMatrix(lightDir, target) {
   const up = vec3.fromValues(0, 1, 0); // World's up direction
   const lightPosition = vec3.create();
@@ -429,13 +426,13 @@ function createDirectionalLightViewMatrix(lightDir, target) {
 
 function getCascadeCenter(cameraPosition, cameraForward, cascadeSize) {
   let center = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, cascadeSize);
-  // Align the center to a fixed grid in world space
   // center[0] = Math.floor(center[0] / cascadeSize) * cascadeSize;
   // center[1] = Math.floor(center[1] / cascadeSize) * cascadeSize;
   // center[2] = Math.floor(center[2] / cascadeSize) * cascadeSize;
   return center;
 }
 
+// Create an orthographic projection for a square cascade of given size
 function getOrthographicProjectionMatrix(cascadeSize, nearPlane, farPlane) {
   return mat4.ortho(mat4.create(), -cascadeSize, cascadeSize, -cascadeSize, cascadeSize, nearPlane, farPlane);
 }
@@ -445,6 +442,7 @@ function getLightViewMatrix(lightDirection, lightUp, cascadeCenter) {
   return mat4.lookAt(mat4.create(), cascadeCenter, lookAtPoint, lightUp);
 }
 
+// Create directional shadow cascade info
 function setupCascades(numCascades, light, camera, cascadeSplits) {
   let cascades = [];
 
@@ -460,6 +458,7 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
   return cascades;
 }
 
+// Create a cubemap texture from web resource
 function createCubemap(gl) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
@@ -494,6 +493,7 @@ function createCubemap(gl) {
   return texture;
 }
 
+// Helper method for data view
 function dataViewSetMatrix(dataView, matrix, baseOffset) {
   for (let i = 0; i < 16; i++) {
     let offset = baseOffset + i * 4;
@@ -501,6 +501,7 @@ function dataViewSetMatrix(dataView, matrix, baseOffset) {
   }
 }
 
+// Helper method for data view
 function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
   for (let i = 0; i < matrices.length; i++) {
     currentMatrixOffset = i*64;
@@ -512,6 +513,7 @@ function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
   }
 }
 
+// Helper method for data view
 function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
   for (let i = 0; i < floatArray.length; i++) {
     let offset = baseOffset + i * 4;
@@ -519,6 +521,8 @@ function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
   }
 }
 
+
+// Calculate u, v texcoord of a given position on a sphere
 function calculateUV(a) {
   let theta = Math.atan2(a[1], a[0]);
   const phi = Math.acos(a[2]/Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]))
@@ -530,20 +534,37 @@ function calculateUV(a) {
   return [u, v];
 }
 
-function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray) {
+// Newell method
+// Sum of cross-products of edge vertices
+function calculateFaceNormal(vertices) {
+  let normal = vec3.create();
+
+  for (let i = 0; i < 3; i++) {
+      const currentVertex = vertices[i];
+      const nextVertex = vertices[(i + 1) % 3];
+
+      vec3.add(normal, normal, vec3.cross(vec3.create(), currentVertex, nextVertex));
+  }
+
+  vec3.normalize(normal, normal);
+  return normal;
+}
+
+function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMethod) {
 
   pointsArray.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
   
-  //normal = calculateNormal([a, b, c]);
+  normal = calculateFaceNormal([a, b, c]);
 
-  // normalsArray.push(normal.x, normal.y, normal.z);
-  // normalsArray.push(normal.x, normal.y, normal.z);
-  // normalsArray.push(normal.x, normal.y, normal.z);
-
-  normalsArray.push(a[0], a[1], a[2]);
-  normalsArray.push(b[0], b[1], b[2]);
-  normalsArray.push(c[0], c[1], c[2]);
-
+  if (newellMethod){
+    normalsArray.push(normal[0], normal[1], normal[2]);
+    normalsArray.push(normal[0], normal[1], normal[2]);
+    normalsArray.push(normal[0], normal[1], normal[2]);
+  } else {
+    normalsArray.push(a[0], a[1], a[2]);
+    normalsArray.push(b[0], b[1], b[2]);
+    normalsArray.push(c[0], c[1], c[2]);
+  }
   let aUV = calculateUV(a);
   let bUV = calculateUV(b);
   let cUV = calculateUV(c);
@@ -611,7 +632,7 @@ function mix( u, v, s )
     return result;
 }
 
-function divideTriangle(a, b, c, count, pointsArray, normalsArray, texCoordsArray) {
+function divideTriangle(a, b, c, count, pointsArray, normalsArray, texCoordsArray, newellMethod) {
   if (count > 0) {
       var ab = mix(a, b, 0.5);
       var ac = mix(a, c, 0.5);
@@ -621,53 +642,55 @@ function divideTriangle(a, b, c, count, pointsArray, normalsArray, texCoordsArra
       ac = normalize(ac, true);
       bc = normalize(bc, true);
 
-      divideTriangle(a, ab, ac, count - 1, pointsArray, normalsArray, texCoordsArray);
-      divideTriangle(ab, b, bc, count - 1, pointsArray, normalsArray, texCoordsArray);
-      divideTriangle(ac, bc, c, count - 1, pointsArray, normalsArray, texCoordsArray);
-      divideTriangle(ab, bc, ac, count - 1, pointsArray, normalsArray, texCoordsArray);
+      divideTriangle(a, ab, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+      divideTriangle(ab, b, bc, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+      divideTriangle(ac, bc, c, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+      divideTriangle(ab, bc, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
   } else {
-      triangle(a, b, c, pointsArray, normalsArray, texCoordsArray);
+      triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMethod);
   }
 }
 
-function tetrahedron(a, b, c, d, n) {
+function tetrahedron(a, b, c, d, n, newellMethod) {
   let pointsArray = [];
   let normalsArray = [];
   let texCoordArray = [];
-  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(d, c, b, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(a, d, b, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(d, c, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(a, d, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
   return {pointsArray, normalsArray, texCoordArray};
 }
 
-function cube(a, b, c, d, e, f, g, h, n) {
+// Generate subdivision surface from cube vertices
+function cube(a, b, c, d, e, f, g, h, n, newellMethod) {
   let pointsArray = [];
   let normalsArray = [];
   let texCoordArray = [];
 
-  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(a, b, c, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  divideTriangle(e, f, b, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(a, e, b, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(e, f, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(a, e, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  divideTriangle(h, g, f, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(e, h, f, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(h, g, f, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(e, h, f, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  divideTriangle(d, c, g, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(h, d, g, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(d, c, g, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(h, d, g, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  divideTriangle(f, g, b, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray);
+  divideTriangle(f, g, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  divideTriangle(d, h, e, n, pointsArray, normalsArray, texCoordArray);
-  divideTriangle(a, d, e, n, pointsArray, normalsArray, texCoordArray); 
+  divideTriangle(d, h, e, n, pointsArray, normalsArray, texCoordArray, newellMethod);
+  divideTriangle(a, d, e, n, pointsArray, normalsArray, texCoordArray, newellMethod); 
 
   return {pointsArray, normalsArray, texCoordArray};
 }
 
+// Linear interpolation on a transform object
 function lerpTransform(transformA, transformB, t) {
   let newPos = vec3.create();
   vec3.lerp(newPos, transformA.pos, transformB.pos, t);
@@ -684,6 +707,7 @@ function lerpTransform(transformA, transformB, t) {
   return newTransform;
 }
 
+// Create line arrays from array of positions
 function linesFromPositions(positions){
   let lines = [];
   for(let i=0; i<positions.length-1; i++){
@@ -692,6 +716,7 @@ function linesFromPositions(positions){
   return lines;
 }
 
+// Perform chaikin subdivision
 function chaikin(vertices, iterations) {
 
   if (iterations === 0) {

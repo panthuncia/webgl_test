@@ -6,9 +6,13 @@ class WebGLRenderer {
     var fragElem = document.getElementById("primaryFSSource");
     this.primaryVSSource = vertElem.text;
     this.primaryFSSource = fragElem.text;
+    var shadowVertElem = document.getElementById("shadowVSSource");
+    var shadowFragElem = document.getElementById("shadowFSSource");
+    this.shadowVSSource = shadowVertElem.text;
+    this.shadowFSSource = shadowFragElem.text;
 
 
-    //print gl restrictions, for debugging
+    // Print gl restrictions, for debugging
     this.printRestrictions();
     const gl = this.gl;
     this.matrices = {
@@ -17,7 +21,7 @@ class WebGLRenderer {
       viewMatrixInverse: mat4.create(),
     };
 
-    //scene setup
+    // Scene setup
     this.currentScene = {
       nextNodeID: 0,
       shadowScene: {},
@@ -37,7 +41,7 @@ class WebGLRenderer {
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
 
-    //camera setup
+    // Camera setup
     let fieldOfView = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
@@ -52,7 +56,7 @@ class WebGLRenderer {
     this.matrices.projectionMatrix = projectionMatrix;
 
 
-    //shadow setup
+    // Shadow setup
     this.SHADOW_WIDTH = 2048; //8192;
     this.SHADOW_HEIGHT = 2048; //8192;
     this.SHADOW_CASCADE_DISTANCE = 100;
@@ -74,7 +78,7 @@ class WebGLRenderer {
     precision highp float;
     precision highp int;\n`
 
-    //shader variants for conditional compilation
+    // Shader variants for conditional compilation
     this.SHADER_VARIANTS = {
       SHADER_VARIANT_NORMAL_MAP: 0b1,
       SHADER_VARIANT_BAKED_AO: 0b10,
@@ -115,9 +119,11 @@ class WebGLRenderer {
 
     this.forceWireframe = false;
     this.forceGouraud = false;
-
+    this.initShadowScene();
     this.initLineRenderer();
   }
+  
+  // Add a renderable object to the current scene
   addObject(object) {
     this.numObjects++;
     object.localID = this.currentScene.nextNodeID;
@@ -126,6 +132,8 @@ class WebGLRenderer {
     this.currentScene.nextNodeID++;
     return object.localID;
   }
+
+  // Add a plain node to the current scene (useful for offset transforms)
   addNode(node) {
     node.localID = this.currentScene.nextNodeID;
     this.currentScene.sceneRoot.addChild(node);
@@ -133,6 +141,8 @@ class WebGLRenderer {
     this.currentScene.nextNodeID++;
     return node.localID;
   }
+
+  // Remove a renderable object from the current scene
   removeObject(objectID) {
     this.numObjects--;
     let object = this.currentScene.objects[objectID];
@@ -141,6 +151,8 @@ class WebGLRenderer {
     }
     delete this.currentScene.objects[objectID];
   }
+
+  // Get an SceneNode of any kind by ID
   getEntityById(objectID){
     let object = this.currentScene.objects[objectID];
     if (object === undefined){
@@ -150,6 +162,8 @@ class WebGLRenderer {
     }
     return  object;
   }
+
+  // Add a light to the current scene
   addLight(light) {
     this.currentScene.numLights++;
     light.localID = this.currentScene.nextNodeID;
@@ -163,6 +177,8 @@ class WebGLRenderer {
       this.updateCascades();
     }
   }
+
+  //Get a variant of the main shaders with a given variant ID
   getProgram(fsSource, vsSource, variantID) {
     const gl = this.gl;
 
@@ -203,7 +219,9 @@ class WebGLRenderer {
     gl.linkProgram(shaderProgram);
     return shaderProgram;
   }
-  async createUBOs() {
+
+  //Create uniform buffer objects, with reflection for offset positions
+  createUBOs() {
     const gl = this.gl;
     let fsSource = this.primaryFSSource;
     let vsSource = this.primaryVSSource;
@@ -282,6 +300,8 @@ class WebGLRenderer {
     dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
     console.log("created UBOs");
   }
+
+  //create a set of shader variants
   createProgramVariants(shaderVariantsToCompile) {
     const gl = this.gl;
     let fsSource = this.primaryFSSource;
@@ -343,18 +363,19 @@ class WebGLRenderer {
     }
   }
 
+  // Update the scene graph from root
   updateScene() {
     this.currentScene.sceneRoot.forceUpdate();
   }
 
-  async drawScene() {
+  // Draw the scene
+  //TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() on individual objects
+  // This enhancement should be paired with batch rendering
+  drawScene() {
     const gl = this.gl;
     this.updateScene();
     this.updateLights();
-    // if we haven't initialized shadow scene, do that. This cannot be in constructor because async.
-    if (this.currentScene.shadowScene.shadowCascadeFramebuffer == null) {
-      await this.initShadowScene();
-    }
+
     //this.shadowPass();
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -396,31 +417,24 @@ class WebGLRenderer {
       //bind shadow maps
 
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades);
       gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
 
-      // for (let i = 0; i < this.NUM_SHADOW_CASCADES; i++) {
-      //   gl.uniform1f(programInfo.uniformLocations.cascadeSplits[i], this.currentScene.shadowScene.cascadeSplits[i]);
-      // }
-
       gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps);
       gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
 
       gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps);
       gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
       let textureUnitAfterShadowMaps = 3;
 
-      //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
       let modelViewMatrix = mat4.create();
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
 
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
-
-      // gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrixInverse, false, this.matrices.viewMatrixInverse);
 
       let normalMatrix = calculateNormalMatrix(modelViewMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
@@ -497,10 +511,13 @@ class WebGLRenderer {
         gl.bindVertexArray(null);
         i += 1;
       }
-      //console.log("done with object")
     }
     this.updateCamera();
   }
+
+  //Update the lights in the scene
+  //TODO: Doing the view-space transformation in shaders might be better?
+  // Won't matter until using deferred renderer. Could be more elegant too.
   updateLights() {
     let spotNum = 0;
     let pointNum = 0;
@@ -617,13 +634,11 @@ class WebGLRenderer {
     };
 
     this.canvas.addEventListener("wheel", (event) => {
-      // Determine the direction of scrolling (normalize across different browsers)
       let delta = Math.sign(event.deltaY);
 
       this.distanceFromOrigin += delta * 1; // Zoom speed
       this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Zoom limit
 
-      // Update camera
       this.updateCamera();
     });
   }
@@ -756,6 +771,7 @@ class WebGLRenderer {
     }
     return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0)
   }
+  // Load model from custom JSON format
   async loadModel(modelDescription) {
     const gl = this.gl;
     let textures = [];
@@ -872,6 +888,7 @@ class WebGLRenderer {
     console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
     console.log("Max uniform block size: " + this.gl.getParameter(this.gl.MAX_UNIFORM_BLOCK_SIZE));
   }
+  // Broken
   moveCameraForward(dist){
     let dir = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
     let move = vec3.create();

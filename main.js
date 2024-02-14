@@ -16,18 +16,10 @@ async function main() {
   //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
   let animatedObjects = [];
   let currentSubdivisions = 0;
-  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
-  let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4);
+  let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, false);
+  let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4, false);
 
-  // let textureImage = await loadTexture("textures/stonewall/scpgdgca_8K_Albedo.jpg");
-  // let texture = createWebGLTexture(renderer.gl, textureImage, true, true);
-  // let normalImage = await loadTexture("textures/stonewall/scpgdgca_8K_Normal.jpg");
-  // let normal = createWebGLTexture(renderer.gl, normalImage, true, true);
-  // let heightImage = await loadTexture("textures/stonewall/scpgdgca_8K_Displacement.jpg");
-  // let height = createWebGLTexture(renderer.gl, heightImage, true, true);
-  // let roughnessImage = await loadTexture("textures/stonewall/scpgdgca_8K_Roughness.jpg");
-  // let roughness = createWebGLTexture(renderer.gl, roughnessImage, true, true);
-  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [255, 0, 0, 255]);
+  let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [255, 255, 255, 255]);
   objectID = renderer.addObject(mainObject);
 
   mainObject.transform.setLocalScale([3, 3, 3]);
@@ -42,6 +34,7 @@ async function main() {
   [28, 38, 39 ],
   [36, 1, 27 ],
   [38, 16, 7] , [11, 36, 17], [44, 49, 23]];
+  
   //reposition
   for(let position of original_positions){
     position[0] /=2;
@@ -72,14 +65,14 @@ async function main() {
   [5, 3, 5],
   [5, 3, -5]];
 
-  let light1 = new Light(LightType.POINT, [10, 10, -5], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
+  let light1 = new Light(LightType.POINT, [10, 10, -5], [0, 1, 0], 30.0, 1.0, 0.09, 0.032);
   renderer.addLight(light1);
   let light1Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light1.color[0]*255, light1.color[1]*255, light1.color[2]*255, 255], true, 40.0);
   light1Object.transform.setLocalScale([0.4, 0.4, 0.4]);
   renderer.addObject(light1Object);
   light1.addChild(light1Object);
 
-  let light2 = new Light(LightType.POINT, [9, 6, 7], [4, 4, 4], 30.0, 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 0, 0], 30.0, 1.0, 0.09, 0.032);
   renderer.addLight(light2);
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
@@ -114,7 +107,7 @@ async function main() {
   //renderer.addLight(light5);
   //renderer.addLight(light6);
   let playing = false;
-
+  let newellMethod = false;
   function setChaikin(object, points, amount, playTime){
       let positions = chaikin(points, amount);
       let newAnimation = new AnimationClip();
@@ -134,7 +127,7 @@ async function main() {
     if (currentSubdivisions<0){
       currentSubdivisions = 0;
     }
-    let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions);
+    let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, newellMethod);
     renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
   }
 
@@ -178,6 +171,10 @@ async function main() {
       changeSphereSubdivision(1);
     }else if (event.key.toLowerCase() === 'a'){
       toggleAnimation();
+    } else if (event.key.toLowerCase() === 'n'){
+      newellMethod = !newellMethod;
+      // Rebuild sphere
+      changeSphereSubdivision(0);
     }
   });
   
@@ -190,7 +187,7 @@ async function main() {
       anim.animationController.update(elapsed);
     }
     
-    await(renderer.drawScene());
+    renderer.drawScene();
     for (let key in lines){
       let object = renderer.getEntityById(key);
       renderer.drawLines(lines[key], object.parent.transform.modelMatrix);

@@ -251,6 +251,7 @@ class AnimationController {
   }
 }
 
+// This class forms the basis for the renderer's scene graph
 class SceneNode {
   constructor() {
     this.children = {};
@@ -261,7 +262,7 @@ class SceneNode {
   }
   addChild(node) {
     this.children[node.localID] = node;
-    //a node can only inheret from one parent, and may only be a child of its parent
+    // A node can only inheret from one parent, and may only be a child of its parent
     if (node.parent != null){
       node.parent.removeChild(node.localID);
     }
@@ -398,7 +399,6 @@ class Light extends SceneNode {
         }
     }
   }
-  //TODO: don't calculate every time
   getViewMatrix() {
     let normalizedDirection = vec3.create();
     vec3.normalize(normalizedDirection, this.getLightDir());
@@ -410,13 +410,14 @@ class Light extends SceneNode {
     mat4.lookAt(lightView, lightPosition, targetPosition, up);
     return lightView;
   }
+  // Cubemap matrices for rendering from this light's perspective
   getCubemapViewMatrices() {
-    //create six camera directions for each face
+    // Create six camera directions for each face
     const directions = [
       { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, 1, 0) },
       { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, 1, 0) },
-      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
-      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
+      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, // up needs to be different here because of axis alignment
+      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, // here too
       { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, 1, 0) },
       { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, 1, 0) },
     ];
@@ -475,10 +476,10 @@ class Light extends SceneNode {
     this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
     this.outerConeCos = Math.cos(outerConeAngle);
-    //recalculate projection matrix with new fov
+    // Recalculate projection matrix with new fov
     this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
-  //override these methods to calculate view and projection matrices
+  // Override these methods to recalculate view and projection matrices
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
@@ -497,7 +498,7 @@ class Light extends SceneNode {
     for (let childKey in this.children) {
       this.children[childKey].forceUpdate();
     }
-    //recalculate view matrix with new location
+    // Recalculate view matrix with new location
     switch (this.type) {
       case LightType.SPOT:
         this.viewMatrix = this.getViewMatrix();
