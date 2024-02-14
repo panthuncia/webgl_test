@@ -9,194 +9,6 @@ function calculateNormalMatrix(modelViewMatrix) {
   return normalMatrix;
 }
 
-//https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html
-function parseOBJ(text) {
-  // because indices are base 1 let's just fill in the 0th data
-  const objPositions = [[0, 0, 0]];
-  const objTexcoords = [[0, 0]];
-  const objNormals = [[0, 0, 0]];
-
-  // same order as `f` indices
-  const objVertexData = [objPositions, objTexcoords, objNormals];
-
-  // same order as `f` indices
-  let webglVertexData = [
-    [], // positions
-    [], // texcoords
-    [], // normals
-  ];
-
-  const materialLibs = [];
-  const geometries = [];
-  let geometry;
-  let groups = ["default"];
-  let material = "default";
-  let object = "default";
-
-  const noop = () => {};
-
-  function newGeometry() {
-    // If there is an existing geometry and it's
-    // not empty then start a new one.
-    if (geometry && geometry.data.position.length) {
-      geometry = undefined;
-    }
-  }
-
-  function setGeometry() {
-    if (!geometry) {
-      const position = [];
-      const texcoord = [];
-      const normal = [];
-      webglVertexData = [position, texcoord, normal];
-      geometry = {
-        object,
-        groups,
-        material,
-        data: {
-          position,
-          texcoord,
-          normal,
-        },
-      };
-      geometries.push(geometry);
-    }
-  }
-
-  function addVertex(vert) {
-    const ptn = vert.split("/");
-    ptn.forEach((objIndexStr, i) => {
-      if (!objIndexStr) {
-        return;
-      }
-      const objIndex = parseInt(objIndexStr);
-      const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
-      webglVertexData[i].push(...objVertexData[i][index]);
-    });
-  }
-
-  const keywords = {
-    v(parts) {
-      objPositions.push(parts.map(parseFloat));
-    },
-    vn(parts) {
-      objNormals.push(parts.map(parseFloat));
-    },
-    vt(parts) {
-      // should check for missing v and extra w?
-      const [u, v] = parts.map(parseFloat);
-      objTexcoords.push([u, 1 - v]);
-    },
-    f(parts) {
-      setGeometry();
-      const numTriangles = parts.length - 2;
-      for (let tri = 0; tri < numTriangles; ++tri) {
-        addVertex(parts[0]);
-        addVertex(parts[tri + 1]);
-        addVertex(parts[tri + 2]);
-      }
-    },
-    s: noop, // smoothing group
-    mtllib(parts, unparsedArgs) {
-      // the spec says there can be multiple filenames here
-      // but many exist with spaces in a single filename
-      materialLibs.push(unparsedArgs);
-    },
-    usemtl(parts, unparsedArgs) {
-      material = unparsedArgs;
-      newGeometry();
-    },
-    g(parts) {
-      groups = parts;
-      newGeometry();
-    },
-    o(parts, unparsedArgs) {
-      object = unparsedArgs;
-      newGeometry();
-    },
-  };
-
-  const keywordRE = /(\w*)(?: )*(.*)/;
-  const lines = text.split("\n");
-  for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-    const line = lines[lineNo].trim();
-    if (line === "" || line.startsWith("#")) {
-      continue;
-    }
-    const m = keywordRE.exec(line);
-    if (!m) {
-      continue;
-    }
-    const [, keyword, unparsedArgs] = m;
-    const parts = line.split(/\s+/).slice(1);
-    const handler = keywords[keyword];
-    if (!handler) {
-      console.warn("unhandled keyword:", keyword); // eslint-disable-line no-console
-      continue;
-    }
-    handler(parts, unparsedArgs);
-  }
-
-  // remove any arrays that have no entries.
-  for (const geometry of geometries) {
-    geometry.data = Object.fromEntries(Object.entries(geometry.data).filter(([, array]) => array.length > 0));
-  }
-
-  return {
-    geometries,
-    materialLibs,
-  };
-}
-
-//calculates the tangents and bitangents for a list of positions on a mesh
-//used for tangent-space operations such as normal mapping and parallax
-function calculateTangentsBitangents(positions, normals, uvs) {
-  let tangents = [];
-  let bitangents = [];
-  let j = 0;
-  for (let i = 0; i < positions.length; i += 9) {
-    // vertices
-    let v0 = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
-    let v1 = { x: positions[i + 3], y: positions[i + 4], z: positions[i + 5] };
-    let v2 = { x: positions[i + 6], y: positions[i + 7], z: positions[i + 8] };
-
-    //uvs
-    let uv0 = { u: uvs[j], v: uvs[j + 1] };
-    let uv1 = { u: uvs[j + 2], v: uvs[j + 3] };
-    let uv2 = { u: uvs[j + 4], v: uvs[j + 5] };
-
-    //deltas
-    let deltaPos1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
-    let deltaPos2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
-    let deltaUV1 = { u: uv1.u - uv0.u, v: uv1.v - uv0.v };
-    let deltaUV2 = { u: uv2.u - uv0.u, v: uv2.v - uv0.v };
-
-    //tangent
-    let r = 1.0 / (deltaUV1.u * deltaUV2.v - deltaUV1.v * deltaUV2.u);
-    let tangent = {
-      x: (deltaPos1.x * deltaUV2.v - deltaPos2.x * deltaUV1.v) * r,
-      y: (deltaPos1.y * deltaUV2.v - deltaPos2.y * deltaUV1.v) * r,
-      z: (deltaPos1.z * deltaUV2.v - deltaPos2.z * deltaUV1.v) * r,
-    };
-    //bitangent
-    let bitangent = {
-      x: (deltaPos2.x * deltaUV1.u - deltaPos1.x * deltaUV2.u) * r,
-      y: (deltaPos2.y * deltaUV1.u - deltaPos1.y * deltaUV2.u) * r,
-      z: (deltaPos2.z * deltaUV1.u - deltaPos1.z * deltaUV2.u) * r,
-    };
-
-    tangents.push(tangent.x, tangent.y, tangent.z);
-    tangents.push(tangent.x, tangent.y, tangent.z);
-    tangents.push(tangent.x, tangent.y, tangent.z);
-    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
-    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
-    bitangents.push(bitangent.x, bitangent.y, bitangent.z);
-    j += 6;
-  }
-
-  return { tangents: tangents, bitangents: bitangents };
-}
-
 function compileShader(gl, shaderSource, shaderType) {
   const shader = gl.createShader(shaderType);
   gl.shaderSource(shader, shaderSource);
@@ -212,14 +24,6 @@ function compileShader(gl, shaderSource, shaderType) {
   return shader;
 }
 
-async function getObj(filename) {
-  return await fetch(filename)
-    .then((response) => response.text())
-    .then((data) => {
-      console.log("found file");
-      return parseOBJ(data);
-    });
-}
 
 function padArray(array, value, amount){
   for(let i=0; i<amount; i++){
@@ -243,9 +47,8 @@ function getBarycentricCoordinates(length){
 function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], reuseTextures = true){
   meshes = [];
   for (const geometry of data.geometries) {
-    let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
     let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
-    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents));
+    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords));
   }
   if(textures.length==1 && reuseTextures){
     padArray(textures, textures[0], meshes.length-1);
@@ -283,13 +86,6 @@ function updateRenderable(gl, renderable, data, shaderVariant, textures = [], no
   return renderable.setData(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
 }
 
-async function loadTexture(url) {
-  //Web environments suck I want to use C++/Vulkan
-  const uniqueUrl = url + "?_ts=" + new Date().getTime();
-  const response = await fetch(uniqueUrl);
-  const blob = await response.blob();
-  return createImageBitmap(blob);
-}
 
 function createWebGLTexture(gl, image, srgb = false, repeated = false, mipmaps = false) {
   const texture = gl.createTexture();
@@ -314,148 +110,11 @@ function createWebGLTexture(gl, image, srgb = false, repeated = false, mipmaps =
   return texture;
 }
 
-async function loadText(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.text();
-    return data;
-  } catch (error) {
-    console.error("Error fetching file:", error);
-  }
-}
-
-async function loadJson(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching file:", error);
-  }
-}
-
-//find the corners of a camera frustrum
-function getFrustumCorners(fov, aspect, zNear, zFar, inverseViewMatrix) {
-  let tanFov = Math.tan(fov / 2);
-
-  let nearHeight = 2 * tanFov * zNear;
-  let nearWidth = nearHeight * aspect;
-  let farHeight = 2 * tanFov * zFar;
-  let farWidth = farHeight * aspect;
-
-  let corners = [
-    vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, nearHeight / 2, -zNear), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(-nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(nearWidth / 2, -nearHeight / 2, -zNear), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, farHeight / 2, -zFar), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(-farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix),
-    vec3.transformMat4(vec3.create(), vec3.fromValues(farWidth / 2, -farHeight / 2, -zFar), inverseViewMatrix),
-  ];
-
-  return corners;
-}
-
-// Find the center of a camera frustrum
-function getFrustumCenter(cameraPosition, cameraForward, zNear, zFar) {
-  let nearCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zNear);
-  let farCenter = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, zFar);
-
-  let frustumCenter = vec3.lerp(vec3.create(), nearCenter, farCenter, 0.5);
-  return frustumCenter;
-}
-
-// Computes an axis-aligned bounding box for a set of points
-function computeAABB(points) {
-  let min = vec3.fromValues(Infinity, Infinity, Infinity);
-  let max = vec3.fromValues(-Infinity, -Infinity, -Infinity);
-
-  for (let point of points) {
-    vec3.min(min, min, point);
-    vec3.max(max, max, point);
-  }
-
-  return [min, max];
-}
-
 // Get a forward vector from a position and target
 function calculateForwardVector(cameraPosition, targetPosition) {
   let forwardVector = vec3.subtract(vec3.create(), targetPosition, cameraPosition);
   vec3.normalize(forwardVector, forwardVector);
   return forwardVector;
-}
-
-// Combination of linear and logarithmic shadow cascade falloff
-function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.5) {
-  let splits = [];
-  let end = Math.min(zFar, maxDist);
-  let logNear = Math.log(zNear);
-  let logFar = Math.log(end);
-  let logRange = logFar - logNear;
-  let uniformRange = end - zNear;
-
-  for (let i = 0; i < numCascades; i++) {
-    let p = (i + 1) / numCascades;
-    let logSplit = Math.exp(logNear + logRange * p);
-    let uniformSplit = zNear + uniformRange * p;
-    splits[i] = lambda * logSplit + (1 - lambda) * uniformSplit;
-  }
-  return splits;
-}
-
-// Create view matrix for a directional light, where direction matters more than position
-function createDirectionalLightViewMatrix(lightDir, target) {
-  const up = vec3.fromValues(0, 1, 0); // World's up direction
-  const lightPosition = vec3.create();
-  //vec3.scale(lightDir, lightDir, -1);
-  vec3.scale(lightPosition, lightDir, 1);
-  vec3.add(lightPosition, target, lightPosition);
-
-  const viewMatrix = mat4.create();
-  mat4.lookAt(viewMatrix, lightPosition, target, up);
-
-  return viewMatrix;
-}
-
-function getCascadeCenter(cameraPosition, cameraForward, cascadeSize) {
-  let center = vec3.scaleAndAdd(vec3.create(), cameraPosition, cameraForward, cascadeSize);
-  // center[0] = Math.floor(center[0] / cascadeSize) * cascadeSize;
-  // center[1] = Math.floor(center[1] / cascadeSize) * cascadeSize;
-  // center[2] = Math.floor(center[2] / cascadeSize) * cascadeSize;
-  return center;
-}
-
-// Create an orthographic projection for a square cascade of given size
-function getOrthographicProjectionMatrix(cascadeSize, nearPlane, farPlane) {
-  return mat4.ortho(mat4.create(), -cascadeSize, cascadeSize, -cascadeSize, cascadeSize, nearPlane, farPlane);
-}
-
-function getLightViewMatrix(lightDirection, lightUp, cascadeCenter) {
-  let lookAtPoint = vec3.add(vec3.create(), cascadeCenter, lightDirection);
-  return mat4.lookAt(mat4.create(), cascadeCenter, lookAtPoint, lightUp);
-}
-
-// Create directional shadow cascade info
-function setupCascades(numCascades, light, camera, cascadeSplits) {
-  let cascades = [];
-
-  for (let i = 0; i < numCascades; i++) {
-    let size = cascadeSplits[i];
-    let center = vec3.fromValues(camera.position[0], 0, camera.position[2]); //getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
-    let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
-    let orthoMatrix = getOrthographicProjectionMatrix(size, -200, 200);
-
-    cascades.push({ size, center, orthoMatrix, viewMatrix });
-  }
-
-  return cascades;
 }
 
 // Create a cubemap texture from web resource
@@ -737,3 +396,64 @@ function chaikin(vertices, iterations) {
   return chaikin(newVertices, iterations - 1);
 }
 
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
+
+//Create a color weighted against being white
+function generateStrongColor() {
+  const strongComponentIndex = Math.floor(Math.random() * 3);
+  const strongComponentIndex2 = Math.floor(Math.random() * 2);
+
+
+  let r = 0, g = 0, b = 0;
+  switch (strongComponentIndex) {
+    case 0:
+      switch( strongComponentIndex2){
+        case 0:
+        r = 200 + Math.floor(Math.random() * 56);
+        g = Math.floor(Math.random() * 100);
+        b = Math.floor(Math.random() * 10);
+      break;
+      case 1:
+        case 0:
+        r = 200 + Math.floor(Math.random() * 56);
+        g = Math.floor(Math.random() * 10);
+        b = Math.floor(Math.random() * 100);
+        break;
+    }
+    break;
+    case 1:
+      switch( strongComponentIndex2){
+        case 0:
+        r = Math.floor(Math.random() * 100);
+        g = 200 + Math.floor(Math.random() * 56);
+        b = Math.floor(Math.random() * 10);
+      break;
+      case 1:
+        case 0:
+        r = Math.floor(Math.random() * 10);
+        g = 200 + Math.floor(Math.random() * 56);
+        b = Math.floor(Math.random() * 100);
+        break;
+    }
+    break;
+    case 2:
+      switch( strongComponentIndex2){
+        case 0:
+        r = Math.floor(Math.random() * 100);
+        g = Math.floor(Math.random() * 10);
+        b = 200 + Math.floor(Math.random() * 56);
+      break;
+      case 1:
+        case 0:
+        r = Math.floor(Math.random() * 10);
+        g = Math.floor(Math.random() * 100);
+        b = 200 + Math.floor(Math.random() * 56);
+        break;
+    }
+    break;
+  }
+
+  return {r, g, b};
+}

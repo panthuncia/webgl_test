@@ -1,3 +1,14 @@
+/**
+ * Project 2 by Matthew Gomes
+ * Extra credit features: 
+ * 1. Camera movement (Orbital camera, drag on canvas and scroll to move)<br>
+ * 2. Newell vertex calculation (press "n" to toggle)<br>
+ * 3. Primary light orbits scene, path shown with lines<br>
+ * 4. Second light orbiting the object, using scene graph for transform inheritance<br>
+ * 5. Arbitrary number of lights (Press "z" to add a light! It will be spawned at a random location, in a random orientation, with a random color, and float around the scene)<br>
+ * 6. Arbitrary number of objects on path (Press "x" to add an object! It will be spawned at the beginning of the path, with a random color and speed)
+ */
+
 var v0 = normalize([-1.0, -1.0,  1.0, 1], true);
 var v1 = normalize([1.0, -1.0,  1.0, 1], true);
 var v2 = normalize([1.0,  1.0,  1.0, 1], true);
@@ -10,10 +21,8 @@ var v7 = normalize([-1.0,  1.0, -1.0, 1], true);
 async function main() {
 
   let renderer = new WebGLRenderer("webgl-canvas");
-  await(createDebugQuad(renderer.gl));
-  //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
-  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
-  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/sphere.json"))));
+
+  let addedObjects = [];
   let animatedObjects = [];
   let currentSubdivisions = 0;
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, false);
@@ -49,14 +58,6 @@ async function main() {
   lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
   mainObject.animationController.pause();
   animatedObjects.push(mainObject);
-  //let mainObject = await (renderer.loadModel(await (loadJson("objects/descriptions/house_pbr.json"))));
-  //let sphereObject = await (renderer.loadModel(await (loadJson("objects/descriptions/brick_sphere.json"))));
-
-
-
-  //currentScene.objects = [terrain, mainObject, sphereObject];
-  //renderer.addObject(terrain);
-  //renderer.addObject(sphereObject);
 
   let light_positions = [[5, 3, 5],
   [5, 3, -5],
@@ -101,11 +102,6 @@ async function main() {
   animatedObjects.push(light2)
   light2.animationController.pause();
 
-  //renderer.addLight(light2);
-  //renderer.addLight(light3);
-  //renderer.addLight(light4);
-  //renderer.addLight(light5);
-  //renderer.addLight(light6);
   let playing = false;
   let newellMethod = false;
   function setChaikin(object, points, amount, playTime){
@@ -123,12 +119,18 @@ async function main() {
     currentSubdivisions+=amount;
     if (currentSubdivisions>5){
       currentSubdivisions = 5;
+      return;
     }
     if (currentSubdivisions<0){
       currentSubdivisions = 0;
+      return;
     }
     let newData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, newellMethod);
+    subdivisionData = newData;
     renderer.setObjectData(mainObject, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+    for (let object of addedObjects){
+      renderer.setObjectData(object, newData.pointsArray, newData.normalsArray, newData.texCoordArray);
+    }
   }
 
   function toggleAnimation(){
@@ -145,6 +147,53 @@ async function main() {
       playing = false;
     }
   }
+  playtimes = {}
+  function addNewCube(){
+    let color = generateStrongColor();
+    let object = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [color.r, color.g, color.b, 255]);
+    renderer.addObject(object);
+    let thisPlaytime = Math.random()*15+8;
+    playtimes[object.localID] = thisPlaytime;
+    setChaikin(object, original_positions, chaikin_iterations, thisPlaytime);
+    animatedObjects.push(object);
+    addedObjects.push(object);
+  }
+
+  function addRandomLight(){
+    if(renderer.currentScene.numLights>=renderer.MAX_POINT_LIGHTS){
+      console.log("Reached max number of lights");
+      return;
+    }
+    let color = generateStrongColor();
+    let light = new Light(LightType.POINT, [0, 0, 0], [color.r/255, color.g/255, color.b/255], 30.0, 1.0, 0.09, 0.032);
+    renderer.addLight(light);
+    let lightTransformObject = new SceneNode();
+    lightTransformObject.transform.setLocalScale([3, 3, 3]);
+    
+    let x = getRandomInt(40)-20;
+    let y = getRandomInt(40)-20;
+    let z = getRandomInt(40)-20;
+    lightTransformObject.transform.setLocalPosition([x, y, z]);
+
+    let eulx = getRandomInt(360)*(Math.PI/180);
+    let euly = getRandomInt(360)*(Math.PI/180);
+    let eulz = getRandomInt(360)*(Math.PI/180);
+    lightTransformObject.transform.setLocalRotation([eulx, euly, eulz]);
+
+    let lightObject = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light.color[0]*255, light.color[1]*255, light.color[2]*255, 255], true, 40.0);
+    lightObject.transform.setLocalScale([0.4, 0.4, 0.4]);
+    renderer.addObject(lightObject);
+    light.addChild(lightObject);
+
+    renderer.addNode(lightTransformObject);
+    lightTransformObject.addChild(light);
+    let time = getRandomInt(10)+5;
+    setChaikin(light, light_positions, 8, time);
+    animatedObjects.push(light);
+    if(!playing){
+      light.animationController.pause();
+    }
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'm') {
@@ -157,14 +206,22 @@ async function main() {
       chaikin_iterations++
       if(chaikin_iterations>8){
         chaikin_iterations = 8;
+        return;
       }
       lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
+      for (let object of addedObjects){
+        setChaikin(object, original_positions, chaikin_iterations, playtimes[object.localID]);
+      }
     }else if (event.key.toLowerCase() === 'j'){
       chaikin_iterations--;
       if(chaikin_iterations<0){
         chaikin_iterations = 0;
+        return;
       }
       lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
+      for (let object of addedObjects){
+        setChaikin(object, original_positions, chaikin_iterations, playtimes[object.localID]);
+      }
     }else if (event.key.toLowerCase() === 'q'){
       changeSphereSubdivision(-1);
     }else if (event.key.toLowerCase() === 'e'){
@@ -175,6 +232,10 @@ async function main() {
       newellMethod = !newellMethod;
       // Rebuild sphere
       changeSphereSubdivision(0);
+    } else if (event.key.toLowerCase() === 'z') {
+      addRandomLight();
+    } else if (event.key.toLowerCase() === 'x') {
+      addNewCube();
     }
   });
   
