@@ -1,10 +1,7 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = null) {
+  constructor(gl, vertices, normals, texcoords, baryCoords) {
     this.vertices = vertices;
     this.normals = normals;
-    this.indices = indices;
-    this.tangents = tangents;
-    this.bitangents = bitangents;
     this.baryCoords = baryCoords;
 
     // Create VAO
@@ -38,28 +35,6 @@ class Mesh {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(baryCoords), gl.STATIC_DRAW);
     gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(3);
-
-    // Tangents and bitangents (if present)
-    if (tangents != null) {
-      this.tangentBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(4);
-
-      this.bitangentBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(5, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(5);
-    }
-
-    // Index buffer (if present)
-    if (indices != null) {
-      this.indexBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-    }
 
     // Unbind VAO
     gl.bindVertexArray(null);
@@ -126,7 +101,7 @@ class Transform {
         perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(0, 1, 0));
       }
       vec3.normalize(perpendicularAxis, perpendicularAxis);
-      quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI); // 180 degrees rotation
+      quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI);
     } else if (dotProduct > 0.9999) {
       // The vectors are parallel
       quat.identity(rotationQuat);
@@ -212,6 +187,7 @@ class AnimationController {
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
     //dummy update to fix positions
+    this.node.forceUpdate();
     this.updateTransform(0);
   }
 
@@ -286,7 +262,7 @@ class SceneNode {
       this.transform.computeLocalModelMatrix();
     }
     for (let childKey in this.children) {
-      this.children[childKey].update();
+      this.children[childKey].forceUpdate();
     }
   }
 }
@@ -378,89 +354,6 @@ class Light extends SceneNode {
     this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
     this.outerConeCos = Math.cos(outerConeAngle);
-
-    this.dirtyFlag = true;
-    switch (type) {
-      case LightType.DIRECTIONAL:
-        break;
-      case LightType.SPOT:
-        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
-        this.viewMatrix = this.getViewMatrix();
-        this.lightSpaceMatrix = mat4.create();
-        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
-        this.farPlane = this.calculateFarPlane();
-        break;
-      case LightType.POINT:
-        this.projectionMatrix = this.getPerspectiveProjectionMatrix();
-        this.cubemapViewMatrices = this.getCubemapViewMatrices();
-        this.lightCubemapMatrices = [];
-        for(let i=0; i<6; i++){
-          this.lightCubemapMatrices[i] = mat4.create();
-        }
-    }
-  }
-  getViewMatrix() {
-    let normalizedDirection = vec3.create();
-    vec3.normalize(normalizedDirection, this.getLightDir());
-    let targetPosition = vec3.create();
-    let lightPosition = this.transform.getGlobalPosition();
-    let up = [0, 1, 0];
-    vec3.add(targetPosition, lightPosition, normalizedDirection);
-    let lightView = mat4.create();
-    mat4.lookAt(lightView, lightPosition, targetPosition, up);
-    return lightView;
-  }
-  // Cubemap matrices for rendering from this light's perspective
-  getCubemapViewMatrices() {
-    // Create six camera directions for each face
-    const directions = [
-      { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, 1, 0) },
-      { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, 1, 0) },
-      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, // up needs to be different here because of axis alignment
-      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, // here too
-      { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, 1, 0) },
-      { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, 1, 0) },
-    ];
-    //create view matrices for each dir
-    const viewMatrices = [];
-    for(let dir of directions){
-      const viewMatrix = mat4.create();
-      let target = vec3.create();
-      vec3.add(target, this.transform.pos, dir.dir);
-      mat4.lookAt(viewMatrix, this.transform.pos, target, dir.up);
-      viewMatrices.push(viewMatrix);
-    }
-    return viewMatrices;
-  }
-  getPerspectiveProjectionMatrix() {
-    let aspect = 1;
-    let near = 1.0;
-    let far = 100;
-    let lightProjection = mat4.create();
-    switch(this.type){
-      case LightType.SPOT:
-        mat4.perspective(lightProjection, this.outerConeAngle * 2, aspect, near, far);
-        break;
-      case LightType.POINT:
-        mat4.perspective(lightProjection, Math.PI/2, aspect, near, far);
-        break;
-    }
-    return lightProjection;
-  }
-  calculateFarPlane() {
-    const A = this.quadraticAttenuation;
-    const B = this.linearAttenuation;
-    const C = this.constantAttenuation - this.intensity / 0.1;
-
-    //quadratic equation
-    const discriminant = B * B - 4 * A * C;
-    if (discriminant < 0) {
-      return Infinity;
-    }
-
-    const d1 = (-B + Math.sqrt(discriminant)) / (2 * A);
-    const d2 = (-B - Math.sqrt(discriminant)) / (2 * A);
-    return Math.max(d1, d2);
   }
   getLightDir() {
     const lightDirection = vec3.create();
@@ -476,10 +369,7 @@ class Light extends SceneNode {
     this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
     this.outerConeCos = Math.cos(outerConeAngle);
-    // Recalculate projection matrix with new fov
-    this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
-  // Override these methods to recalculate view and projection matrices
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
@@ -489,7 +379,6 @@ class Light extends SceneNode {
     }
   }
   forceUpdate() {
-    this.dirtyFlag = true;
     if (this.parent) {
       this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
     } else {
@@ -497,19 +386,6 @@ class Light extends SceneNode {
     }
     for (let childKey in this.children) {
       this.children[childKey].forceUpdate();
-    }
-    // Recalculate view matrix with new location
-    switch (this.type) {
-      case LightType.SPOT:
-        this.viewMatrix = this.getViewMatrix();
-        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
-        break;
-      case LightType.POINT:
-        this.cubemapViewMatrices = this.getCubemapViewMatrices();
-        for(let i=0; i<6; i++){
-          mat4.multiply(this.lightCubemapMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
-        }
-        break;
     }
   }
 }

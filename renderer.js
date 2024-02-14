@@ -6,14 +6,7 @@ class WebGLRenderer {
     var fragElem = document.getElementById("primaryFSSource");
     this.primaryVSSource = vertElem.text;
     this.primaryFSSource = fragElem.text;
-    var shadowVertElem = document.getElementById("shadowVSSource");
-    var shadowFragElem = document.getElementById("shadowFSSource");
-    this.shadowVSSource = shadowVertElem.text;
-    this.shadowFSSource = shadowFragElem.text;
 
-
-    // Print gl restrictions, for debugging
-    this.printRestrictions();
     const gl = this.gl;
     this.matrices = {
       viewMatrix: mat4.create(),
@@ -55,18 +48,9 @@ class WebGLRenderer {
     mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
     this.matrices.projectionMatrix = projectionMatrix;
 
-
-    // Shadow setup
-    this.SHADOW_WIDTH = 2048; //8192;
-    this.SHADOW_HEIGHT = 2048; //8192;
-    this.SHADOW_CASCADE_DISTANCE = 100;
-
-    this.NUM_SHADOW_CASCADES = 3;
-    this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
-
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
-    this.MAX_POINT_LIGHTS = 2;
+    this.MAX_POINT_LIGHTS = 512;
     this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS + this.MAX_SPOT_LIGHTS + this.MAX_POINT_LIGHTS;
 
     this.standardHeader = `#version 300 es
@@ -74,18 +58,11 @@ class WebGLRenderer {
     #define MAX_SPOT_LIGHTS `+this.MAX_SPOT_LIGHTS+`
     #define MAX_POINT_LIGHTS `+this.MAX_POINT_LIGHTS+`
     #define MAX_LIGHTS `+this.MAX_LIGHTS+`
-    #define NUM_CASCADE_SPLITS `+this.NUM_SHADOW_CASCADES+`
     precision highp float;
     precision highp int;\n`
 
     // Shader variants for conditional compilation
     this.SHADER_VARIANTS = {
-      SHADER_VARIANT_NORMAL_MAP: 0b1,
-      SHADER_VARIANT_BAKED_AO: 0b10,
-      SHADER_VARIANT_PARALLAX: 0b100,
-      SHADER_VARIANT_PBR: 0b1000,
-      SHADER_VARIANT_OPACITY_MAP: 0b10000,
-      SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
       SHADER_VARIANT_WIREFRAME: 0b1000000,
       SHADER_VARIANT_FORCE_GOURAUD: 0b10000000,
       SHADER_VARIANT_SKIP_LIGHTING: 0b100000000,
@@ -119,7 +96,6 @@ class WebGLRenderer {
 
     this.forceWireframe = false;
     this.forceGouraud = false;
-    this.initShadowScene();
     this.initLineRenderer();
   }
   
@@ -172,10 +148,6 @@ class WebGLRenderer {
     this.currentScene.nextNodeID++;
     this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
     this.initLightVectors();
-    
-    if (light.type == LightType.DIRECTIONAL){
-      this.updateCascades();
-    }
   }
 
   //Get a variant of the main shaders with a given variant ID
@@ -183,24 +155,6 @@ class WebGLRenderer {
     const gl = this.gl;
 
     let defines = this.standardHeader;
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-      defines += "#define USE_NORMAL_MAP\n";
-    }
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-      defines += "#define USE_BAKED_AO\n";
-    }
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-      defines += "#define USE_PARALLAX\n";
-    }
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-      defines += "#define USE_PBR\n";
-    }
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-      defines += "#define USE_OPACITY_MAP\n";
-    }
-    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP) {
-      defines += "#define INVERT_NORMAL_MAP\n";
-    }
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME) {
       defines += "#define WIREFRAME\n";
     }
@@ -270,7 +224,7 @@ class WebGLRenderer {
 
     const perFrameUniformNames = ["u_viewMatrixInverse"];
     const perMaterialUniformNames = ["u_ambientStrength", "u_textureScale", "u_specularStrength"];
-    const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosViewSpace", "u_lightDirViewSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
+    const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosViewSpace", "u_lightDirViewSpace", "u_lightAttenuation", "u_lightColor"];
 
     //get uniform offsets by name
     gl.uniformBlockBinding(shaderProgram, perFrameBlockIndex, this.buffers.perFrameUBOBindingLocation);
@@ -295,10 +249,6 @@ class WebGLRenderer {
     for (let i = 0; i < lightUniformNames.length; i++) {
       this.buffers.uniformLocations.lightUniformLocations[lightUniformNames[i]] = lightUniformOffsets[i];
     }
-
-    //set constant cascade splits. TODO: Move these to a PerProgram buffer?
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
-    console.log("created UBOs");
   }
 
   //create a set of shader variants
@@ -308,7 +258,7 @@ class WebGLRenderer {
     let vsSource = this.primaryVSSource;
 
     for (const variantID of shaderVariantsToCompile) {
-      shaderProgram = this.getProgram(fsSource, vsSource, variantID);
+      let shaderProgram = this.getProgram(fsSource, vsSource, variantID);
 
       //bind UBOs
       let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "PerFrame");
@@ -335,30 +285,8 @@ class WebGLRenderer {
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
-          shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
-          shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
-          shadowCubemaps: gl.getUniformLocation(shaderProgram, "u_shadowCubemaps"),
         },
       };
-      //conditional attributes and uniforms
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, "a_tangent");
-        programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, "a_bitangent");
-        programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, "u_normalMap");
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-        programInfo.uniformLocations.aoTexture = gl.getUniformLocation(shaderProgram, "u_aoMap");
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-        programInfo.uniformLocations.heightMap = gl.getUniformLocation(shaderProgram, "u_heightMap");
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-        programInfo.uniformLocations.metallic = gl.getUniformLocation(shaderProgram, "u_metallic");
-        programInfo.uniformLocations.roughness = gl.getUniformLocation(shaderProgram, "u_roughness");
-      }
-      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-        programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, "u_opacity");
-      }
       this.shaderProgramVariants[variantID] = programInfo;
     }
   }
@@ -376,8 +304,7 @@ class WebGLRenderer {
     this.updateScene();
     this.updateLights();
 
-    //this.shadowPass();
-    gl.clearColor(0.0, 0.0, 1.0, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
     // drawFullscreenQuad(gl, currentScene.shadowScene.shadowMaps, 1);
@@ -415,20 +342,7 @@ class WebGLRenderer {
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
 
       //bind shadow maps
-
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades);
-      gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
-
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps);
-      gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
-
-      gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps);
-      gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
-
-      let textureUnitAfterShadowMaps = 3;
+      let textureUnitAfterShadowMaps = 1;
 
       let modelViewMatrix = mat4.create();
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
@@ -439,9 +353,6 @@ class WebGLRenderer {
       let normalMatrix = calculateNormalMatrix(modelViewMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
-      }
       let i = 0;
       for (const mesh of object.meshes) {
         //vertices
@@ -454,59 +365,6 @@ class WebGLRenderer {
         gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
         textureUnit += 1;
 
-        //if we have a normal map for this mesh
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-          //tangent
-          gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
-          gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
-          gl.enableVertexAttribArray(programInfo.attribLocations.vertexTangent);
-          //bitangent
-          gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
-          gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
-          gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
-          //normal map
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.normals[i]);
-          gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
-          textureUnit += 1;
-        }
-        //ao texture
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.aoMaps[i]);
-          gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
-          textureUnit += 1;
-        }
-        //height texture
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.heightMaps[i]);
-          gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
-          textureUnit += 1;
-        }
-        //PBR metallic & roughness textures
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.metallic[i]);
-          gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
-          textureUnit += 1;
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.roughness[i]);
-          gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
-          textureUnit += 1;
-        }
-        //Opacity texture, if object uses one
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.opacity[i]);
-          gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
-          textureUnit += 1;
-        }
-        // gl.validateProgram(programInfo.program);
-        // const validationStatus = gl.getProgramParameter(shaderProgram, gl.VALIDATE_STATUS);
-        // if (!validationStatus) {
-        //     console.error('Program validation failed:', gl.getProgramInfoLog(shaderProgram));
-        // }
         gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
         gl.bindVertexArray(null);
         i += 1;
@@ -519,8 +377,6 @@ class WebGLRenderer {
   //TODO: Doing the view-space transformation in shaders might be better?
   // Won't matter until using deferred renderer. Could be more elegant too.
   updateLights() {
-    let spotNum = 0;
-    let pointNum = 0;
     let i=0;
     for (let key in this.currentScene.lights) {
       let light = this.currentScene.lights[key];
@@ -559,23 +415,6 @@ class WebGLRenderer {
       if (light.type == LightType.SPOT) {
         this.currentScene.lightPropertiesData[i * 4 + 1] = light.innerConeCos;
         this.currentScene.lightPropertiesData[i * 4 + 2] = light.outerConeCos;
-      }
-
-      switch (light.type){
-        case LightType.SPOT:
-          if (light.dirtyFlag){
-            dataViewSetMatrix(this.buffers.lightDataView, light.lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
-            light.dirtyFlag = false;
-          }
-          spotNum++;
-          break;
-        case LightType.POINT:
-          if (light.dirtyFlag){
-            dataViewSetMatrixArray(this.buffers.lightDataView, light.lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
-            light.dirtyFlag = false;
-          }
-          pointNum++;
-          break;
       }
       i++
     }
@@ -642,23 +481,6 @@ class WebGLRenderer {
       this.updateCamera();
     });
   }
-  updateCascades(){
-    // Update directional light shadow cascades
-    let lightSpaceMatrices = [];
-    for (let key in this.currentScene.lights) {
-      let light = this.currentScene.lights[key];
-      if (light.type == LightType.DIRECTIONAL) {
-        light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, light, this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
-        for (let cascade of light.cascades){
-          let lightSpaceMatrix = mat4.create();
-          mat4.multiply(lightSpaceMatrix, cascade.orthoMatrix, cascade.viewMatrix);
-          lightSpaceMatrices.push(lightSpaceMatrix);
-        }
-      }
-    }
-    dataViewSetMatrix(this.buffers.perFrameDataView, this.matrices.viewMatrixInverse, this.buffers.uniformLocations.perFrameUniformLocations.u_viewMatrixInverse);
-    dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices);
-  }
   updateCamera() {
     // Ensure the vertical angle is within limits
     this.verticalAngle = Math.max(0, Math.min(Math.PI, this.verticalAngle));
@@ -676,42 +498,6 @@ class WebGLRenderer {
     // Update view matrix
     mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]);
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
-
-    // Update shadow cascades after camera moves
-    this.updateCascades();
-  }
-  createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
-    const gl = this.gl;
-    let objectData = {
-      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
-    }
-    let shaderVariant = 0;
-    if (skipLighting){
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
-    }
-    if (textures.length == 0){
-      var texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-
-      var greyPixel = new Uint8Array([255, 0, 0, 255]);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
-
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      textures = [texture];
-    }
-    if (normals.length > 0){
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
-    }
-    if (heightMaps.length > 0){
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
-    }
-    if (metallic.length > 0 || roughness.length > 0){
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
-    }
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
 
   createObjectFromData(pointsArray, normalsArray, texcoords, color, skipLighting = false, ambientStrength = 0.01){
@@ -771,137 +557,5 @@ class WebGLRenderer {
     }
     return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0)
   }
-  // Load model from custom JSON format
-  async loadModel(modelDescription) {
-    const gl = this.gl;
-    let textures = [];
-    let normals = [];
-    let aoMaps = [];
-    let heightMaps = [];
-    let metallic = [];
-    let roughness = [];
-    let opacity = [];
-    let shaderVariant = 0;
-    let repeat = false;
-    let textureScale = 1.0;
-    try {
-      if (modelDescription.invert_normal_map == true){
-        shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP;
-      }
-    }
-    catch{}
-    try {
-      if (modelDescription.repeatTexture == true){
-        repeat = true;
-      }
-    }
-    catch{}
-    try {
-      textureScale = modelDescription.textureScale;
-    }
-    catch{}
-    try {
-      for (const textureName of modelDescription.textures) {
-        let textureImage = await loadTexture("textures/" + textureName);
-        let texture = createWebGLTexture(gl, textureImage, repeat, true);
-        textures.push(texture);
-      }
-    } catch {
-      console.log("Object " + modelDescription.model + " has no texture");
-    }
 
-    try {
-      for (const textureName of modelDescription.normals) {
-        let normalImage = await loadTexture("textures/" + textureName);
-        let normalTexture = createWebGLTexture(gl, normalImage, repeat, true);
-        normals.push(normalTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no normals");
-    }
-
-    try {
-      for (const textureName of modelDescription.aoMaps) {
-        let aoImage = await loadTexture("textures/" + textureName);
-        let aoTexture = createWebGLTexture(gl, aoImage, repeat);
-        aoMaps.push(aoTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no ao maps");
-    }
-
-    try {
-      for (const textureName of modelDescription.heightMaps) {
-        let heightMapImage = await loadTexture("textures/" + textureName);
-        let heightMapTexture = createWebGLTexture(gl, heightMapImage, repeat);
-        heightMaps.push(heightMapTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no height maps");
-    }
-
-    try {
-      for (const textureName of modelDescription.metallic) {
-        let metallicImage = await loadTexture("textures/" + textureName);
-        let metallicTexture = createWebGLTexture(gl, metallicImage, repeat, true);
-        metallic.push(metallicTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no metallic texture");
-    }
-
-    try {
-      for (const textureName of modelDescription.roughness) {
-        let roughnessImage = await loadTexture("textures/" + textureName);
-        let roughnessTexture = createWebGLTexture(gl, roughnessImage, repeat, true);
-        roughness.push(roughnessTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no roughness texture");
-    }
-    try {
-      for (const textureName of modelDescription.opacity) {
-        let opacityImage = await loadTexture("textures/" + textureName);
-        let opacityTexture = createWebGLTexture(gl, opacityImage, repeat);
-        opacity.push(opacityTexture);
-      }
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP;
-    } catch {
-      console.log("Object " + modelDescription.model + " has no opacity texture");
-    }
-
-    let objectData = await getObj("objects/" + modelDescription.model);
-    console.log(objectData);
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
-  }
-  printRestrictions() {
-    console.log("Max texture size: " + this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
-    console.log("Max texture layers: " + this.gl.getParameter(this.gl.MAX_ARRAY_TEXTURE_LAYERS));
-    console.log("Max cubemap dimensions: " + this.gl.getParameter(this.gl.MAX_CUBE_MAP_TEXTURE_SIZE));
-    console.log("Max vertex uniforms: " + this.gl.getParameter(this.gl.MAX_VERTEX_UNIFORM_VECTORS));
-    console.log("Max fragment uniforms: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
-    console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
-    console.log("Max uniform block size: " + this.gl.getParameter(this.gl.MAX_UNIFORM_BLOCK_SIZE));
-  }
-  // Broken
-  moveCameraForward(dist){
-    let dir = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
-    let move = vec3.create();
-    vec3.scale(move, dir, dist);
-    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
-    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
-  }
-  moveCameraRight(dist){
-    let forward = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
-    let move = vec3.create();
-    vec3.cross(move, forward, this.currentScene.camera.up);
-    vec3.scale(move, move, dist);
-    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
-    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
-  }
 }
