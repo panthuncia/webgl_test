@@ -6,9 +6,13 @@ class WebGLRenderer {
     var fragElem = document.getElementById("primaryFSSource");
     this.primaryVSSource = vertElem.text;
     this.primaryFSSource = fragElem.text;
+    var shadowVertElem = document.getElementById("shadowVSSource");
+    var shadowFragElem = document.getElementById("shadowFSSource");
+    this.shadowVSSource = shadowVertElem.text;
+    this.shadowFSSource = shadowFragElem.text;
 
 
-    //print gl restrictions, for debugging
+    // Print gl restrictions, for debugging
     this.printRestrictions();
     const gl = this.gl;
     this.matrices = {
@@ -17,11 +21,16 @@ class WebGLRenderer {
       viewMatrixInverse: mat4.create(),
     };
 
-    //scene setup
+    // Scene setup
     this.currentScene = {
+      nextNodeID: 0,
       shadowScene: {},
-      lights: [],
-      objects: [],
+      lights: {},
+      numLights: 0,
+      objects: {},
+      nodes: {},
+      numObjects: 0,
+      sceneRoot: new SceneNode(),
       camera: {
         position: vec3.create(),
         lookAt: vec3.fromValues(0, 0, 0),
@@ -32,7 +41,7 @@ class WebGLRenderer {
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
 
-    //camera setup
+    // Camera setup
     let fieldOfView = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
@@ -47,7 +56,7 @@ class WebGLRenderer {
     this.matrices.projectionMatrix = projectionMatrix;
 
 
-    //shadow setup
+    // Shadow setup
     this.SHADOW_WIDTH = 2048; //8192;
     this.SHADOW_HEIGHT = 2048; //8192;
     this.SHADOW_CASCADE_DISTANCE = 100;
@@ -69,7 +78,7 @@ class WebGLRenderer {
     precision highp float;
     precision highp int;\n`
 
-    //shader variants for conditional compilation
+    // Shader variants for conditional compilation
     this.SHADER_VARIANTS = {
       SHADER_VARIANT_NORMAL_MAP: 0b1,
       SHADER_VARIANT_BAKED_AO: 0b10,
@@ -79,6 +88,7 @@ class WebGLRenderer {
       SHADER_VARIANT_INVERT_NORMAL_MAP: 0b100000,
       SHADER_VARIANT_WIREFRAME: 0b1000000,
       SHADER_VARIANT_FORCE_GOURAUD: 0b10000000,
+      SHADER_VARIANT_SKIP_LIGHTING: 0b100000000,
     };
 
     this.shaderProgramVariants = {};
@@ -104,26 +114,71 @@ class WebGLRenderer {
 
     this.horizontalAngle = Math.PI / 2;
     this.verticalAngle = Math.PI / 2;
-    this.distanceFromOrigin = 40; // Adjust as necessary
+    this.distanceFromOrigin = 25;
     this.createCallbacks();
 
     this.forceWireframe = false;
-    this.forgeGouraud = false;
-
+    this.forceGouraud = false;
+    this.initShadowScene();
     this.initLineRenderer();
   }
+  
+  // Add a renderable object to the current scene
   addObject(object) {
-    this.currentScene.objects.push(object);
+    this.numObjects++;
+    object.localID = this.currentScene.nextNodeID;
+    this.currentScene.sceneRoot.addChild(object);
+    this.currentScene.objects[this.currentScene.nextNodeID] = object;
+    this.currentScene.nextNodeID++;
+    return object.localID;
   }
+
+  // Add a plain node to the current scene (useful for offset transforms)
+  addNode(node) {
+    node.localID = this.currentScene.nextNodeID;
+    this.currentScene.sceneRoot.addChild(node);
+    this.currentScene.nodes[this.currentScene.nextNodeID] = node;
+    this.currentScene.nextNodeID++;
+    return node.localID;
+  }
+
+  // Remove a renderable object from the current scene
+  removeObject(objectID) {
+    this.numObjects--;
+    let object = this.currentScene.objects[objectID];
+    if (object.parent != null){
+      object.parent.removeChild(objectID);
+    }
+    delete this.currentScene.objects[objectID];
+  }
+
+  // Get an SceneNode of any kind by ID
+  getEntityById(objectID){
+    let object = this.currentScene.objects[objectID];
+    if (object === undefined){
+      object = this.currentScene.lights[objectID];
+    } if (object === undefined) {
+      object = this.currentScene.nodes[objectID];
+    }
+    return  object;
+  }
+
+  // Add a light to the current scene
   addLight(light) {
-    this.currentScene.lights.push(light);
-    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.lights.length, true);
+    this.currentScene.numLights++;
+    light.localID = this.currentScene.nextNodeID;
+    this.currentScene.sceneRoot.addChild(light);
+    this.currentScene.lights[this.currentScene.nextNodeID] = light;
+    this.currentScene.nextNodeID++;
+    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
     this.initLightVectors();
     
     if (light.type == LightType.DIRECTIONAL){
       this.updateCascades();
     }
   }
+
+  //Get a variant of the main shaders with a given variant ID
   getProgram(fsSource, vsSource, variantID) {
     const gl = this.gl;
 
@@ -151,6 +206,9 @@ class WebGLRenderer {
     }
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD) {
       defines += "#define GOURAUD\n";
+    } 
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
+      defines += "#define SKIP_LIGHTING\n";
     }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
@@ -161,7 +219,9 @@ class WebGLRenderer {
     gl.linkProgram(shaderProgram);
     return shaderProgram;
   }
-  async createUBOs() {
+
+  //Create uniform buffer objects, with reflection for offset positions
+  createUBOs() {
     const gl = this.gl;
     let fsSource = this.primaryFSSource;
     let vsSource = this.primaryVSSource;
@@ -240,6 +300,8 @@ class WebGLRenderer {
     dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
     console.log("created UBOs");
   }
+
+  //create a set of shader variants
   createProgramVariants(shaderVariantsToCompile) {
     const gl = this.gl;
     let fsSource = this.primaryFSSource;
@@ -280,7 +342,6 @@ class WebGLRenderer {
       };
       //conditional attributes and uniforms
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        //programInfo.uniformLocations.modelMatrix = gl.getUniformLocation(shaderProgram, 'u_modelMatrix');
         programInfo.attribLocations.vertexTangent = gl.getAttribLocation(shaderProgram, "a_tangent");
         programInfo.attribLocations.vertexBitangent = gl.getAttribLocation(shaderProgram, "a_bitangent");
         programInfo.uniformLocations.normalTexture = gl.getUniformLocation(shaderProgram, "u_normalMap");
@@ -302,23 +363,19 @@ class WebGLRenderer {
     }
   }
 
+  // Update the scene graph from root
   updateScene() {
-    for (let entity of this.currentScene.objects) {
-      entity.update();
-    }
-    for (let entity of this.currentScene.lights) {
-      entity.update();
-    }
+    this.currentScene.sceneRoot.forceUpdate();
   }
 
-  async drawScene() {
+  // Draw the scene
+  //TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() on individual objects
+  // This enhancement should be paired with batch rendering
+  drawScene() {
     const gl = this.gl;
     this.updateScene();
     this.updateLights();
-    // if we haven't initialized shadow scene, do that. This cannot be in constructor because async.
-    if (this.currentScene.shadowScene.shadowCascadeFramebuffer == null) {
-      await this.initShadowScene();
-    }
+
     //this.shadowPass();
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -333,13 +390,14 @@ class WebGLRenderer {
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
     
-    for (const object of currentScene.objects) {
+    for (const key in currentScene.objects) {
+      let object = currentScene.objects[key];
       //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
       let currentVariant = object.shaderVariant;
       if(this.forceWireframe){
         currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
       }
-      if(this.forgeGouraud){
+      if(this.forceGouraud){
         currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_FORCE_GOURAUD;
       }
       if (!this.shaderProgramVariants[currentVariant]) {
@@ -348,8 +406,6 @@ class WebGLRenderer {
       const programInfo = this.shaderProgramVariants[currentVariant];
       gl.useProgram(programInfo.program);
 
-      // gl.uniform1f(programInfo.uniformLocations.ambientLightStrength, 0.005);
-      // gl.uniform1f(programInfo.uniformLocations.specularLightStrength, 1);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
@@ -358,43 +414,27 @@ class WebGLRenderer {
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
 
-      // gl.uniform1i(programInfo.uniformLocations.numLights, currentScene.lights.length);
-      // gl.uniform4fv(programInfo.uniformLocations.lightPosViewSpace, currentScene.lightPositionsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightColor, currentScene.lightColorsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightAttenuation, currentScene.lightAttenuationsData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightProperties, currentScene.lightPropertiesData);
-      // gl.uniform4fv(programInfo.uniformLocations.lightDirection, currentScene.lightDirectionsData);
-
-      //bind uniform buffers
-
       //bind shadow maps
 
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades);
       gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
 
-      // for (let i = 0; i < this.NUM_SHADOW_CASCADES; i++) {
-      //   gl.uniform1f(programInfo.uniformLocations.cascadeSplits[i], this.currentScene.shadowScene.cascadeSplits[i]);
-      // }
-
       gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps);
       gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
 
       gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps); // Bind shadow map texture array
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps);
       gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
       let textureUnitAfterShadowMaps = 3;
 
-      //gl.uniform3f(programInfo.uniformLocations.viewPos, 0, 0, 0);
       let modelViewMatrix = mat4.create();
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
 
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
-
-      // gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrixInverse, false, this.matrices.viewMatrixInverse);
 
       let normalMatrix = calculateNormalMatrix(modelViewMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
@@ -471,17 +511,21 @@ class WebGLRenderer {
         gl.bindVertexArray(null);
         i += 1;
       }
-      //console.log("done with object")
     }
     this.updateCamera();
   }
+
+  //Update the lights in the scene
+  //TODO: Doing the view-space transformation in shaders might be better?
+  // Won't matter until using deferred renderer. Could be more elegant too.
   updateLights() {
-    this.currentScene.numLights = this.currentScene.lights.length;
     let spotNum = 0;
     let pointNum = 0;
-    for (let i = 0; i < this.currentScene.lights.length; i++) {
-      
-      let lightPosWorld = this.currentScene.lights[i].transform.pos;
+    let i=0;
+    for (let key in this.currentScene.lights) {
+      let light = this.currentScene.lights[key];
+
+      let lightPosWorld = light.transform.getGlobalPosition();
       let lightPosView = vec3.create();
       vec3.transformMat4(lightPosView, lightPosWorld, this.matrices.viewMatrix);
 
@@ -490,18 +534,18 @@ class WebGLRenderer {
       this.currentScene.lightPositionsData[i * 4 + 2] = lightPosView[2];
       this.currentScene.lightPositionsData[i * 4 + 3] = 0; //padding for uniform block alignment, unused in shader
 
-      this.currentScene.lightAttenuationsData[i * 4] = this.currentScene.lights[i].constantAttenuation;
-      this.currentScene.lightAttenuationsData[i * 4 + 1] = this.currentScene.lights[i].linearAttenuation;
-      this.currentScene.lightAttenuationsData[i * 4 + 2] = this.currentScene.lights[i].quadraticAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4] = light.constantAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4 + 1] = light.linearAttenuation;
+      this.currentScene.lightAttenuationsData[i * 4 + 2] = light.quadraticAttenuation;
 
-      let lightColor = this.currentScene.lights[i].color;
-      let lightIntensity = this.currentScene.lights[i].intensity;
+      let lightColor = light.color;
+      let lightIntensity = light.intensity;
       this.currentScene.lightColorsData[i * 4] = lightColor[0] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
-      let lightDirWorld = this.currentScene.lights[i].getLightDir();
+      let lightDirWorld = light.getLightDir();
       let lightDirView = vec3.create();
       let viewMatrix3x3 = mat3.create();
       mat3.fromMat4(viewMatrix3x3, this.matrices.viewMatrix); // Extract the upper-left 3x3 part
@@ -511,28 +555,29 @@ class WebGLRenderer {
       this.currentScene.lightDirectionsData[i * 4 + 1] = lightDirView[1];
       this.currentScene.lightDirectionsData[i * 4 + 2] = lightDirView[2];
 
-      this.currentScene.lightPropertiesData[i * 4] = this.currentScene.lights[i].type;
-      if (this.currentScene.lights[i].type == LightType.SPOT) {
-        this.currentScene.lightPropertiesData[i * 4 + 1] = this.currentScene.lights[i].innerConeCos;
-        this.currentScene.lightPropertiesData[i * 4 + 2] = this.currentScene.lights[i].outerConeCos;
+      this.currentScene.lightPropertiesData[i * 4] = light.type;
+      if (light.type == LightType.SPOT) {
+        this.currentScene.lightPropertiesData[i * 4 + 1] = light.innerConeCos;
+        this.currentScene.lightPropertiesData[i * 4 + 2] = light.outerConeCos;
       }
 
-      switch (this.currentScene.lights[i].type){
+      switch (light.type){
         case LightType.SPOT:
-          if (this.currentScene.lights[i].dirtyFlag){
-            dataViewSetMatrix(this.buffers.lightDataView, this.currentScene.lights[i].lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
-            this.currentScene.lights[i].dirtyFlag = false;
+          if (light.dirtyFlag){
+            dataViewSetMatrix(this.buffers.lightDataView, light.lightSpaceMatrix, this.buffers.uniformLocations.lightUniformLocations.u_lightSpaceMatrices+spotNum*64);
+            light.dirtyFlag = false;
           }
           spotNum++;
           break;
         case LightType.POINT:
-          if (this.currentScene.lights[i].dirtyFlag){
-            dataViewSetMatrixArray(this.buffers.lightDataView, this.currentScene.lights[i].lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
-            this.currentScene.lights[i].dirtyFlag = false;
+          if (light.dirtyFlag){
+            dataViewSetMatrixArray(this.buffers.lightDataView, light.lightCubemapMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCubemapMatrices+pointNum*6*64);
+            light.dirtyFlag = false;
           }
           pointNum++;
           break;
       }
+      i++
     }
 
     //update buffer data
@@ -572,8 +617,8 @@ class WebGLRenderer {
       var deltaX = newX - this.lastMouseX;
       var deltaY = newY - this.lastMouseY;
 
-      this.horizontalAngle += deltaX * 0.005; // Adjust sensitivity
-      this.verticalAngle -= deltaY * 0.005; // Adjust sensitivity
+      this.horizontalAngle += deltaX * 0.005; // sensitivity
+      this.verticalAngle -= deltaY * 0.005; // sensitivity
       //console.log(verticalAngle)
       if (this.verticalAngle < 0.0000001) {
         this.verticalAngle = 0.0000001;
@@ -588,23 +633,20 @@ class WebGLRenderer {
       this.lastMouseY = newY;
     };
 
-    // Scroll wheel event listener
     this.canvas.addEventListener("wheel", (event) => {
-      // Determine the direction of scrolling (normalize across different browsers)
       let delta = Math.sign(event.deltaY);
 
-      // Adjust zoom level
-      this.distanceFromOrigin += delta * 1; // Adjust zoom speed as necessary
-      this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Prevents zooming too close, adjust as necessary
+      this.distanceFromOrigin += delta * 1; // Zoom speed
+      this.distanceFromOrigin = Math.max(0.1, this.distanceFromOrigin); // Zoom limit
 
-      // Update camera
       this.updateCamera();
     });
   }
   updateCascades(){
-    //update directional light shadow cascades
+    // Update directional light shadow cascades
     let lightSpaceMatrices = [];
-    for (let light of this.currentScene.lights) {
+    for (let key in this.currentScene.lights) {
+      let light = this.currentScene.lights[key];
       if (light.type == LightType.DIRECTIONAL) {
         light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, light, this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
         for (let cascade of light.cascades){
@@ -626,39 +668,110 @@ class WebGLRenderer {
     var y = this.distanceFromOrigin * Math.cos(this.verticalAngle);
     var z = this.distanceFromOrigin * Math.sin(this.verticalAngle) * Math.sin(this.horizontalAngle);
 
-    this.currentScene.camera.position[0] = x;
-    this.currentScene.camera.position[1] = y;
-    this.currentScene.camera.position[2] = z;
+    const lookAt = this.currentScene.camera.lookAt;
+    this.currentScene.camera.position[0] = x+lookAt[0];
+    this.currentScene.camera.position[1] = y+lookAt[1];
+    this.currentScene.camera.position[2] = z+lookAt[2];
 
     // Update view matrix
-
-    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [0, 0, 0], [0, 1, 0]); // Adjust up vector as needed
+    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]);
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
 
-    //update shadow cascades after camera moves
+    // Update shadow cascades after camera moves
     this.updateCascades();
   }
-  createObjectFromData(pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+  createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+    const gl = this.gl;
+    let objectData = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    let shaderVariant = 0;
+    if (skipLighting){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
+    if (textures.length == 0){
+      var texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      var greyPixel = new Uint8Array([255, 0, 0, 255]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
+
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      textures = [texture];
+    }
+    if (normals.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
+    }
+    if (heightMaps.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
+    }
+    if (metallic.length > 0 || roughness.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
+    }
+    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+  }
+
+  createObjectFromData(pointsArray, normalsArray, texcoords, color, skipLighting = false, ambientStrength = 0.01){
+    const gl = this.gl;
+    let objectData = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    let shaderVariant = 0;
+    if (skipLighting){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    var pixel = new Uint8Array(color);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    let renderable = createRenderable(gl, objectData, shaderVariant, [texture], [], [], [], [], [], [], []);
+    renderable.material.ambientStrength = ambientStrength;
+    return renderable;
+  }
+
+
+  setObjectData(object, pointsArray, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
     const gl = this.gl;
     let objectData = {
       geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
     }
     let shaderVariant = 0;
 
-    var texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (textures.length == 0){
+      var texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
 
-    var greyPixel = new Uint8Array([255, 0, 0, 255]); // RGB for grey, A for opacity
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
+      var greyPixel = new Uint8Array([255, 0, 0, 255]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, greyPixel);
 
-    // Set texture parameters (optional, but good practice)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    textures = [texture];
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      textures = [texture];
+    }
+    if (normals.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
+    }
+    if (heightMaps.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
+    }
+    if (metallic.length > 0 || roughness.length > 0){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
+    }
+    return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0)
   }
+  // Load model from custom JSON format
   async loadModel(modelDescription) {
     const gl = this.gl;
     let textures = [];
@@ -774,5 +887,21 @@ class WebGLRenderer {
     console.log("Max fragment uniforms: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_VECTORS));
     console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
     console.log("Max uniform block size: " + this.gl.getParameter(this.gl.MAX_UNIFORM_BLOCK_SIZE));
+  }
+  // Broken
+  moveCameraForward(dist){
+    let dir = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
+    let move = vec3.create();
+    vec3.scale(move, dir, dist);
+    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
+    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
+  }
+  moveCameraRight(dist){
+    let forward = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
+    let move = vec3.create();
+    vec3.cross(move, forward, this.currentScene.camera.up);
+    vec3.scale(move, move, dist);
+    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
+    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
   }
 }

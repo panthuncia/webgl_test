@@ -1,4 +1,4 @@
-WebGLRenderer.prototype.drawLines = function (positions) {
+WebGLRenderer.prototype.drawLines = function (positions, modelMatrix) {
     const gl = this.gl;
     gl.useProgram(this.lineProgramInfo.program);
 
@@ -8,8 +8,10 @@ WebGLRenderer.prototype.drawLines = function (positions) {
     gl.vertexAttribPointer(this.lineProgramInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(this.lineProgramInfo.attribLocations.vertexPosition);
 
+    let modelViewMatrix = mat4.create();
+    mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, modelMatrix);
     gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
-    gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.modelViewMatrix, false, this.matrices.viewMatrix);
+    gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
     gl.drawArrays(gl.LINES, 0, positions.length / 3);
 };

@@ -25,8 +25,9 @@ WebGLRenderer.prototype.shadowPass = function () {
   let directionalLightNum = 0;
   let spotLightNum = 0;
   let pointLightNum = 0;
-  for (let i = 0; i < this.currentScene.lights.length; i++) {
-    let light = this.currentScene.lights[i];
+  let i=0;
+  for (let key in this.currentScene.lights) {
+    let light = this.currentScene.lights[key];
     if (light.type == LightType.DIRECTIONAL) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowCascadeFramebuffer);
       const cascadeInfo = light.cascades;
@@ -67,6 +68,7 @@ WebGLRenderer.prototype.shadowPass = function () {
 
       pointLightNum++;
     }
+    i++;
   }
 
   //reset frame buffer and viewport
@@ -91,7 +93,8 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     let numDirectionalLights = 0;
     let numSpotLights = 0;
     let numPointLights = 0;
-    for (let light of this.currentScene.lights) {
+    for (let key in this.currentScene.lights) {
+      let light = this.currentScene.lights[key];
       if (light.type == LightType.DIRECTIONAL) {
         numDirectionalLights++;
       }
@@ -145,7 +148,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
   
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    //create (emulated) cubemaps for spot lights
+    // Create (emulated) cubemaps for spot lights
     this.currentScene.shadowScene.shadowCubemapFramebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.currentScene.shadowScene.shadowCubemapFramebuffer);
   
@@ -162,8 +165,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     // Attach the first layer of the texture array to the framebuffer's depth buffer
     // This layer will be changed when rendering each cascade
     gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.currentScene.shadowScene.shadowCubemaps, 0, 0);
-  
-    // Check if the framebuffer is complete
+
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
       console.error("Framebuffer is not complete");
     }
@@ -173,8 +175,8 @@ WebGLRenderer.prototype.initShadowScene = async function () {
 
 WebGLRenderer.prototype.createShadowProgram = async function () {
   const gl = this.gl;
-  let fsSource = await loadText("shaders/fragment_shadow.glsl");
-  let vsSource = await loadText("shaders/vertex_shadow.glsl");
+  let fsSource = this.shadowFSSource;
+  let vsSource = this.shadowVSSource;
   vertexShader = compileShader(gl, vsSource, gl.VERTEX_SHADER);
   fragmentShader = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
   this.currentScene.shadowScene.shadowProgram = gl.createProgram();

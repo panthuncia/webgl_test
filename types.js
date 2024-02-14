@@ -7,7 +7,7 @@ class Mesh {
     this.bitangents = bitangents;
     this.baryCoords = baryCoords;
 
-    // Create a VAO
+    // Create VAO
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
 
@@ -61,7 +61,7 @@ class Mesh {
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
     }
 
-    // Unbind the VAO
+    // Unbind VAO
     gl.bindVertexArray(null);
   }
 }
@@ -103,8 +103,8 @@ class Transform {
     this.isDirty = true;
   }
   setLocalRotation(rot) {
-    //Why TF does quat.fromEuler use degrees
-    //Who uses degrees
+    // Why TF does quat.fromEuler use degrees
+    // Who uses degrees
     quat.fromEuler(this.rot, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
@@ -117,7 +117,7 @@ class Transform {
 
     // Calculate the rotation quaternion
     let rotationQuat = quat.create();
-
+    // Handlers for parallel and anti-parallel special cases
     if (dotProduct < -0.9999) {
       // The vectors are anti-parallel
       // Find an arbitrary perpendicular axis
@@ -165,87 +165,79 @@ class AnimationClip {
     this.duration = 0;
   }
 
-  // Add keyframes to the animation clip
   addPositionKeyframe(time, position) {
     this.positionKeyframes.push(new Keyframe(this.duration+time, position));
     this.duration+=time;
-    //this.calculateDuration();
   }
 
   addRotationKeyframe(time, rotation) {
     this.rotationKeyframes.push(new Keyframe(time, rotation));
-    //this.calculateDuration();
+    this.duration+=time;
   }
 
   addScaleKeyframe(time, scale) {
     this.scaleKeyframes.push(new Keyframe(time, scale));
-    //this.calculateDuration();
+    this.duration+=time;
   }
 
-  // Calculate the duration of the animation clip
-  calculateDuration() {
-    let lastKeyframeTime = Math.max(
-      this.positionKeyframes.length ? this.positionKeyframes[this.positionKeyframes.length - 1].time : 0,
-      this.rotationKeyframes.length ? this.rotationKeyframes[this.rotationKeyframes.length - 1].time : 0,
-      this.scaleKeyframes.length ? this.scaleKeyframes[this.scaleKeyframes.length - 1].time : 0
-    );
-    this.duration = lastKeyframeTime;
-  }
   findBoundingKeyframes(currentTime){
     let prevKeyframe = this.positionKeyframes[0];
     let nextKeyframe = this.positionKeyframes[this.positionKeyframes.length - 1];
-    // let thisTime = 0;
-    // let nextTime = 0;
+    let index = 0;
     if (this.positionKeyframes.length === 0) {
       return false;
     } else {
       for (let i = 0; i < this.positionKeyframes.length - 1; i++) {
-        // thisTime +=this.positionKeyframes[i].time;
-        // nextTime +=this.positionKeyframes[i + 1].time;
         if (currentTime >= this.positionKeyframes[i].time && currentTime <= this.positionKeyframes[i+1].time) {
           prevKeyframe = this.positionKeyframes[i];
           nextKeyframe = this.positionKeyframes[i + 1];
+          index = i;
           break;
         }
       }
     }
   
-    return {position:{ prevKeyframe, nextKeyframe }};
+    return {position:{index, prevKeyframe, nextKeyframe }};
   }
 }
 
 class AnimationController {
   constructor(node) {
-    this.node = node; // The SceneNode to be animated
-    this.animationClip = null; // The current animation clip
+    this.node = node;
+    this.animationClip = null;
     this.currentTime = 0; // Current time in the animation playback
-    this.isPlaying = false; // Whether the animation is playing
-    this.startTime=0;
+    this.isPlaying = true;
   }
 
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
+    //dummy update to fix positions
+    this.updateTransform(0);
   }
 
-  play(startTime) {
-    this.isPlaying = true;
+  reset() {
     this.currentTime = 0;
-    this.startTime = startTime;
   }
 
-  stop() {
+  pause() {
     this.isPlaying = false;
   }
 
-  update(currentTime) {
-    if (!this.isPlaying || !this.animationClip) return;
+  unpause() {
+    this.isPlaying = true;
+  }
 
-    //this.currentTime += deltaTime;
-
+  update(elapsedTime, force = false) {
+    if (!force &&(!this.isPlaying || !this.animationClip)) return;
+    
+    
     // Loop the animation
-    this.currentTime = (currentTime-this.startTime)%this.animationClip.duration;
+    this.currentTime+=elapsedTime;
+    this.currentTime%=this.animationClip.duration;
 
-    // Update the node's transform based on the current time
+    // Update the relevant node's transform based on the current time
+    // Hard update for now, should really have some kind of "soft update"
+    // to account for other offsets or animation blending
     this.updateTransform();
   }
 
@@ -259,24 +251,32 @@ class AnimationController {
   }
 }
 
+// This class forms the basis for the renderer's scene graph
 class SceneNode {
   constructor() {
-    this.children = [];
+    this.children = {};
     this.parent = null;
     this.transform = new Transform();
     this.animationController = new AnimationController(this);
+    this.localID = -1;
   }
   addChild(node) {
-    this.children.push(node);
+    this.children[node.localID] = node;
+    // A node can only inheret from one parent, and may only be a child of its parent
+    if (node.parent != null){
+      node.parent.removeChild(node.localID);
+    }
     node.parent = this;
+  }
+  removeChild(childId){
+    delete this.children[childId];
   }
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
-      return;
     }
-    for (child of this.children) {
-      child.update();
+    for (let childKey in this.children) {
+      this.children[childKey].update();
     }
   }
   forceUpdate() {
@@ -285,13 +285,16 @@ class SceneNode {
     } else {
       this.transform.computeLocalModelMatrix();
     }
+    for (let childKey in this.children) {
+      this.children[childKey].update();
+    }
   }
 }
 
 class Material {
   constructor(textureScale){
     this.ambientStrength = 0.01;
-    this.specularStrength = 1.0;
+    this.specularStrength = 2.0;
     this.textureScale = textureScale;
   }
 }
@@ -299,9 +302,6 @@ class Material {
 class RenderableObject extends SceneNode {
   constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale) {
     super();
-    this.material = new Material(textureScale);
-    this.shaderVariant = shaderVariant;
-    this.meshes = meshes;
     this.textures = [];
     this.normals = [];
     this.aoMaps = [];
@@ -309,6 +309,13 @@ class RenderableObject extends SceneNode {
     this.metallic = [];
     this.roughness = [];
     this.opacity = [];
+    this.setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+  }
+
+  setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale){
+    this.material = new Material(textureScale);
+    this.shaderVariant = shaderVariant;
+    this.meshes = meshes;
     for (let i = 0; i < meshes.length; i++) {
       if (textures.length >= i + 1) {
         this.textures.push(textures[i]);
@@ -392,7 +399,6 @@ class Light extends SceneNode {
         }
     }
   }
-  //TODO: don't calculate every time
   getViewMatrix() {
     let normalizedDirection = vec3.create();
     vec3.normalize(normalizedDirection, this.getLightDir());
@@ -404,13 +410,14 @@ class Light extends SceneNode {
     mat4.lookAt(lightView, lightPosition, targetPosition, up);
     return lightView;
   }
+  // Cubemap matrices for rendering from this light's perspective
   getCubemapViewMatrices() {
-    //create six camera directions for each face
+    // Create six camera directions for each face
     const directions = [
       { dir: vec3.fromValues(1, 0, 0), up: vec3.fromValues(0, 1, 0) },
       { dir: vec3.fromValues(-1, 0, 0), up: vec3.fromValues(0, 1, 0) },
-      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, //up needs to be different here because of axis alignment
-      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, //here too
+      { dir: vec3.fromValues(0, 1, 0), up: vec3.fromValues(0, 0, 1) }, // up needs to be different here because of axis alignment
+      { dir: vec3.fromValues(0, -1, 0), up: vec3.fromValues(0, 0, -1) }, // here too
       { dir: vec3.fromValues(0, 0, 1), up: vec3.fromValues(0, 1, 0) },
       { dir: vec3.fromValues(0, 0, -1), up: vec3.fromValues(0, 1, 0) },
     ];
@@ -469,17 +476,16 @@ class Light extends SceneNode {
     this.innerConeCos = Math.cos(innerConeAngle);
     this.outerConeAngle = outerConeAngle;
     this.outerConeCos = Math.cos(outerConeAngle);
-    //recalculate projection matrix with new fov
+    // Recalculate projection matrix with new fov
     this.projectionMatrix = this.getPerspectiveProjectionMatrix();
   }
-  //override these methods to calculate view and projection matrices
+  // Override these methods to recalculate view and projection matrices
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
-      return;
     }
-    for (child of this.children) {
-      child.update();
+    for (let childKey in this.children) {
+      this.children[childKey].update();
     }
   }
   forceUpdate() {
@@ -489,7 +495,10 @@ class Light extends SceneNode {
     } else {
       this.transform.computeLocalModelMatrix();
     }
-    //recalculate view matrix with new location
+    for (let childKey in this.children) {
+      this.children[childKey].forceUpdate();
+    }
+    // Recalculate view matrix with new location
     switch (this.type) {
       case LightType.SPOT:
         this.viewMatrix = this.getViewMatrix();
