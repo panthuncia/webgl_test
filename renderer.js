@@ -66,7 +66,7 @@ class WebGLRenderer {
 
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
-    this.MAX_POINT_LIGHTS = 2;
+    this.MAX_POINT_LIGHTS = 10;
     this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS + this.MAX_SPOT_LIGHTS + this.MAX_POINT_LIGHTS;
 
     this.standardHeader = `#version 300 es
@@ -308,7 +308,7 @@ class WebGLRenderer {
     let vsSource = this.primaryVSSource;
 
     for (const variantID of shaderVariantsToCompile) {
-      shaderProgram = this.getProgram(fsSource, vsSource, variantID);
+      let shaderProgram = this.getProgram(fsSource, vsSource, variantID);
 
       //bind UBOs
       let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "PerFrame");
@@ -429,7 +429,6 @@ class WebGLRenderer {
       gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
       let textureUnitAfterShadowMaps = 3;
-
       let modelViewMatrix = mat4.create();
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
 

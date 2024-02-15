@@ -126,7 +126,7 @@ class Transform {
         perpendicularAxis = vec3.cross(vec3.create(), defaultDirection, vec3.fromValues(0, 1, 0));
       }
       vec3.normalize(perpendicularAxis, perpendicularAxis);
-      quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI); // 180 degrees rotation
+      quat.setAxisAngle(rotationQuat, perpendicularAxis, Math.PI);
     } else if (dotProduct > 0.9999) {
       // The vectors are parallel
       quat.identity(rotationQuat);
@@ -212,6 +212,7 @@ class AnimationController {
   setAnimationClip(animationClip) {
     this.animationClip = animationClip;
     //dummy update to fix positions
+    this.node.forceUpdate();
     this.updateTransform(0);
   }
 
@@ -286,7 +287,7 @@ class SceneNode {
       this.transform.computeLocalModelMatrix();
     }
     for (let childKey in this.children) {
-      this.children[childKey].update();
+      this.children[childKey].forceUpdate();
     }
   }
 }

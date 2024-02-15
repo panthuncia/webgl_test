@@ -737,3 +737,64 @@ function chaikin(vertices, iterations) {
   return chaikin(newVertices, iterations - 1);
 }
 
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
+
+//Create a color weighted against being white
+function generateStrongColor() {
+  const strongComponentIndex = Math.floor(Math.random() * 3);
+  const strongComponentIndex2 = Math.floor(Math.random() * 2);
+
+
+  let r = 0, g = 0, b = 0;
+  switch (strongComponentIndex) {
+    case 0:
+      switch( strongComponentIndex2){
+        case 0:
+        r = 200 + Math.floor(Math.random() * 56);
+        g = Math.floor(Math.random() * 100);
+        b = Math.floor(Math.random() * 10);
+      break;
+      case 1:
+        case 0:
+        r = 200 + Math.floor(Math.random() * 56);
+        g = Math.floor(Math.random() * 10);
+        b = Math.floor(Math.random() * 100);
+        break;
+    }
+    break;
+    case 1:
+      switch( strongComponentIndex2){
+        case 0:
+        r = Math.floor(Math.random() * 100);
+        g = 200 + Math.floor(Math.random() * 56);
+        b = Math.floor(Math.random() * 10);
+      break;
+      case 1:
+        case 0:
+        r = Math.floor(Math.random() * 10);
+        g = 200 + Math.floor(Math.random() * 56);
+        b = Math.floor(Math.random() * 100);
+        break;
+    }
+    break;
+    case 2:
+      switch( strongComponentIndex2){
+        case 0:
+        r = Math.floor(Math.random() * 100);
+        g = Math.floor(Math.random() * 10);
+        b = 200 + Math.floor(Math.random() * 56);
+      break;
+      case 1:
+        case 0:
+        r = Math.floor(Math.random() * 10);
+        g = Math.floor(Math.random() * 100);
+        b = 200 + Math.floor(Math.random() * 56);
+        break;
+    }
+    break;
+  }
+
+  return {r, g, b};
+}

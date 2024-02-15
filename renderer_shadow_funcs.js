@@ -1,6 +1,7 @@
 WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
     const gl = this.gl;
-    for (const object of this.currentScene.objects) {
+    for (const key in this.currentScene.objects) {
+    let object = this.currentScene.objects[key];
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, viewMatrix, object.transform.modelMatrix);
     gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
