@@ -2,6 +2,10 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
     const gl = this.gl;
     for (const key in this.currentScene.objects) {
     let object = this.currentScene.objects[key];
+    //if object does not interact with light
+    if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING){
+      return;
+    }
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, viewMatrix, object.transform.modelMatrix);
     gl.uniformMatrix4fv(this.currentScene.shadowScene.programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
@@ -91,22 +95,22 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     this.currentScene.shadowScene.shadowCascades = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.currentScene.shadowScene.shadowCascades);
   
-    let numDirectionalLights = 0;
-    let numSpotLights = 0;
-    let numPointLights = 0;
-    for (let key in this.currentScene.lights) {
-      let light = this.currentScene.lights[key];
-      if (light.type == LightType.DIRECTIONAL) {
-        numDirectionalLights++;
-      }
-      else if (light.type == LightType.SPOT) {
-        numSpotLights++;
-      }
-      else if (light.type == LightType.POINT) {
-        numPointLights++;
-      }
-    }
-    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numCascades * numDirectionalLights, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+    // let numDirectionalLights = 0;
+    // let numSpotLights = 0;
+    // let numPointLights = 0;
+    // for (let key in this.currentScene.lights) {
+    //   let light = this.currentScene.lights[key];
+    //   if (light.type == LightType.DIRECTIONAL) {
+    //     numDirectionalLights++;
+    //   }
+    //   else if (light.type == LightType.SPOT) {
+    //     numSpotLights++;
+    //   }
+    //   else if (light.type == LightType.POINT) {
+    //     numPointLights++;
+    //   }
+    // }
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numCascades * this.MAX_DIRECTIONAL_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
   
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -131,7 +135,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     this.currentScene.shadowScene.shadowMaps = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.currentScene.shadowScene.shadowMaps);
   
-    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numSpotLights, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(this.MAX_SPOT_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
   
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -156,7 +160,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
     this.currentScene.shadowScene.shadowCubemaps = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.currentScene.shadowScene.shadowCubemaps);
   
-    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numPointLights*6, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(this.MAX_POINT_LIGHTS*6, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
   
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);

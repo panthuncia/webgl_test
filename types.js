@@ -427,8 +427,9 @@ class Light extends SceneNode {
     for(let dir of directions){
       const viewMatrix = mat4.create();
       let target = vec3.create();
-      vec3.add(target, this.transform.pos, dir.dir);
-      mat4.lookAt(viewMatrix, this.transform.pos, target, dir.up);
+      let pos = this.transform.getGlobalPosition();
+      vec3.add(target, pos, dir.dir);
+      mat4.lookAt(viewMatrix, pos, target, dir.up);
       viewMatrices.push(viewMatrix);
     }
     return viewMatrices;

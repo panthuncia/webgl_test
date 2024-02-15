@@ -28,6 +28,11 @@ async function main() {
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, false);
   let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4, false);
 
+  let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
+  //terrain.transform.setLocalPosition([0, 0, -100])
+  terrain.transform.setLocalScale([2, 2, 2])
+  renderer.addObject(terrain);
+
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [255, 255, 255, 255]);
   objectID = renderer.addObject(mainObject);
 
@@ -86,6 +91,7 @@ async function main() {
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
+  renderer.addLight(light5);
 
   lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
   animatedObjects.push(light1);
@@ -240,6 +246,7 @@ async function main() {
   });
   
   let lastTime = new Date().getTime() / 1000;
+  await createDebugQuad(renderer.gl);
   async function drawScene() {
     let currentTime = new Date().getTime() / 1000;
     let elapsed = currentTime - lastTime;
