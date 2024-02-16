@@ -659,7 +659,7 @@
                     normal = normalize(m_TBN * normal);
                 #else
                     vec3 normal = texture(u_normalMap, uv).rgb;
-                    normal.r = 1.0-normal.r;
+                    //normal.r = 1.0-normal.r;
                     normal.g = 1.0-normal.g;
                     normal = normalize(normal * 2.0 - 1.0);
                     normal = normalize(m_TBN * normal);
@@ -667,7 +667,6 @@
             #else
                 vec3 normal = v_normal;
             #endif
-            
 
             // Set up pbr values, if we are using it
             float metallic = 0.0;
@@ -767,26 +766,6 @@
 </script>
 <body>
     <canvas id="webgl-canvas" width="800" height="800"></canvas>
-    <text> <br>Project 2 by Matthew Gomes <br>
-        Controls:<br>
-        "m": Toggle wireframe mode<br>
-        "e": Increase object subdivisions<br>
-        "q": Decrease object subdivisions<br>
-        "i": Increase path subdivisions<br>
-        "j": Decrease path subdivisions<br>
-        "a": Toggle animation<br>
-        "l": Toggle lighting mode (Blinn-Phong/Gouraud)<br>
-        "n": Toggle Newell face normals<br>
-        "z": Add random light<br>
-        "x": Add a random object<br><br>
-        Extra features: <br>
-        1. Camera movement (Orbital camera, drag on canvas and scroll to move)<br>
-        2. Newell vertex calculation (press "n" to toggle)<br>
-        3. Primary light orbits scene, path shown with lines<br>
-        4. Second light orbiting the object, using scene graph for transform inheritance<br>
-        5. Arbitrary number of lights (Press "z" to add a light! It will be spawned at a random location, in a random orientation, with a random color, and float around the scene)<br>
-        6. Arbitrary number of objects on path (Press "x" to add an object! It will be spawned at the beginning of the path, with a random color and speed)<br></text>
-    </text>
     <script src="gl-matrix-min.js"></script>
     <script type="text/javascript" src="globals.js"></script>
     <script type="text/javascript" src="types.js"></script>
