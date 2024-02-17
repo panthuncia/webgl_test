@@ -1,5 +1,5 @@
 {
-    "model": "Chair.obj",
+    "model": "sphere.obj",
     "matfile": "",
     "textures": [
       "brick/brick-wall_albedo.png"
@@ -19,6 +19,6 @@
     "invertRoughness": false,
     "repeatTexture": true,
     "textureScale": 8,
-    "invert_normal_map": true
+    "invert_normal_map": false
 
   }

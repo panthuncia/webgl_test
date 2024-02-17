@@ -1,0 +1,19 @@
+{
+    "model": "cube.obj",
+    "matfile": "",
+    "textures": [
+      "medievalwall/bricks_0019_color_4k.jpg"
+    ],
+    "normals": [
+      "medievalwall/bricks_0019_normal_opengl_4k.png"
+    ],
+    "roughness": [
+        "medievalwall/bricks_0019_roughness_4k.jpg"
+    ],
+    "heightMaps": [
+      "medievalwall/bricks_0019_height_4k.png"
+    ],
+    "invertRoughness": true,
+    "repeatTexture": true,
+    "textureScale": 4
+  }

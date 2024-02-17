@@ -1,9 +1,10 @@
 {
-    "model": "sphere.obj",
+    "model": "cube.obj",
     "textures": [
       "brickwall.jpg"
     ],
     "normals": [
       "brickwall_normal.jpg"
-    ]
+    ],
+    "textureScale": 8
   }

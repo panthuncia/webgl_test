@@ -332,6 +332,7 @@ class WebGLRenderer {
         },
         uniformLocations: {
           projectionMatrix: gl.getUniformLocation(shaderProgram, "u_projectionMatrix"),
+          viewMatrix: gl.getUniformLocation(shaderProgram, "u_viewMatrix"),
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
@@ -376,7 +377,7 @@ class WebGLRenderer {
     this.updateScene();
     this.updateLights();
 
-    this.shadowPass();
+    //this.shadowPass();
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
@@ -432,6 +433,7 @@ class WebGLRenderer {
       let modelViewMatrix = mat4.create();
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
 
+      gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, this.matrices.viewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
 
@@ -769,6 +771,19 @@ class WebGLRenderer {
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
     }
     return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0)
+  }
+  setObjectMesh(object, pointsArray, normalsArray, texcoords,){
+    const gl = this.gl;
+    let data = {
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+    }
+    meshes = [];
+    for (const geometry of data.geometries) {
+      let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
+      meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents));
+    }
+    object.setMeshes(meshes);
   }
   // Load model from custom JSON format
   async loadModel(modelDescription) {

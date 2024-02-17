@@ -31,8 +31,9 @@ async function main() {
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
   //terrain.transform.setLocalScale([2, 2, 2])
   //renderer.addObject(terrain);
-  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
+  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/medievalwall_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
+  rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
   renderer.addObject(rock);
 
 
@@ -40,7 +41,7 @@ async function main() {
   objectID = renderer.addObject(mainObject);
 
   mainObject.transform.setLocalScale([3, 3, 3]);
-  let playTime = 15;
+  let playTime = 3;
   let original_positions = [[11, 36, 17],
   [44, 49, 23],
   [0, 32, 30],
@@ -75,13 +76,13 @@ async function main() {
   [5, 3, -5]];
 
   let light1 = new Light(LightType.POINT, [10, 10, -5], [0, 1, 0], 0.0, 1.0, 0.09, 0.032);
-  renderer.addLight(light1);
+  //renderer.addLight(light1);
   let light1Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light1.color[0]*255, light1.color[1]*255, light1.color[2]*255, 255], true, 40.0);
   light1Object.transform.setLocalScale([0.4, 0.4, 0.4]);
-  renderer.addObject(light1Object);
+  //renderer.addObject(light1Object);
   light1.addChild(light1Object);
 
-  let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 0, 0], 0.0, 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 1, 1], 40.0, 1.0, 0.09, 0.032);
   renderer.addLight(light2);
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
@@ -92,12 +93,13 @@ async function main() {
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [1, 1, 1]);
-  let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 1.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
+  let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  renderer.addLight(light5);
+  //renderer.addLight(light5);
+  //renderer.addLight(light6);
 
-  lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
-  animatedObjects.push(light1);
+  //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
+  //animatedObjects.push(light1);
   light1.animationController.pause();
 
   mainObject.addChild(light1);

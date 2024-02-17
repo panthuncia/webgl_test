@@ -9,67 +9,69 @@
     in vec3 a_normal;
     in vec2 a_texCoord;
     in vec3 a_baryCoord;
-    #ifdef USE_NORMAL_MAP
-    in vec3 a_tangent;
-    in vec3 a_bitangent;
+    #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+        in vec3 a_tangent;
+        in vec3 a_bitangent;
     #endif
 
     #ifdef GOURAUD
-    #define AMBIENT_SCALING_FACTOR 15.0
-    layout(std140) uniform PerFrame {
-        uniform mat4 u_viewMatrixInverse;
-    };
+        #define AMBIENT_SCALING_FACTOR 15.0
+        layout(std140) uniform PerFrame {
+            uniform mat4 u_viewMatrixInverse;
+        };
 
-    layout(std140) uniform PerMaterial {
-        uniform float u_ambientStrength;
-        uniform float u_textureScale;
-        #ifndef USE_PBR
-            uniform float u_specularStrength;
-        #else
-            #ifdef GOURAUD
+        layout(std140) uniform PerMaterial {
+            uniform float u_ambientStrength;
+            uniform float u_textureScale;
+            #ifndef USE_PBR
                 uniform float u_specularStrength;
+            #else
+                #ifdef GOURAUD
+                    uniform float u_specularStrength;
+                #endif
             #endif
-        #endif
-    };
+        };
 
-    layout(std140) uniform LightInfo {
-        // light attributes: x=type (0=point, 1=spot, 2=directional)
-        // x=point -> w = shadow caster
-        // x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
-        // x=directional => w= shadow caster
-        uniform vec4 u_lightProperties[MAX_LIGHTS];
-        uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
-        uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
-        uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
-        uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
+        layout(std140) uniform LightInfo {
+            // light attributes: x=type (0=point, 1=spot, 2=directional)
+            // x=point -> w = shadow caster
+            // x=spot -> y= inner cone angle, z= outer cone angle, w= shadow caster
+            // x=directional => w= shadow caster
+            uniform vec4 u_lightProperties[MAX_LIGHTS];
+            uniform vec4 u_lightPosViewSpace[MAX_LIGHTS]; // Position of the lights
+            uniform vec4 u_lightDirViewSpace[MAX_LIGHTS]; // direction of the lights
+            uniform vec4 u_lightAttenuation[MAX_LIGHTS]; //x,y,z = constant, linear, quadratic attenuation, w= max range
+            uniform vec4 u_lightColor[MAX_LIGHTS]; // Color of the lights
 
-        uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
-        uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
-        uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
-        
-        uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
-        uniform int u_numLights;
-    };
-    out vec4 v_fragColor;
+            uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
+            uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
+            uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
+            
+            uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
+            uniform int u_numLights;
+        };
+        out vec4 v_fragColor;
     #endif
 
     //uniform mat4 u_modelMatrix;
+    uniform mat4 u_viewMatrix;
     uniform mat4 u_modelViewMatrix;
     uniform mat4 u_projectionMatrix;
     uniform mat3 u_normalMatrix;
     
     #ifdef GOURAUD
-    uniform sampler2D u_baseColorTexture;
+        uniform sampler2D u_baseColorTexture;
     #endif
 
     out vec3 v_normal;
     out vec4 v_fragPos;
     out vec2 v_texCoord;
     out vec3 v_baryCoord;
-    #ifdef USE_NORMAL_MAP
-    out mat3 m_TBN;
+    out mat4 m_viewMatrix;
+    #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+        out mat3 m_TBN;
     #endif
-    
+        
     #ifdef GOURAUD
     // Models spotlight falloff with linear interpolation between inner and outer cone angles
     float spotAttenuation(vec3 pointToLight, vec3 lightDirection, float outerConeCos, float innerConeCos) {
@@ -155,12 +157,13 @@
         // Pass barycentric coords for wireframe
         v_baryCoord = a_baryCoord;
     
+        m_viewMatrix = u_viewMatrix;
         // Calculate TBN matrix, for transforming tangent-space coordinates to view space
         // Used in normal mapping
-        #ifdef USE_NORMAL_MAP
-            vec3 T = normalize(u_normalMatrix * a_tangent);
-            vec3 B = normalize(u_normalMatrix * a_bitangent);
-            vec3 N = normalize(u_normalMatrix * a_normal);
+        #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+            vec3 T = normalize(u_normalMatrix*a_tangent);
+            vec3 B = normalize(u_normalMatrix*a_bitangent);
+            vec3 N = normalize(u_normalMatrix*a_normal);
             m_TBN = mat3(T, B, N);
         #endif
 
@@ -198,18 +201,19 @@
     in vec4 v_fragPos;
     in vec2 v_texCoord;  // Received from vertex shader
     in vec3 v_baryCoord;
-    #ifdef USE_NORMAL_MAP
-    in mat3 m_TBN; // Received from vertex shader
+    in mat4 m_viewMatrix;
+    #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+        in mat3 m_TBN; // Received from vertex shader
     #endif
     #ifdef GOURAUD
-    in vec4 v_fragColor;
+        in vec4 v_fragColor;
     #endif
 
     // Ambient lighting needs to be scaled differently for PBR and non-PBR materials, or shadows look wierd
     #ifdef USE_PBR 
-    #define AMBIENT_SCALING_FACTOR 0.2
+        #define AMBIENT_SCALING_FACTOR 0.2
     #else
-    #define AMBIENT_SCALING_FACTOR 15.0
+        #define AMBIENT_SCALING_FACTOR 15.0
     #endif
 
     #define LIGHT_TYPE_POINT 0
@@ -308,12 +312,42 @@
         return finalUV;
     }
 
+    // Parallax shadowing
+    float getParallaxShadow(vec2 uv, vec3 lightDir, vec3 viewDir, float sampleHeight){
+        lightDir = lightDir*m_TBN;
+        viewDir = viewDir * m_TBN;
+        float maxHeight = 0.01;
+        float minHeight = maxHeight*0.5;
+
+        // Probably unecessarily high
+        int numSteps = 64;
+        // Corrects for Z view angle
+        float viewCorrection = ((-1.0 * viewDir.z) + 2.0);
+        float stepSize = 1.0 / (float(numSteps) + 1.0);
+        vec2 stepOffset = lightDir.xy * vec2(maxHeight, maxHeight) * stepSize;
+
+        vec2 lastOffset = lightDir.xy * vec2(minHeight, minHeight) + uv;
+        float lastRayDepth = sampleHeight;
+
+        for (int i = 0; i < numSteps; ++i) {
+            vec2 candidateOffset = lastOffset-stepOffset;
+            float currentRayDepth = lastRayDepth + stepSize;
+
+            // Sample height map at this offset
+            float currentHeight = texture(u_heightMap, candidateOffset).r;
+            currentHeight = viewCorrection * currentHeight;
+            if (currentHeight > currentRayDepth){
+                return 0.1;
+            }
+        }
+        return 1.0;
+    }
     // Contact-refinement parallax 
     // https://www.artstation.com/blogs/andreariccardi/3VPo/a-new-approach-for-parallax-mapping-presenting-the-contact-refinement-parallax-mapping-technique
-    vec2 getContactRefinementParallaxCoords(vec2 uv, vec3 viewDir){
+    vec3 getContactRefinementParallaxCoordsAndHeight(vec2 uv, vec3 viewDir){
 
         // Get view direction in tangent space
-        viewDir = viewDir*m_TBN;
+        viewDir = transpose(m_TBN)*viewDir;
 
         //TODO: move to material definition
         float maxHeight = 0.05;
@@ -322,7 +356,7 @@
         // Probably unecessarily high
         int numSteps = 64;
         // Corrects for Z view angle
-        float viewCorrection = ((-1.0 * viewDir.z) + 2.0);
+        float viewCorrection = (-viewDir.z) + 2.0;
         float stepSize = 1.0 / (float(numSteps) + 1.0);
         vec2 stepOffset = viewDir.xy * vec2(maxHeight, maxHeight) * stepSize;
 
@@ -340,9 +374,8 @@
             vec2 candidateOffset = lastOffset-stepOffset;
             float currentRayDepth = lastRayDepth - stepSize;
 
-            float currentHeight;
             // Sample height map at this offset
-            currentHeight = texture(u_heightMap, candidateOffset).r;
+            float currentHeight = texture(u_heightMap, candidateOffset).r;
             currentHeight = viewCorrection * currentHeight;
             // Test our candidate depth
             if (currentHeight > currentRayDepth)
@@ -351,6 +384,7 @@
                 p2 = vec2(lastRayDepth, lastHeight);
                 // Break if this is the contact refinement pass
                 if (refine) {
+                    lastHeight = currentHeight;
                     break;
                 // Else, continue raycasting with squared precision
                 } else {
@@ -377,7 +411,7 @@
         }
 
         float offset = ((1.0 - parallaxAmount) * -maxHeight) + minHeight;
-        return viewDir.xy * offset + uv;
+        return vec3(viewDir.xy * offset + uv, lastHeight);
     }
     #endif
 
@@ -431,7 +465,7 @@
         return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
     }
 
-    vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0) {
+    vec3 calculateLightContribution(int lightIndex, vec3 fragPos, vec3 viewDir, vec3 normal, vec2 uv, vec3 albedo, float metallic, float roughness, vec3 F0, float height) {
         int lightType = int(u_lightProperties[lightIndex].x);
         vec3 lightPos = u_lightPosViewSpace[lightIndex].xyz;
         vec3 lightColor = u_lightColor[lightIndex].xyz;
@@ -508,6 +542,11 @@
             float spot = spotAttenuation(lightDir, dir, outerConeCos, innerConeCos);
             lighting *= spot;
         }
+
+        #ifdef USE_PARALLAX
+            float parallaxShadow = getParallaxShadow(uv, lightDir, viewDir, height);
+            //lighting *= parallaxShadow;
+        #endif
 
         return lighting;
     }
@@ -642,10 +681,13 @@
         vec3 viewDir = -normalize(v_fragPos.xyz); // view-space
 
         //Parallax occlusion mapping. WIP.
+        float height = 0.0;
         vec2 uv = v_texCoord;
         uv *= u_textureScale;
         #ifdef USE_PARALLAX
-        uv = getContactRefinementParallaxCoords(uv, viewDir);
+        vec3 uvh = getContactRefinementParallaxCoordsAndHeight(uv, viewDir);
+        uv = uvh.xy;
+        height = uvh.z;
         #endif
 
         vec4 baseColor = texture(u_baseColorTexture, uv);
@@ -653,21 +695,18 @@
             // If normal mapping, transform tangent space normal
             // to view space using TBN matrix. Else, just normalize v_normal.
             #ifdef USE_NORMAL_MAP
-                #ifndef INVERT_NORMAL_MAP
-                    vec3 normal = texture(u_normalMap, uv).rgb;
-                    normal = normalize(normal * 2.0 - 1.0);
-                    normal = normalize(m_TBN * normal);
-                #else
-                    vec3 normal = texture(u_normalMap, uv).rgb;
-                    //normal.r = 1.0-normal.r;
-                    normal.g = 1.0-normal.g;
-                    normal = normalize(normal * 2.0 - 1.0);
-                    normal = normalize(m_TBN * normal);
+                vec3 textureNormal = texture(u_normalMap, uv).rgb;
+                #ifdef INVERT_NORMAL_MAP
+                    textureNormal.g = 1.0-textureNormal.g;
                 #endif
+                vec3 tangentSpaceNormal = normalize(textureNormal * 2.0 - 1.0);
+                vec3 normal = normalize(m_TBN * tangentSpaceNormal);
             #else
                 vec3 normal = v_normal;
             #endif
 
+            //fragmentColor = vec4(normal, 1.0);
+            //return;
             // Set up pbr values, if we are using it
             float metallic = 0.0;
             float roughness = 0.0;
@@ -702,7 +741,7 @@
                         pointLightNum++;
                         break;
                 }
-                lighting += (1.0-shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0);
+                lighting += (1.0-shadow) * calculateLightContribution(i, v_fragPos.xyz, viewDir, normal, uv, baseColor.xyz, metallic, roughness, F0, height);
            }
 
 

@@ -312,7 +312,9 @@ class RenderableObject extends SceneNode {
     this.opacity = [];
     this.setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
-
+  setMeshes(meshes){
+    this.meshes = meshes;
+  }
   setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale){
     this.material = new Material(textureScale);
     this.shaderVariant = shaderVariant;
