@@ -38,7 +38,7 @@ async function main() {
 
 
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [58, 58, 47, 255]);
-  objectID = renderer.addObject(mainObject);
+  //objectID = renderer.addObject(mainObject);
 
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 3;
@@ -64,7 +64,7 @@ async function main() {
   }
   let chaikin_iterations = 0;
   lines = {}
-  lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
+  //lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
   mainObject.animationController.pause();
   animatedObjects.push(mainObject);
 
