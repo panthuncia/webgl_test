@@ -31,9 +31,9 @@ async function main() {
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
   //terrain.transform.setLocalScale([2, 2, 2])
   //renderer.addObject(terrain);
-  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/medievalwall_sphere.json"))));
+  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
-  rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
+  //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
   renderer.addObject(rock);
 
 

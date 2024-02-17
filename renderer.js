@@ -268,9 +268,9 @@ class WebGLRenderer {
     // const ones = new Float32Array(lightBlockSize).fill(1);
     // gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ones);
 
-    const perFrameUniformNames = ["u_viewMatrixInverse"];
+    const perFrameUniformNames = ["u_camPosWorldSpace","u_viewMatrixInverse"];
     const perMaterialUniformNames = ["u_ambientStrength", "u_textureScale", "u_specularStrength"];
-    const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosViewSpace", "u_lightDirViewSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
+    const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosWorldSpace", "u_lightDirWorldSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
 
     //get uniform offsets by name
     gl.uniformBlockBinding(shaderProgram, perFrameBlockIndex, this.buffers.perFrameUBOBindingLocation);
@@ -333,6 +333,7 @@ class WebGLRenderer {
         uniformLocations: {
           projectionMatrix: gl.getUniformLocation(shaderProgram, "u_projectionMatrix"),
           viewMatrix: gl.getUniformLocation(shaderProgram, "u_viewMatrix"),
+          modelMatrix: gl.getUniformLocation(shaderProgram, "u_modelMatrix"),
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
           objectTexture: gl.getUniformLocation(shaderProgram, "u_baseColorTexture"),
@@ -434,10 +435,11 @@ class WebGLRenderer {
       mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
 
       gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, this.matrices.viewMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
 
-      let normalMatrix = calculateNormalMatrix(modelViewMatrix);
+      let normalMatrix = calculateNormalMatrix(object.transform.modelMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
       if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
@@ -527,12 +529,10 @@ class WebGLRenderer {
       let light = this.currentScene.lights[key];
 
       let lightPosWorld = light.transform.getGlobalPosition();
-      let lightPosView = vec3.create();
-      vec3.transformMat4(lightPosView, lightPosWorld, this.matrices.viewMatrix);
 
-      this.currentScene.lightPositionsData[i * 4] = lightPosView[0];
-      this.currentScene.lightPositionsData[i * 4 + 1] = lightPosView[1];
-      this.currentScene.lightPositionsData[i * 4 + 2] = lightPosView[2];
+      this.currentScene.lightPositionsData[i * 4] = lightPosWorld[0];
+      this.currentScene.lightPositionsData[i * 4 + 1] = lightPosWorld[1];
+      this.currentScene.lightPositionsData[i * 4 + 2] = lightPosWorld[2];
       this.currentScene.lightPositionsData[i * 4 + 3] = 0; //padding for uniform block alignment, unused in shader
 
       this.currentScene.lightAttenuationsData[i * 4] = light.constantAttenuation;
@@ -547,14 +547,9 @@ class WebGLRenderer {
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
 
       let lightDirWorld = light.getLightDir();
-      let lightDirView = vec3.create();
-      let viewMatrix3x3 = mat3.create();
-      mat3.fromMat4(viewMatrix3x3, this.matrices.viewMatrix); // Extract the upper-left 3x3 part
-      vec3.transformMat3(lightDirView, lightDirWorld, viewMatrix3x3);
-
-      this.currentScene.lightDirectionsData[i * 4] = lightDirView[0];
-      this.currentScene.lightDirectionsData[i * 4 + 1] = lightDirView[1];
-      this.currentScene.lightDirectionsData[i * 4 + 2] = lightDirView[2];
+      this.currentScene.lightDirectionsData[i * 4] = lightDirWorld[0];
+      this.currentScene.lightDirectionsData[i * 4 + 1] = lightDirWorld[1];
+      this.currentScene.lightDirectionsData[i * 4 + 2] = lightDirWorld[2];
 
       this.currentScene.lightPropertiesData[i * 4] = light.type;
       if (light.type == LightType.SPOT) {
@@ -582,11 +577,11 @@ class WebGLRenderer {
     }
 
     //update buffer data
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPositionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightPosViewSpace);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPositionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightPosWorldSpace);
     dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPropertiesData, this.buffers.uniformLocations.lightUniformLocations.u_lightProperties);
     dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightColorsData, this.buffers.uniformLocations.lightUniformLocations.u_lightColor);
     dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightAttenuationsData, this.buffers.uniformLocations.lightUniformLocations.u_lightAttenuation);
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightDirectionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightDirViewSpace);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightDirectionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightDirWorldSpace);
   }
 
   initLightVectors() {
@@ -677,6 +672,9 @@ class WebGLRenderer {
     // Update view matrix
     mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]);
     mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
+    
+    //Update data view
+    dataViewSetFloatArray(this.buffers.perFrameDataView, this.currentScene.camera.position, this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
 
     // Update shadow cascades after camera moves
     this.updateCascades();
