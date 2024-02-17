@@ -352,7 +352,7 @@
         viewDir = transpose(m_TBN)*viewDir;
 
         //TODO: move to material definition
-        float maxHeight = 0.05;
+        float maxHeight = 0.1;
         float minHeight = maxHeight*0.5;
 
         // Probably unecessarily high
@@ -373,7 +373,7 @@
         while (numSteps > 0)
         {
             // Advance ray in direction of TS view direction
-            vec2 candidateOffset = lastOffset-stepOffset;
+            vec2 candidateOffset = mod(lastOffset-stepOffset, 1.0);
             float currentRayDepth = lastRayDepth - stepSize;
 
             // Sample height map at this offset
