@@ -71,6 +71,7 @@
     out mat4 m_viewMatrix;
     #if defined USE_NORMAL_MAP || defined USE_PARALLAX
         out mat3 m_TBN;
+        out mat3 m_TBNInverse;
     #endif
         
     #ifdef GOURAUD
@@ -166,6 +167,7 @@
             vec3 B = normalize(u_normalMatrix*a_bitangent);
             vec3 N = normalize(u_normalMatrix*a_normal);
             m_TBN = mat3(T, B, N);
+            m_TBNInverse = transpose(m_TBN);
         #endif
 
         #ifdef GOURAUD
@@ -205,6 +207,7 @@
     in mat4 m_viewMatrix;
     #if defined USE_NORMAL_MAP || defined USE_PARALLAX
         in mat3 m_TBN; // Received from vertex shader
+        in mat3 m_TBNInverse;
     #endif
     #ifdef GOURAUD
         in vec4 v_fragColor;
@@ -282,10 +285,10 @@
 
     out vec4 fragmentColor;
 
-    // POM. WIP.
+    // Basic POM
     #ifdef USE_PARALLAX
     vec2 getParallaxCoords(vec2 uv, vec3 viewDir) {
-        viewDir = viewDir*m_TBN;
+        viewDir = m_TBNInverse*viewDir;
         float heightScale = 0.05;
         int steps = 400;
         float layerDepth = 1.0 / float(steps);
@@ -314,15 +317,14 @@
         return finalUV;
     }
 
-    // Parallax shadowing, very expensive method (per-pixel*per-light tangent-space raycast)
+    // Parallax shadowing, very expensive method (per-fragment*per-light tangent-space raycast)
     float getParallaxShadow(vec2 uv, vec3 lightDir, vec3 viewDir, float sampleHeight){
-        lightDir = lightDir*m_TBN;
-        viewDir = viewDir * m_TBN;
-        float maxHeight = 0.01;
+        lightDir = m_TBNInverse*lightDir;
+        viewDir = m_TBNInverse*viewDir;
+        float maxHeight = 0.02;
         float minHeight = maxHeight*0.5;
 
-        // Probably unecessarily high
-        int numSteps = 64;
+        int numSteps = 32; //low step resolution helps prevent noise on small bumps
         // Corrects for Z view angle
         float viewCorrection = ((-1.0 * viewDir.z) + 2.0);
         float stepSize = 1.0 / (float(numSteps) + 1.0);
@@ -349,7 +351,7 @@
     vec3 getContactRefinementParallaxCoordsAndHeight(vec2 uv, vec3 viewDir){
 
         // Get view direction in tangent space
-        viewDir = transpose(m_TBN)*viewDir;
+        viewDir = m_TBNInverse*viewDir;
 
         //TODO: move to material definition
         float maxHeight = 0.1;
