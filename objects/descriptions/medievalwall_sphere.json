@@ -1,5 +1,5 @@
 {
-    "model": "cube.obj",
+    "model": "square.obj",
     "matfile": "",
     "textures": [
       "medievalwall/bricks_0019_color_4k.jpg"
@@ -14,6 +14,6 @@
       "medievalwall/bricks_0019_height_4k.png"
     ],
     "invertRoughness": true,
-    "repeatTexture": true,
-    "textureScale": 4
+    "textureScale": 1,
+    "invert_normal_map": true
   }

@@ -31,14 +31,14 @@ async function main() {
   //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
   //terrain.transform.setLocalScale([2, 2, 2])
   //renderer.addObject(terrain);
-  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/medievalwall_sphere.json"))));
+  let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
-  rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
+  //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
   renderer.addObject(rock);
 
 
   let mainObject = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [58, 58, 47, 255]);
-  objectID = renderer.addObject(mainObject);
+  //objectID = renderer.addObject(mainObject);
 
   mainObject.transform.setLocalScale([3, 3, 3]);
   let playTime = 3;
@@ -64,7 +64,7 @@ async function main() {
   }
   let chaikin_iterations = 0;
   lines = {}
-  lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
+  //lines[mainObject.localID] = setChaikin(mainObject, original_positions, chaikin_iterations, playTime);
   mainObject.animationController.pause();
   animatedObjects.push(mainObject);
 
@@ -92,7 +92,7 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 10.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   //renderer.addLight(light5);
