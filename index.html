@@ -320,30 +320,24 @@
     // Parallax shadowing, very expensive method (per-fragment*per-light tangent-space raycast)
     float getParallaxShadow(vec2 uv, vec3 lightDir, vec3 viewDir, float sampleHeight){
         lightDir = m_TBNInverse*lightDir;
-        viewDir = m_TBNInverse*viewDir;
-        float maxHeight = 0.02;
-        float minHeight = maxHeight*0.5;
+        int steps = 64;
+        float maxDistance = 0.1;
+        float currentHeight = texture(u_heightMap, uv).r;
+        vec2 lightDirUV = normalize(lightDir.xy);
+        float heightStep = lightDir.z / float(steps);
+        float stepSizeUV = maxDistance / float(steps);
 
-        int numSteps = 32; //low step resolution helps prevent noise on small bumps
-        // Corrects for Z view angle
-        float viewCorrection = ((-1.0 * viewDir.z) + 2.0);
-        float stepSize = 1.0 / (float(numSteps) + 1.0);
-        vec2 stepOffset = lightDir.xy * vec2(maxHeight, maxHeight) * stepSize;
-
-        vec2 lastOffset = lightDir.xy * vec2(minHeight, minHeight) + uv;
-        float lastRayDepth = sampleHeight;
-
-        for (int i = 0; i < numSteps; ++i) {
-            vec2 candidateOffset = mod(lastOffset-stepOffset, 1.0);
-            float currentRayDepth = lastRayDepth + stepSize;
-
-            // Sample height map at this offset
-            float currentHeight = texture(u_heightMap, candidateOffset).r;
-            currentHeight = viewCorrection * currentHeight;
-            if (currentHeight > currentRayDepth){
+        for (int i = 0; i < steps; ++i) {
+            uv += lightDirUV * stepSizeUV; // Step across
+            currentHeight += heightStep; // Step up
+            
+            float heightAtSample = texture(u_heightMap, uv).r;
+    
+            if (heightAtSample > currentHeight) {
                 return 0.1;
             }
         }
+    
         return 1.0;
     }
     // Contact-refinement parallax 
@@ -354,7 +348,7 @@
         viewDir = m_TBNInverse*viewDir;
 
         //TODO: move to material definition
-        float maxHeight = 0.1;
+        float maxHeight = 0.05;
         float minHeight = maxHeight*0.5;
 
         // Probably unecessarily high
