@@ -9,8 +9,8 @@ WebGLRenderer.prototype.drawLines = function (positions, modelMatrix) {
     gl.enableVertexAttribArray(this.lineProgramInfo.attribLocations.vertexPosition);
 
     let modelViewMatrix = mat4.create();
-    mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, modelMatrix);
-    gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
+    mat4.multiply(modelViewMatrix, this.currentScene.camera.viewMatrix, modelMatrix);
+    gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
     gl.uniformMatrix4fv(this.lineProgramInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
 
     gl.drawArrays(gl.LINES, 0, positions.length / 3);

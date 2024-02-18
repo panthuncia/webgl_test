@@ -487,33 +487,51 @@ class Light extends SceneNode {
   update() {
     if (this.transform.isDirty) {
       this.forceUpdate();
+      // Recalculate view matrix with new location
+      switch (this.type) {
+        case LightType.SPOT:
+          this.viewMatrix = this.getViewMatrix();
+          mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
+          break;
+        case LightType.POINT:
+          this.cubemapViewMatrices = this.getCubemapViewMatrices();
+          for(let i=0; i<6; i++){
+            mat4.multiply(this.lightCubemapMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
+          }
+          break;
+      }
     }
     for (let childKey in this.children) {
       this.children[childKey].update();
     }
   }
-  forceUpdate() {
-    this.dirtyFlag = true;
-    if (this.parent) {
-      this.transform.computeModelMatrixFromParent(this.parent.transform.modelMatrix);
-    } else {
-      this.transform.computeLocalModelMatrix();
+}
+
+class Camera extends SceneNode{
+  constructor(lookAt, up, fov, aspect, zNear, zFar){
+    super();
+    // Camera setup
+    this.lookAt = lookAt;
+    this.up = up;
+    this.viewMatrix = mat4.create();
+    this.viewMatrixInverse = mat4.create();
+    this.projectionMatrix = mat4.create();
+    this.fieldOfView = fov;
+    this.aspect = aspect;
+    this.zNear = zNear;
+    this.zFar = zFar;
+
+    mat4.perspective(this.projectionMatrix, this.fieldOfView, this.aspect, this.zNear, this.zFar);
+  }
+
+  update(){
+    if (this.transform.isDirty) {
+      this.forceUpdate();
+      mat4.lookAt(this.viewMatrix, this.transform.getGlobalPosition(), this.lookAt, this.up);
+      mat4.invert(this.viewMatrixInverse, this.viewMatrix);
     }
     for (let childKey in this.children) {
-      this.children[childKey].forceUpdate();
-    }
-    // Recalculate view matrix with new location
-    switch (this.type) {
-      case LightType.SPOT:
-        this.viewMatrix = this.getViewMatrix();
-        mat4.multiply(this.lightSpaceMatrix, this.projectionMatrix, this.viewMatrix);
-        break;
-      case LightType.POINT:
-        this.cubemapViewMatrices = this.getCubemapViewMatrices();
-        for(let i=0; i<6; i++){
-          mat4.multiply(this.lightCubemapMatrices[i], this.projectionMatrix, this.cubemapViewMatrices[i]);
-        }
-        break;
+      this.children[childKey].update();
     }
   }
 }

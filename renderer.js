@@ -15,12 +15,14 @@ class WebGLRenderer {
     // Print gl restrictions, for debugging
     this.printRestrictions();
     const gl = this.gl;
-    this.matrices = {
-      viewMatrix: mat4.create(),
-      projectionMatrix: mat4.create(),
-      viewMatrixInverse: mat4.create(),
-    };
 
+    let lookAt = vec3.fromValues(0, 0, 0);
+    let up = vec3.fromValues(0, 1, 0);
+    let fov = (80 * Math.PI) / 180; // in radians
+    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    let zNear = 0.1;
+    let zFar = 1000.0;
+    let camera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
     // Scene setup
     this.currentScene = {
       nextNodeID: 0,
@@ -31,30 +33,13 @@ class WebGLRenderer {
       nodes: {},
       numObjects: 0,
       sceneRoot: new SceneNode(),
-      camera: {
-        position: vec3.create(),
-        lookAt: vec3.fromValues(0, 0, 0),
-        up: vec3.fromValues(0, 1, 0),
-      },
+      camera: camera,
     };
+    //Should really make a Scene type
+    this.addNode(this.currentScene.camera);
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
-
-    // Camera setup
-    let fieldOfView = (80 * Math.PI) / 180; // in radians
-    let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    let zNear = 0.1;
-    let zFar = 1000.0;
-    let projectionMatrix = mat4.create();
-    this.currentScene.camera.fieldOfView = fieldOfView;
-    this.currentScene.camera.aspect = aspect;
-    this.currentScene.camera.zNear = zNear;
-    this.currentScene.camera.zFar = zFar;
-
-    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-    this.matrices.projectionMatrix = projectionMatrix;
-
 
     // Shadow setup
     this.SHADOW_WIDTH = 2048; //8192;
@@ -432,12 +417,12 @@ class WebGLRenderer {
 
       let textureUnitAfterShadowMaps = 3;
       let modelViewMatrix = mat4.create();
-      mat4.multiply(modelViewMatrix, this.matrices.viewMatrix, object.transform.modelMatrix);
+      mat4.multiply(modelViewMatrix, this.currentScene.camera.viewMatrix, object.transform.modelMatrix);
 
-      gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, this.matrices.viewMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, this.currentScene.camera.viewMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-      gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.matrices.projectionMatrix);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
 
       let normalMatrix = calculateNormalMatrix(object.transform.modelMatrix);
       gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
@@ -652,7 +637,7 @@ class WebGLRenderer {
         }
       }
     }
-    dataViewSetMatrix(this.buffers.perFrameDataView, this.matrices.viewMatrixInverse, this.buffers.uniformLocations.perFrameUniformLocations.u_viewMatrixInverse);
+    dataViewSetMatrix(this.buffers.perFrameDataView, this.currentScene.camera.viewMatrixInverse, this.buffers.uniformLocations.perFrameUniformLocations.u_viewMatrixInverse);
     dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices);
   }
   updateCamera() {
@@ -665,16 +650,13 @@ class WebGLRenderer {
     var z = this.distanceFromOrigin * Math.sin(this.verticalAngle) * Math.sin(this.horizontalAngle);
 
     const lookAt = this.currentScene.camera.lookAt;
-    this.currentScene.camera.position[0] = x+lookAt[0];
-    this.currentScene.camera.position[1] = y+lookAt[1];
-    this.currentScene.camera.position[2] = z+lookAt[2];
 
-    // Update view matrix
-    mat4.lookAt(this.matrices.viewMatrix, [x, y, z], [lookAt[0], lookAt[1], lookAt[2]], [0, 1, 0]);
-    mat4.invert(this.matrices.viewMatrixInverse, this.matrices.viewMatrix);
+    this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
+    //update camera transforms
+    this.currentScene.camera.update();
     
     //Update data view
-    dataViewSetFloatArray(this.buffers.perFrameDataView, this.currentScene.camera.position, this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
+    dataViewSetFloatArray(this.buffers.perFrameDataView, this.currentScene.camera.transform.getGlobalPosition(), this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
 
     // Update shadow cascades after camera moves
     this.updateCascades();
