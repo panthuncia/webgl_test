@@ -815,7 +815,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.textures) {
         let textureImage = await loadTexture("textures/" + textureName);
-        let texture = createWebGLTexture(gl, textureImage, repeat, true);
+        let texture = createWebGLTexture(gl, textureImage, false, repeat, true);
         textures.push(texture);
       }
     } catch {
@@ -825,7 +825,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.normals) {
         let normalImage = await loadTexture("textures/" + textureName);
-        let normalTexture = createWebGLTexture(gl, normalImage, repeat, true);
+        let normalTexture = createWebGLTexture(gl, normalImage, false, repeat, true);
         normals.push(normalTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
@@ -836,7 +836,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.aoMaps) {
         let aoImage = await loadTexture("textures/" + textureName);
-        let aoTexture = createWebGLTexture(gl, aoImage, repeat);
+        let aoTexture = createWebGLTexture(gl, aoImage, false, repeat);
         aoMaps.push(aoTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO;
@@ -847,7 +847,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.heightMaps) {
         let heightMapImage = await loadTexture("textures/" + textureName);
-        let heightMapTexture = createWebGLTexture(gl, heightMapImage, repeat);
+        let heightMapTexture = createWebGLTexture(gl, heightMapImage, false, repeat);
         heightMaps.push(heightMapTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
@@ -858,7 +858,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.metallic) {
         let metallicImage = await loadTexture("textures/" + textureName);
-        let metallicTexture = createWebGLTexture(gl, metallicImage, repeat, true);
+        let metallicTexture = createWebGLTexture(gl, metallicImage, false, repeat, true);
         metallic.push(metallicTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -869,7 +869,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.roughness) {
         let roughnessImage = await loadTexture("textures/" + textureName);
-        let roughnessTexture = createWebGLTexture(gl, roughnessImage, repeat, true);
+        let roughnessTexture = createWebGLTexture(gl, roughnessImage, false, repeat, true);
         roughness.push(roughnessTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -879,7 +879,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.opacity) {
         let opacityImage = await loadTexture("textures/" + textureName);
-        let opacityTexture = createWebGLTexture(gl, opacityImage, repeat);
+        let opacityTexture = createWebGLTexture(gl, opacityImage, false, repeat, true);
         opacity.push(opacityTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP;

@@ -13,7 +13,7 @@
     "heightMaps": [
       "stonewall/scpgdgca_8K_Displacement.jpg"
     ],
-    "repeatTexture": false,
+    "repeatTexture": true,
     "invertRoughness": false,
     "textureScale": 2,
     "invert_normal_map": true

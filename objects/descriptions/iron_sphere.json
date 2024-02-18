@@ -1,5 +1,5 @@
 {
-    "model": "sphere.obj",
+    "model": "cube.obj",
     "matfile": "",
     "textures": [
       "rustediron2_basecolor.png"
@@ -13,5 +13,6 @@
     "roughness": [
         "rustediron2_roughness.png"
     ],
-    "invertRoughness": false
+    "invertRoughness": false,
+    "textureScale": 4
   }
