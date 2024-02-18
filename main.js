@@ -53,8 +53,9 @@ async function main() {
 
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
-  renderer.addObject(light2Object);
-  light2.addChild(light2Object);
+  //renderer.addObject(light2Object);
+  //light2.addChild(light2Object);
+  light2.addChild(renderer.currentScene.camera);
 
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);

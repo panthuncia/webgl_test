@@ -651,7 +651,7 @@ class WebGLRenderer {
 
     const lookAt = this.currentScene.camera.lookAt;
 
-    this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
+    //this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
     //update camera transforms
     this.currentScene.camera.update();
     
