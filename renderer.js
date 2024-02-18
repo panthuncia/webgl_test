@@ -815,7 +815,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.textures) {
         let textureImage = await loadTexture("textures/" + textureName);
-        let texture = createWebGLTexture(gl, textureImage, false, repeat, true);
+        let texture = createWebGLTexture(gl, textureImage, false, repeat);
         textures.push(texture);
       }
     } catch {
@@ -825,7 +825,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.normals) {
         let normalImage = await loadTexture("textures/" + textureName);
-        let normalTexture = createWebGLTexture(gl, normalImage, false, repeat, true);
+        let normalTexture = createWebGLTexture(gl, normalImage, false, repeat);
         normals.push(normalTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
@@ -858,7 +858,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.metallic) {
         let metallicImage = await loadTexture("textures/" + textureName);
-        let metallicTexture = createWebGLTexture(gl, metallicImage, false, repeat, true);
+        let metallicTexture = createWebGLTexture(gl, metallicImage, false, repeat);
         metallic.push(metallicTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -869,7 +869,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.roughness) {
         let roughnessImage = await loadTexture("textures/" + textureName);
-        let roughnessTexture = createWebGLTexture(gl, roughnessImage, false, repeat, true);
+        let roughnessTexture = createWebGLTexture(gl, roughnessImage, false, repeat);
         roughness.push(roughnessTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
@@ -879,7 +879,7 @@ class WebGLRenderer {
     try {
       for (const textureName of modelDescription.opacity) {
         let opacityImage = await loadTexture("textures/" + textureName);
-        let opacityTexture = createWebGLTexture(gl, opacityImage, false, repeat, true);
+        let opacityTexture = createWebGLTexture(gl, opacityImage, false, repeat);
         opacity.push(opacityTexture);
       }
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP;
