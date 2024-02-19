@@ -28,9 +28,12 @@ class WebGLRenderer {
       nextNodeID: 0,
       shadowScene: {},
       lights: {},
+      lightsByName: {},
       numLights: 0,
       objects: {},
+      objectsByName: {},
       nodes: {},
+      nodesByName:{},
       numObjects: 0,
       sceneRoot: new SceneNode(),
       camera: camera,
@@ -110,31 +113,72 @@ class WebGLRenderer {
   
   // Add a renderable object to the current scene
   addObject(object) {
-    this.numObjects++;
+    this.currentScene.numObjects++;
     object.localID = this.currentScene.nextNodeID;
     this.currentScene.sceneRoot.addChild(object);
     this.currentScene.objects[this.currentScene.nextNodeID] = object;
     this.currentScene.nextNodeID++;
+    if (object.name != null || object.name === ""){
+      if(this.currentScene.objectsByName[object.name] != undefined){
+        console.warn("Renderable object added with identical name to existing object. This will make the old object inaccessable by name.");
+      }
+      this.currentScene.objectsByName[object.name] = object;
+    }
     return object.localID;
   }
 
+  //Like addNode, if node ids need to be pre-assigned
+  createNode(name = null){
+    let node = new SceneNode(name);
+    this.addNode(node);
+    return node;
+  }
+  createRenderableFromData(pointsArray, normalsArray, texcoords, indices = [], color = [128, 128, 128, 255], name = null, skipLighting = false, ambientStrength = 0.01){
+    let renderable = this.createObjectFromData(pointsArray, normalsArray, texcoords, indices, color, name, skipLighting, ambientStrength);
+    this.addObject(renderable);
+    return renderable;
+  }
   // Add a plain node to the current scene (useful for offset transforms)
   addNode(node) {
     node.localID = this.currentScene.nextNodeID;
     this.currentScene.sceneRoot.addChild(node);
     this.currentScene.nodes[this.currentScene.nextNodeID] = node;
     this.currentScene.nextNodeID++;
+    if (node.name != null || node.name === ""){
+      if(this.currentScene.nodesByName[node.name] != undefined){
+        console.warn("Node added with identical name to existing node. This will make the old node inaccessible by name.");
+      }
+      this.currentScene.nodesByName[node.name] = node;
+    }
     return node.localID;
   }
 
   // Remove a renderable object from the current scene
   removeObject(objectID) {
-    this.numObjects--;
+    this.currentScene.numObjects--;
     let object = this.currentScene.objects[objectID];
     if (object.parent != null){
       object.parent.removeChild(objectID);
     }
+    if (object.name != null){
+      delete this.currentScene.objectsByName[object.name];
+    }
     delete this.currentScene.objects[objectID];
+  }
+
+  removeObjectByName(name){
+    this.removeObject(this.currentScene.objectsByName[name].localID);
+  }
+
+  removeNode(nodeID) {
+    let node = this.currentScene.nodes[nodeID];
+    if (node.parent != null){
+      node.parent.removeChild(nodeID);
+    }
+    if (node.name != null){
+      delete this.currentScene.nodesByName[node.name];
+    }
+    delete this.currentScene.nodes[nodeID];
   }
 
   // Get an SceneNode of any kind by ID
@@ -495,7 +539,7 @@ class WebGLRenderer {
         // if (!validationStatus) {
         //     console.error('Program validation failed:', gl.getProgramInfoLog(shaderProgram));
         // }
-        gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
+        mesh.draw();
         gl.bindVertexArray(null);
         i += 1;
       }
@@ -651,7 +695,7 @@ class WebGLRenderer {
 
     const lookAt = this.currentScene.camera.lookAt;
 
-    //this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
+    this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
     //update camera transforms
     this.currentScene.camera.update();
     
@@ -661,7 +705,7 @@ class WebGLRenderer {
     // Update shadow cascades after camera moves
     this.updateCascades();
   }
-  createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
+  createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, name, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
     const gl = this.gl;
     let objectData = {
       geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
@@ -692,13 +736,13 @@ class WebGLRenderer {
     if (metallic.length > 0 || roughness.length > 0){
       shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
     }
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+    return createRenderable(gl, name, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
 
-  createObjectFromData(pointsArray, normalsArray, texcoords, color, skipLighting = false, ambientStrength = 0.01){
+  createObjectFromData(pointsArray, normalsArray, texcoords, indices = [], color = [128, 128, 128, 255], name = null, skipLighting = false, ambientStrength = 0.01){
     const gl = this.gl;
     let objectData = {
-      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
+      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords, indices: indices}}]
     }
     let shaderVariant = 0;
     if (skipLighting){
@@ -715,7 +759,7 @@ class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    let renderable = createRenderable(gl, objectData, shaderVariant, [texture], [], [], [], [], [], [], []);
+    let renderable = createRenderable(gl, name, objectData, shaderVariant, [texture], [], [], [], [], [], [], []);
     renderable.material.ambientStrength = ambientStrength;
     return renderable;
   }
@@ -766,7 +810,7 @@ class WebGLRenderer {
     object.setMeshes(meshes);
   }
   // Load model from custom JSON format
-  async loadModel(modelDescription) {
+  async loadModel(modelDescription, name = null) {
     const gl = this.gl;
     let textures = [];
     let normals = [];
@@ -871,7 +915,7 @@ class WebGLRenderer {
 
     let objectData = await getObj("objects/" + modelDescription.model);
     console.log(objectData);
-    return createRenderable(gl, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+    return createRenderable(gl, name, objectData, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
   }
   printRestrictions() {
     console.log("Max texture size: " + this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));

@@ -1,12 +1,12 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = null) {
+  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = []) {
     this.vertices = vertices;
     this.normals = normals;
     this.indices = indices;
     this.tangents = tangents;
     this.bitangents = bitangents;
     this.baryCoords = baryCoords;
-
+    this.gl = gl;
     // Create VAO
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -53,16 +53,24 @@ class Mesh {
       gl.vertexAttribPointer(5, 3, gl.FLOAT, false, 0, 0);
       gl.enableVertexAttribArray(5);
     }
-
     // Index buffer (if present)
-    if (indices != null) {
+    if (indices.length>0) {
       this.indexBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+      this.draw = this.drawElementsInternal;
+    } else {
+      this.draw = this.drawArraysInternal;
     }
 
     // Unbind VAO
     gl.bindVertexArray(null);
+  }
+  drawArraysInternal(){
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, this.vertices.length / 3);
+  }
+  drawElementsInternal(){
+    this.gl.drawElements(this.gl.TRIANGLES, this.indices.length, this.gl.UNSIGNED_INT, 0);
   }
 }
 
@@ -102,12 +110,15 @@ class Transform {
     this.pos = newPosition;
     this.isDirty = true;
   }
-  setLocalRotation(rot) {
+  setLocalRotationFromEuler(rot) {
     // Why TF does quat.fromEuler use degrees
     // Who uses degrees
     quat.fromEuler(this.rot, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
+  }
+  setLocalRotationFromQuaternion(quat){
+    this.rot = quat;
   }
   setDirection(dir) {
     let targetDirection = vec3.fromValues(dir[0], dir[1], dir[2]);
@@ -254,12 +265,13 @@ class AnimationController {
 
 // This class forms the basis for the renderer's scene graph
 class SceneNode {
-  constructor() {
+  constructor(name = null) {
     this.children = {};
     this.parent = null;
     this.transform = new Transform();
     this.animationController = new AnimationController(this);
     this.localID = -1;
+    this.name = name;
   }
   addChild(node) {
     this.children[node.localID] = node;
@@ -301,7 +313,7 @@ class Material {
 }
 
 class RenderableObject extends SceneNode {
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale) {
+  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale, name = null) {
     super();
     this.textures = [];
     this.normals = [];
@@ -311,6 +323,7 @@ class RenderableObject extends SceneNode {
     this.roughness = [];
     this.opacity = [];
     this.setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+    this.name = name;
   }
   setMeshes(meshes){
     this.meshes = meshes;

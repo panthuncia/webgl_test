@@ -245,7 +245,7 @@ function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], h
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
     let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
-    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents));
+    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
   }
   if(textures.length==1 && reuseTextures){
     padArray(textures, textures[0], meshes.length-1);
@@ -272,9 +272,9 @@ function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], h
 }
 
 //create a renderable object from data
-function createRenderable(gl, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
+function createRenderable(gl, name, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
   newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures);
-  return new RenderableObject(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
+  return new RenderableObject(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale, name);
 }
 
 //update the data associated with a renderable object
@@ -797,4 +797,281 @@ function generateStrongColor() {
   }
 
   return {r, g, b};
+}
+
+async function fetchGLB(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.arrayBuffer();
+}
+
+function parseGLBHeader(glbArrayBuffer) {
+  const dataView = new DataView(glbArrayBuffer);
+  const magic = dataView.getUint32(0, true);
+  const version = dataView.getUint32(4, true);
+  const length = dataView.getUint32(8, true);
+
+  if (magic !== 0x46546C67) {
+    throw new Error("Invalid GLB format");
+  }
+
+  return { version, length };
+}
+
+function parseGLBChunks(glbArrayBuffer) {
+  const chunks = [];
+  let offset = 12; // Skip the header
+
+  while (offset < glbArrayBuffer.byteLength) {
+    const dataView = new DataView(glbArrayBuffer, offset);
+    const chunkLength = dataView.getUint32(0, true);
+    const chunkType = dataView.getUint32(4, true);
+    const chunkData = new Uint8Array(glbArrayBuffer, offset + 8, chunkLength);
+
+    chunks.push({ chunkLength, chunkType, chunkData });
+    offset += chunkLength + 8;
+  }
+
+  return chunks;
+}
+
+function decodeJSONChunk(chunkData) {
+  const textDecoder = new TextDecoder("utf-8");
+  const jsonText = textDecoder.decode(chunkData);
+  return JSON.parse(jsonText);
+}
+
+async function loadAndParseGLB(url) {
+  meshes = [];
+  try {
+    const glbArrayBuffer = await fetchGLB(url);
+    const header = parseGLBHeader(glbArrayBuffer);
+    const chunks = parseGLBChunks(glbArrayBuffer);
+    
+    const jsonChunk = chunks.find(chunk => chunk.chunkType === 0x4E4F534A); // 'JSON' in ASCII
+    if (!jsonChunk) {
+      throw new Error("JSON chunk not found");
+    }
+
+    const binChunk = chunks.find(chunk => chunk.chunkType === 0x4E4942); // 'BIN' in ASCII
+    
+    const gltfData = decodeJSONChunk(jsonChunk.chunkData);
+    console.log("GLTF Data:", gltfData);
+    const binaryData = binChunk.chunkData;
+    for (mesh of gltfData.meshes){
+      meshes.push({
+        positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
+        normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
+        texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
+        indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices))
+      });
+    }
+    console.log(meshes);
+
+  } catch (error) {
+    console.error(error);
+  }
+  return meshes;
+}
+
+function extractDataFromBuffer(binaryData, accessorData) {
+  const { accessor, bufferView } = accessorData;
+  const numComponents = numComponentsForType(accessor.type);
+
+  // Calculate byte stride; use the provided byteStride from bufferView if present, otherwise calculate it
+  const byteStride = bufferView.byteStride ? bufferView.byteStride : numComponents * bytesPerComponent(accessor.componentType);
+
+  let effectiveByteOffset = bufferView.byteOffset;
+  if (effectiveByteOffset == undefined){
+    effectiveByteOffset = 0;
+  }
+  if (accessor.byteOffset != undefined){ 
+   effectiveByteOffset += accessor.byteOffset;
+  }
+
+  let typedArray;
+  if (byteStride === numComponents * bytesPerComponent(accessor.componentType)) {
+    // Non-interleaved data, we can proceed as before
+    typedArray = createTypedArray(accessor.componentType, binaryData, effectiveByteOffset, accessor.count * numComponents);
+  } else {
+    // Interleaved data, need to manually assemble the typed array
+    const elementSize = bytesPerComponent(accessor.componentType) * numComponents;
+    let data = new ArrayBuffer(accessor.count * elementSize);
+    let view = new DataView(data);
+
+    for (let i = 0, byteOffset = accessor.byteOffset; i < accessor.count; i++, byteOffset += byteStride) {
+      for (let componentIndex = 0; componentIndex < numComponents; componentIndex++) {
+        const componentByteOffset = byteOffset + bytesPerComponent(accessor.componentType) * componentIndex;
+        const value = readComponent(binaryData, accessor.componentType, effectiveByteOffset + componentByteOffset);
+        writeComponent(view, accessor.componentType, i * numComponents + componentIndex, value);
+      }
+    }
+
+    typedArray = createTypedArray(accessor.componentType, data, 0, accessor.count * numComponents);
+  }
+  return typedArray;
+}
+
+function bytesPerComponent(componentType) {
+  switch (componentType) {
+    case 5120: return 1; // BYTE
+    case 5121: return 1; // UNSIGNED_BYTE
+    case 5122: return 2; // SHORT
+    case 5123: return 2; // UNSIGNED_SHORT
+    case 5125: return 4; // UNSIGNED_INT
+    case 5126: return 4; // FLOAT
+    default: throw new Error("Unsupported component type");
+  }
+}
+
+function createTypedArray(componentType, buffer, byteOffset, length) {
+  switch (componentType) {
+    case 5120: return new Int8Array(buffer, byteOffset, length);
+    case 5121: return new Uint8Array(buffer, byteOffset, length);
+    case 5122: return new Int16Array(buffer, byteOffset, length);
+    case 5123: return new Uint16Array(buffer, byteOffset, length);
+    case 5125: return new Uint32Array(buffer, byteOffset, length);
+    case 5126: return new Float32Array(buffer, byteOffset, length);
+    default: throw new Error("Unsupported component type");
+  }
+}
+
+function readComponent(buffer, componentType, byteOffset) {
+  const dataView = new DataView(buffer);
+  switch (componentType) {
+    case 5120: return dataView.getInt8(byteOffset);
+    case 5121: return dataView.getUint8(byteOffset);
+    case 5122: return dataView.getInt16(byteOffset, true);
+    case 5123: return dataView.getUint16(byteOffset, true);
+    case 5125: return dataView.getUint32(byteOffset, true);
+    case 5126: return dataView.getFloat32(byteOffset, true);
+    default: throw new Error("Unsupported component type");
+  }
+}
+
+function writeComponent(dataView, componentType, index, value) {
+  const byteOffset = index * bytesPerComponent(componentType);
+  switch (componentType) {
+    case 5120: dataView.setInt8(byteOffset, value); break;
+    case 5121: dataView.setUint8(byteOffset, value); break;
+    case 5122: dataView.setInt16(byteOffset, value, true); break;
+    case 5123: dataView.setUint16(byteOffset, value, true); break;
+    case 5125: dataView.setUint32(byteOffset, value, true); break;
+    case 5126: dataView.setFloat32(byteOffset, value, true); break;
+    default: throw new Error("Unsupported component type");
+  }
+}
+
+function numComponentsForType(type) {
+  switch (type) {
+    case "SCALAR": return 1;
+    case "VEC2": return 2;
+    case "VEC3": return 3;
+    case "VEC4": return 4;
+    case "MAT2": return 4;
+    case "MAT3": return 9;
+    case "MAT4": return 16;
+    default: throw new Error("Unsupported type");
+  }
+}
+
+function getAccessorData(gltfData, accessorIndex) {
+  const accessor = gltfData.accessors[accessorIndex];
+  const bufferView = gltfData.bufferViews[accessor.bufferView];
+  return { accessor, bufferView };
+}
+
+function parseGLTFNodeHierarchy(renderer, gltfData, meshes) {
+  const nodes = gltfData.nodes.map(() => new SceneNode());
+  const nodeMap = {};
+  // create SceneNode instances for each GLTF node
+  gltfData.nodes.forEach((gltfNode, index) => {
+    let node = null;
+    if (gltfNode.mesh != undefined){
+      node = renderer.createRenderableFromData(meshes[gltfNode.mesh].positions, meshes[gltfNode.mesh].normals, meshes[gltfNode.mesh].texcoords, meshes[gltfNode.mesh].indices, [128, 128, 128, 255], gltfNode.name);
+    } else {
+      node = renderer.createNode(gltfData.name);
+    }
+    const position = vec3.create();
+    const rotation = quat.create();
+    const scale = vec3.create();
+    if (gltfNode.matrix != undefined){
+      matrix = mat4.fromValues(...gltfNode.matrix);
+
+      mat4.getTranslation(position, matrix);
+      mat4.getScaling(scale, matrix);
+      mat4.getRotation(rotation, matrix);
+
+      quat.normalize(rotation, rotation);
+      
+      node.transform.setLocalPosition(position);
+      node.transform.setLocalScale(scale);
+      node.transform.setLocalRotationFromQuaternion(rotation);
+    } else{
+      //console.log(gltfNode)
+    }
+    nodes[index] = node;
+    nodeMap[index] = node;
+  });
+
+  // establish parent-child relationships
+  gltfData.nodes.forEach((gltfNode, index) => {
+    const node = nodes[index];
+    if (gltfNode.children) {
+      gltfNode.children.forEach((childIndex) => {
+        const childNode = nodeMap[childIndex];
+        node.addChild(childNode);
+      });
+    }
+  });
+
+  //find and return nodes with no parents
+  const rootNodes = nodes.filter(node => node.parent.localID == -1);
+  return rootNodes;
+}
+
+async function loadAndParseGLTF(renderer, dir, filename) {
+  let meshes = [];
+  let nodes = [];
+  try {
+    // Fetch the GLTF JSON file
+    const url = dir+"/"+filename;
+    const gltfResponse = await fetch(url);
+    if (!gltfResponse.ok) {
+      throw new Error(`HTTP error! status: ${gltfResponse.status}`);
+    }
+    const gltfData = await gltfResponse.json();
+
+    // Load external BIN files specified in the GLTF
+    const binBuffers = await Promise.all(gltfData.buffers.map(async (buffer) => {
+      if (buffer.uri) {
+        const binUrl = dir+"/"+buffer.uri;
+        const binResponse = await fetch(binUrl);
+        if (!binResponse.ok) {
+          throw new Error(`HTTP error! status: ${binResponse.status}`);
+        }
+        return binResponse.arrayBuffer();
+      }
+    }));
+
+    // TODO: Textures
+
+    const binaryData = binBuffers[0]; // one .bin file for now
+    for (const mesh of gltfData.meshes) {
+      meshes.push({
+        positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
+        normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
+        texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0)),
+        indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices))
+      });
+    }
+    //console.log(meshes);
+    nodes = parseGLTFNodeHierarchy(renderer, gltfData, meshes);
+    //console.log(nodes);
+  } catch (error) {
+    console.error(error);
+  }
+  return nodes;
 }
