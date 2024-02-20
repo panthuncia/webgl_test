@@ -22,11 +22,12 @@ async function main() {
 
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
-  let nodes = await loadAndParseGLTF(renderer, "objects/gltf", "scene.gltf");
+  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
   console.log(nodes);
   nodes[0].transform.setLocalPosition([0, 0, 0]);
   nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
   nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
+  //nodes[0].transform.setLocalScale([10, 10, 10]);
   renderer.removeObjectByName("Plane.035__0");
 
   let addedObjects = [];
@@ -58,7 +59,7 @@ async function main() {
   let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 1, 1], 80.0, 1.0, 0.09, 0.032);
   renderer.addLight(light2);
 
-  let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], true, 40.0);
+  let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], "light 2 object", true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
   renderer.addObject(light2Object);
   light2.addChild(light2Object);

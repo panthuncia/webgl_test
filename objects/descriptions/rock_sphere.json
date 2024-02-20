@@ -1,21 +1,14 @@
 {
     "model": "cube.obj",
     "matfile": "",
-    "textures": [
-      "stonewall/scpgdgca_8K_Albedo.jpg"
-    ],
-    "normals": [
-      "stonewall/scpgdgca_8K_Normal.jpg"
-    ],
-    "roughness": [
-        "stonewall/scpgdgca_8K_Roughness.jpg"
-    ],
-    "heightMaps": [
-      "stonewall/scpgdgca_8K_Displacement.jpg"
-    ],
-    "repeatTexture": true,
-    "invertRoughness": false,
-    "textureScale": 2,
-    "invert_normal_map": true
-
+    "material": {
+      "texture": "stonewall/scpgdgca_8K_Albedo.jpg",
+      "normal": "stonewall/scpgdgca_8K_Normal.jpg",
+      "roughness": "stonewall/scpgdgca_8K_Roughness.jpg",
+      "heightMap": "stonewall/scpgdgca_8K_Displacement.jpg",
+      "repeatTexture": true,
+      "invertRoughness": false,
+      "textureScale": 2,
+      "invert_normal_map": true
+    }
   }

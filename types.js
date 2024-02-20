@@ -305,70 +305,63 @@ class SceneNode {
 }
 
 class Material {
-  constructor(textureScale){
-    this.ambientStrength = 0.01;
-    this.specularStrength = 2.0;
+  constructor(texture, normal = null, invertNormalMap = false, aoMap = null, heightMap = null, metallic = null, roughness = null, combinedMetallicRoughness = false, metallicFactor = null, roughnessFactor = null, baseColorFactor = [1, 1, 1, 1], opacity = null, textureScale = 1.0, skipLighting = false, ambientStrength = 0.1, specularStrength = 2.0){
+    this.ambientStrength = ambientStrength;
+    this.specularStrength = specularStrength;
     this.textureScale = textureScale;
+    this.texture = texture;
+    this.normal = normal;
+    this.aoMap = aoMap;
+    this.heightMap = heightMap;
+    this.metallic = metallic;
+    this.roughness = roughness;
+    this.metallicFactor = metallicFactor;
+    this.roughnessFactor = roughnessFactor;
+    this.baseColorFactor = baseColorFactor;
+    this.opacity = opacity;
+    this.skipLighting = skipLighting;
+
+    this.shaderVariant = 0;
+    if (skipLighting) {
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
+    if (normal != null){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP;
+    }
+    if (aoMap != null){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO;
+    }
+    if (heightMap != null){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
+    }
+    if (metallic != null || roughness != null || metallicFactor != null || roughnessFactor != null){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_PBR;
+      if (metallic != null || roughness != null){
+        this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_PBR_MAPS;
+      }
+    }
+    if (this.shaderVariant & SHADER_VARIANTS.SHADER_VARIANT_PBR_MAPS)
+    if (invertNormalMap == true){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_INVERT_NORMAL_MAP;
+    }
+    if (combinedMetallicRoughness == true){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS;
+    }
   }
 }
 
 class RenderableObject extends SceneNode {
-  constructor(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale, name = null) {
+  constructor(meshes, material, name = null) {
     super();
-    this.textures = [];
-    this.normals = [];
-    this.aoMaps = [];
-    this.heightMaps = [];
-    this.metallic = [];
-    this.roughness = [];
-    this.opacity = [];
-    this.setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale);
+    this.setData(meshes, material);
     this.name = name;
   }
   setMeshes(meshes){
     this.meshes = meshes;
   }
-  setData(meshes, shaderVariant, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, textureScale){
-    this.material = new Material(textureScale);
-    this.shaderVariant = shaderVariant;
+  setData(meshes, material){
     this.meshes = meshes;
-    for (let i = 0; i < meshes.length; i++) {
-      if (textures.length >= i + 1) {
-        this.textures.push(textures[i]);
-      } else {
-        this.textures.push(null);
-      }
-      if (normals.length >= i + 1) {
-        this.normals.push(normals[i]);
-      } else {
-        this.normals.push(null);
-      }
-      if (aoMaps.length >= i + 1) {
-        this.aoMaps.push(aoMaps[i]);
-      } else {
-        this.aoMaps.push(null);
-      }
-      if (heightMaps.length >= i + 1) {
-        this.heightMaps.push(heightMaps[i]);
-      } else {
-        this.heightMaps.push(null);
-      }
-      if (metallic.length >= i + 1) {
-        this.metallic.push(metallic[i]);
-      } else {
-        this.metallic.push(null);
-      }
-      if (roughness.length >= i + 1) {
-        this.roughness.push(roughness[i]);
-      } else {
-        this.roughness.push(null);
-      }
-      if (opacity.length >= i + 1) {
-        this.opacity.push(opacity[i]);
-      } else {
-        this.opacity.push(null);
-      }
-    }
+    this.material = material;
   }
 }
 const LightType = {

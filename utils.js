@@ -38,25 +38,25 @@ function parseOBJ(text) {
   function newGeometry() {
     // If there is an existing geometry and it's
     // not empty then start a new one.
-    if (geometry && geometry.data.position.length) {
+    if (geometry && geometry.data.positions.length) {
       geometry = undefined;
     }
   }
 
   function setGeometry() {
     if (!geometry) {
-      const position = [];
-      const texcoord = [];
-      const normal = [];
-      webglVertexData = [position, texcoord, normal];
+      const positions = [];
+      const texcoords = [];
+      const normals = [];
+      webglVertexData = [positions, texcoords, normals];
       geometry = {
         object,
         groups,
         material,
         data: {
-          position,
-          texcoord,
-          normal,
+          positions,
+          texcoords,
+          normals,
         },
       };
       geometries.push(geometry);
@@ -240,47 +240,27 @@ function getBarycentricCoordinates(length){
 }
 
 //Calculate tangents, bitangents (for tangent-space operations such as normal mapping & parallax), barycentric coordinates (for wireframe), and pad arrays if necessary
-function prepareObjectData(gl, data, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], reuseTextures = true){
+function prepareObjectData(gl, data){
   meshes = [];
   for (const geometry of data.geometries) {
-    let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
-    let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
-    meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
+    let tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+    let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
+    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
   }
-  if(textures.length==1 && reuseTextures){
-    padArray(textures, textures[0], meshes.length-1);
-  }
-  if(normals.length==1 && reuseTextures){
-    padArray(normals, normals[0], meshes.length-1);
-  }
-  if(aoMaps.length==1 && reuseTextures){
-    padArray(aoMaps, aoMaps[0], meshes.length-1);
-  }
-  if(heightMaps.length==1 && reuseTextures){
-    padArray(heightMaps, heightMaps[0], meshes.length-1);
-  }
-  if(metallic.length==1 && reuseTextures){
-    padArray(metallic, metallic[0], meshes.length-1);
-  }
-  if(roughness.length==1 && reuseTextures){
-    padArray(roughness, roughness[0], meshes.length-1);
-  }
-  if(opacity.length==1 && reuseTextures){
-    padArray(opacity, opacity[0], meshes.length-1);
-  }
-  return {meshes, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity}
+  return {meshes}
 }
 
 //create a renderable object from data
-function createRenderable(gl, name, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
-  newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures);
-  return new RenderableObject(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale, name);
+function createRenderable(gl, name, data, material) {
+  newData = prepareObjectData(gl, data);
+  return new RenderableObject(newData.meshes, material, name);
 }
 
 //update the data associated with a renderable object
-function updateRenderable(gl, renderable, data, shaderVariant, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0, reuseTextures = true) {
-  newData = prepareObjectData(gl, data, textures, normals, aoMaps, heightMaps, metallic, roughness, opacity, reuseTextures)
-  return renderable.setData(newData.meshes, shaderVariant, newData.textures, newData.normals, newData.aoMaps, newData.heightMaps, newData.metallic, newData.roughness, newData.opacity, textureScale);
+function updateRenderable(gl, renderable, data, texture = null, normal = null, aoMap = null, heightMap = null, metallic = null, roughness = null, opacity = null, textureScale = 1.0) {
+  newData = prepareObjectData(gl, data);
+  let material = new Material(texture, normal, false, aoMap, heightMap, metallic, roughness, false, opacity, 1.0);
+  renderable.setData(newData.meshes, material);
 }
 
 async function loadTexture(url) {
@@ -983,14 +963,15 @@ function getAccessorData(gltfData, accessorIndex) {
   return { accessor, bufferView };
 }
 
-function parseGLTFNodeHierarchy(renderer, gltfData, meshes) {
+function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
   const nodes = gltfData.nodes.map(() => new SceneNode());
   const nodeMap = {};
   // create SceneNode instances for each GLTF node
   gltfData.nodes.forEach((gltfNode, index) => {
     let node = null;
     if (gltfNode.mesh != undefined){
-      node = renderer.createRenderableFromData(meshes[gltfNode.mesh].positions, meshes[gltfNode.mesh].normals, meshes[gltfNode.mesh].texcoords, meshes[gltfNode.mesh].indices, [128, 128, 128, 255], gltfNode.name);
+      let data = meshesAndMaterials[gltfNode.mesh];
+      node = renderer.createRenderableObject(data.mesh, data.material, gltfNode.name);
     } else {
       node = renderer.createNode(gltfData.name);
     }
@@ -1032,8 +1013,84 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshes) {
   return rootNodes;
 }
 
+function createDefaultTexture(gl){
+  let texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  let whitePixel = new Uint8Array([255, 255, 255, 255]);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, whitePixel);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  return texture;
+}
+
+async function parseGLTFMaterials(renderer, gltfData, dir){
+  const gl = renderer.gl;
+  let defaultTexture = createDefaultTexture(gl);
+  let images = [];
+  let textures = [];
+  let materials = [];
+  for(gltfImage of gltfData.images) {
+    const image = await loadTexture(dir+"/"+gltfImage.uri);
+    images.push(image);
+  }
+  gltfData.textures.forEach((gltfTexture, index) => {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+    textures[index] = texture;
+  })
+  gltfData.materials.forEach((gltfMaterial, index) => {
+    let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null;
+
+    let metallicFactor = null, roughnessFactor = null, baseColorFactor = null;
+    if (gltfMaterial.pbrMetallicRoughness) {
+      if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
+        texture = textures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+      } else {
+        texture = defaultTexture;
+      }
+      if (gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture) {
+        metallicRoughness = textures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
+      }
+      if (gltfMaterial.pbrMetallicRoughness.metallicFactor){
+        metallicFactor = gltfMaterial.pbrMetallicRoughness.metallicFactor;
+      } else {
+        metallicFactor = 1.0;
+      }
+      if (gltfMaterial.pbrMetallicRoughness.roughnessFactor){
+        roughnessFactor = gltfMaterial.pbrMetallicRoughness.roughnessFactor;
+      } else {
+        roughnessFactor = 1.0;
+      }
+      if (gltfMaterial.pbrMetallicRoughness.baseColorFactor){
+        baseColorFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
+      } else {
+        baseColorFactor = [1, 1, 1, 1];
+      }
+    }
+
+    if (gltfMaterial.normalTexture) {
+      normal = textures[gltfMaterial.normalTexture.index];
+    }
+    if (gltfMaterial.occlusionTexture) {
+      aoMap = textures[gltfMaterial.occlusionTexture.index];
+    }
+
+    const material = new Material(texture, normal, false, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity);
+    materials.push(material);
+  });
+  return materials;
+}
+
 async function loadAndParseGLTF(renderer, dir, filename) {
-  let meshes = [];
+  let meshesAndMaterials = [];
   let nodes = [];
   try {
     // Fetch the GLTF JSON file
@@ -1056,19 +1113,21 @@ async function loadAndParseGLTF(renderer, dir, filename) {
       }
     }));
 
-    // TODO: Textures
+    let materials = await parseGLTFMaterials(renderer, gltfData, dir);
 
     const binaryData = binBuffers[0]; // one .bin file for now
     for (const mesh of gltfData.meshes) {
-      meshes.push({
+      meshesAndMaterials.push({mesh: {geometries:[{data:{
         positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
         normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
         texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0)),
         indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices))
-      });
+      }}]},
+      material: materials[mesh.primitives[0].material]
+    });
     }
     //console.log(meshes);
-    nodes = parseGLTFNodeHierarchy(renderer, gltfData, meshes);
+    nodes = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
     //console.log(nodes);
   } catch (error) {
     console.error(error);
