@@ -3,7 +3,7 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
     for (const key in this.currentScene.objects) {
     let object = this.currentScene.objects[key];
     //if object does not interact with light
-    if (object.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING){
+    if (object.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING){
       return;
     }
     let modelViewMatrix = mat4.create();
