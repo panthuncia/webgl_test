@@ -243,6 +243,9 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS) {
       defines += "#define COMBINED_METALLIC_ROUGHNESS\n";
     }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR_MAPS) {
+      defines += "#define PBR_MAPS\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 

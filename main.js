@@ -22,13 +22,13 @@ async function main() {
 
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
-  // let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
-  // console.log(nodes);
-  // nodes[0].transform.setLocalPosition([0, 0, 0]);
-  // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  // //nodes[0].transform.setLocalScale([10, 10, 10]);
-  // renderer.removeObjectByName("Plane.035__0");
+  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
+  console.log(nodes);
+  nodes[0].transform.setLocalPosition([0, 0, 0]);
+  nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
+  nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
+  //nodes[0].transform.setLocalScale([10, 10, 10]);
+  renderer.removeObjectByName("Plane.035__0");
 
   let addedObjects = [];
   let animatedObjects = [];
@@ -39,7 +39,7 @@ async function main() {
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  renderer.addObject(rock);
+  //renderer.addObject(rock);
 
 
   let chaikin_iterations = 0;

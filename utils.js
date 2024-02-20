@@ -1068,7 +1068,7 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
       if (gltfMaterial.pbrMetallicRoughness.roughnessFactor){
         roughnessFactor = gltfMaterial.pbrMetallicRoughness.roughnessFactor;
       } else {
-        roughnessFactor = 0.0;
+        roughnessFactor = 1.0;
       }
       if (gltfMaterial.pbrMetallicRoughness.baseColorFactor){
         baseColorFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
