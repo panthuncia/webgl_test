@@ -305,7 +305,7 @@ class SceneNode {
 }
 
 class Material {
-  constructor(texture, normal = null, invertNormalMap = false, aoMap = null, heightMap = null, metallic = null, roughness = null, combinedMetallicRoughness = false, metallicFactor = null, roughnessFactor = null, baseColorFactor = [1, 1, 1, 1], opacity = null, textureScale = 1.0, skipLighting = false, ambientStrength = 0.1, specularStrength = 2.0){
+  constructor(texture, normal = null, invertNormalMap = false, aoMap = null, heightMap = null, metallic = null, roughness = null, combinedMetallicRoughness = false, metallicFactor = null, roughnessFactor = null, baseColorFactor = [1, 1, 1, 1], opacity = null, blendMode = BLEND_MODE.BLEND_MODE_OPAQUE, textureScale = 1.0, skipLighting = false, ambientStrength = 1.0, specularStrength = 2.0){
     this.ambientStrength = ambientStrength;
     this.specularStrength = specularStrength;
     this.textureScale = textureScale;
@@ -319,6 +319,7 @@ class Material {
     this.roughnessFactor = roughnessFactor;
     this.baseColorFactor = baseColorFactor;
     this.opacity = opacity;
+    this.blendMode = blendMode;
     this.skipLighting = skipLighting;
 
     this.shaderVariant = 0;

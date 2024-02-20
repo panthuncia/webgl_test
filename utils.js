@@ -428,7 +428,8 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 
   for (let i = 0; i < numCascades; i++) {
     let size = cascadeSplits[i];
-    let center = vec3.fromValues(camera.position[0], 0, camera.position[2]); //getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
+    let camPos = camera.transform.getGlobalPosition();
+    let center = vec3.fromValues(camPos[0], 0, camPos[2]); //getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
     let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
     let orthoMatrix = getOrthographicProjectionMatrix(size, -200, 200);
 
@@ -1067,7 +1068,7 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
       if (gltfMaterial.pbrMetallicRoughness.roughnessFactor){
         roughnessFactor = gltfMaterial.pbrMetallicRoughness.roughnessFactor;
       } else {
-        roughnessFactor = 1.0;
+        roughnessFactor = 0.0;
       }
       if (gltfMaterial.pbrMetallicRoughness.baseColorFactor){
         baseColorFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
@@ -1083,7 +1084,15 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
       aoMap = textures[gltfMaterial.occlusionTexture.index];
     }
 
-    const material = new Material(texture, normal, false, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity);
+    let blendMode = BLEND_MODE.BLEND_MODE_BLEND;
+    if (gltfMaterial.alphaMode == "OPAQUE" || gltfMaterial.alphaMode == undefined){
+      baseColorFactor[3] = 1;
+      blendMode = BLEND_MODE.BLEND_MODE_OPAQUE;
+    } else if (gltfMaterial.alphaMode == "MASK"){
+      blendMode = BLEND_MODE.BLEND_MODE_MASK;
+    }
+
+    const material = new Material(texture, normal, true, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity, blendMode);
     materials.push(material);
   });
   return materials;

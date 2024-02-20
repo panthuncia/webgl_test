@@ -590,14 +590,14 @@
                         metallic = texture(u_metallic, uv).r;
                         roughness = texture(u_roughness, uv).r;
                     #endif
-                    F0 = mix(F0, baseColor.xyz, metallic);
                 #endif
             #endif
+            F0 = mix(F0, baseColor.xyz, metallic);
 
             // Accumulate light from all lights. WIP.
             vec3 lighting = vec3(0.0, 0.0, 0.0);
             float normalOffsetBias = 0.05;
-            vec4 fragPosWorldSpace = u_viewMatrixInverse * vec4(v_fragPos.xyz+normal*normalOffsetBias, v_fragPos.w);
+            vec4 fragPosWorldSpace = vec4(v_fragPos.xyz+normal*normalOffsetBias, v_fragPos.w);
             int dirLightNum = 0;
             int spotLightNum = 0;
             int pointLightNum = 0;

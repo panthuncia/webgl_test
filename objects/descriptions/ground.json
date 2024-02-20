@@ -1,10 +1,8 @@
 {
   "model": "terrain.obj",
-  "textures": [
-    "Mountain3.png"
-  ],
-  "normals": [
-    "Mountain3Normal.png"
-  ],
-  "invert_normal_map": true
+  "material": {
+    "texture": "Mountain3.png",
+    "normal": "Mountain3Normal.png",
+    "invertNormaMap": true
+  }
 }

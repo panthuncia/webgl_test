@@ -22,13 +22,13 @@ async function main() {
 
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
-  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
-  console.log(nodes);
-  nodes[0].transform.setLocalPosition([0, 0, 0]);
-  nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([10, 10, 10]);
-  renderer.removeObjectByName("Plane.035__0");
+  // let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
+  // console.log(nodes);
+  // nodes[0].transform.setLocalPosition([0, 0, 0]);
+  // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
+  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
+  // //nodes[0].transform.setLocalScale([10, 10, 10]);
+  // renderer.removeObjectByName("Plane.035__0");
 
   let addedObjects = [];
   let animatedObjects = [];
@@ -36,13 +36,10 @@ async function main() {
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, false);
   let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4, false);
 
-  //let terrain = await (renderer.loadModel(await (loadJson("objects/descriptions/ground.json"))));
-  //terrain.transform.setLocalScale([2, 2, 2])
-  //renderer.addObject(terrain);
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  //renderer.addObject(rock);
+  renderer.addObject(rock);
 
 
   let chaikin_iterations = 0;
@@ -68,10 +65,10 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 10.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 40.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  //renderer.addLight(light5);
+  renderer.addLight(light5);
   //renderer.addLight(light6);
 
   //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
@@ -166,9 +163,7 @@ async function main() {
     if (event.key.toLowerCase() === 'm') {
         renderer.forceWireframe = !renderer.forceWireframe;
       }
-    else if (event.key.toLowerCase() === 'l') {
-        renderer.forceGouraud = !renderer.forceGouraud;
-    }else if (event.key.toLowerCase() === 'a'){
+      else if (event.key.toLowerCase() === 'a'){
       toggleAnimation();
     } else if (event.key.toLowerCase() === 'n'){
       newellMethod = !newellMethod;

@@ -16,7 +16,7 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
       gl.enableVertexAttribArray(this.currentScene.shadowScene.programInfo.uniformLocations.vertexPosition);
 
       // Draw mesh
-      gl.drawArrays(gl.TRIANGLES, 0, mesh.vertices.length / 3);
+      mesh.draw();
     }
   }
 };

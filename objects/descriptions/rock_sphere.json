@@ -9,6 +9,6 @@
       "repeatTexture": true,
       "invertRoughness": false,
       "textureScale": 2,
-      "invert_normal_map": true
+      "invertNormalMap": true
     }
   }
