@@ -54,11 +54,13 @@ class Mesh {
       gl.enableVertexAttribArray(5);
     }
     // Index buffer (if present)
+    this.hasIndexBuffer = false;
     if (indices.length>0) {
       this.indexBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
       this.draw = this.drawElementsInternal;
+      this.hasIndexBuffer = true;
     } else {
       this.draw = this.drawArraysInternal;
     }
@@ -66,11 +68,11 @@ class Mesh {
     // Unbind VAO
     gl.bindVertexArray(null);
   }
-  drawArraysInternal(){
-    this.gl.drawArrays(this.gl.TRIANGLES, 0, this.vertices.length / 3);
+  drawArraysInternal(gl){
+    gl.drawArrays(gl.TRIANGLES, 0, this.vertices.length / 3);
   }
-  drawElementsInternal(){
-    this.gl.drawElements(this.gl.TRIANGLES, this.indices.length, this.gl.UNSIGNED_INT, 0);
+  drawElementsInternal(gl){
+    gl.drawElements(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_INT, 0);
   }
 }
 
@@ -363,6 +365,63 @@ class RenderableObject extends SceneNode {
   setData(meshes, material){
     this.meshes = meshes;
     this.material = material;
+  }
+  bindTextures(gl, bindOffset, programInfo){
+    let textureUnit = bindOffset;
+    let currentVariant = this.material.shaderVariant;
+    //base texture
+    gl.activeTexture(gl.TEXTURE0 + textureUnit);
+    gl.bindTexture(gl.TEXTURE_2D, this.material.texture);
+    gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
+    textureUnit += 1;
+
+    //if we have a normal map for this mesh
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
+      //normal map
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.normal);
+      gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
+      textureUnit += 1;
+    }
+    //ao texture
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.aoMap);
+      gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
+      textureUnit += 1;
+    }
+    //height texture
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.heightMap);
+      gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
+      textureUnit += 1;
+    }
+    //PBR metallic & roughness textures
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PBR) {
+      if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS){
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
+        gl.uniform1i(programInfo.uniformLocations.metallicRoughness, textureUnit);
+        textureUnit += 1;
+      } else {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
+        gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
+        textureUnit += 1;
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.roughness);
+        gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
+        textureUnit += 1;
+      }
+    }
+    //Opacity texture, if object uses one
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.opacity);
+      gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
+      textureUnit += 1;
+    }
   }
 }
 const LightType = {

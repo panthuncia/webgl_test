@@ -39,7 +39,7 @@ async function main() {
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  //renderer.addObject(rock);
+  renderer.addObject(rock);
 
 
   let chaikin_iterations = 0;

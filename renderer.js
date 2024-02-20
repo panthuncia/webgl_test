@@ -467,79 +467,15 @@ class WebGLRenderer {
     if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
       gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
     }
+
+    let textureUnit = textureUnitAfterShadowMaps;
+    object.bindTextures(gl, textureUnit, programInfo);
+
     let i = 0;
     for (const mesh of object.meshes) {
       //vertices
       gl.bindVertexArray(mesh.vao);
-
-      let textureUnit = textureUnitAfterShadowMaps;
-      //base texture
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, object.material.texture);
-      gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
-      textureUnit += 1;
-
-      //if we have a normal map for this mesh
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-        //tangent
-        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tangentBuffer);
-        gl.vertexAttribPointer(programInfo.attribLocations.vertexTangent, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(programInfo.attribLocations.vertexTangent);
-        //bitangent
-        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.bitangentBuffer);
-        gl.vertexAttribPointer(programInfo.attribLocations.vertexBitangent, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(programInfo.attribLocations.vertexBitangent);
-        //normal map
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, object.material.normal);
-        gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
-        textureUnit += 1;
-      }
-      //ao texture
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, object.material.aoMap);
-        gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
-        textureUnit += 1;
-      }
-      //height texture
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, object.material.heightMap);
-        gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
-        textureUnit += 1;
-      }
-      //PBR metallic & roughness textures
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-        if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS){
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.material.metallic);
-          gl.uniform1i(programInfo.uniformLocations.metallicRoughness, textureUnit);
-          textureUnit += 1;
-        } else {
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.material.metallic);
-          gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
-          textureUnit += 1;
-          gl.activeTexture(gl.TEXTURE0 + textureUnit);
-          gl.bindTexture(gl.TEXTURE_2D, object.material.roughness);
-          gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
-          textureUnit += 1;
-        }
-      }
-      //Opacity texture, if object uses one
-      if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, object.material.opacity);
-        gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
-        textureUnit += 1;
-      }
-      // gl.validateProgram(programInfo.program);
-      // const validationStatus = gl.getProgramParameter(shaderProgram, gl.VALIDATE_STATUS);
-      // if (!validationStatus) {
-      //     console.error('Program validation failed:', gl.getProgramInfoLog(shaderProgram));
-      // }
-      mesh.draw();
+      mesh.draw(gl);
       gl.bindVertexArray(null);
       i += 1;
     }
