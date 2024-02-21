@@ -42,7 +42,7 @@ class Mesh {
 
     let currentAttribIndex = 4;
     // Tangents and bitangents (if present)
-    if (tangents != null) {
+    //if (tangents != null) {
       this.tangentBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
@@ -56,16 +56,16 @@ class Mesh {
       gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
       gl.enableVertexAttribArray(currentAttribIndex);
       currentAttribIndex++;
-    }
+    //}
 
     //joints and weights (if present)
     if (joints && weights){
       this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
       this.jointBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.jointBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Uint16Array(joints), gl.STATIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, new Uint32Array(joints), gl.STATIC_DRAW);
       gl.enableVertexAttribArray(currentAttribIndex);
-      gl.vertexAttribPointer(currentAttribIndex, 4, gl.UNSIGNED_SHORT, false, 0, 0);
+      gl.vertexAttribIPointer(currentAttribIndex, 4, gl.UNSIGNED_INT, 0, 0);
       currentAttribIndex++;
 
       this.weightBuffer = gl.createBuffer();

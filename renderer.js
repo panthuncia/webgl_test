@@ -108,6 +108,9 @@ class WebGLRenderer {
     this.forceWireframe = false;
     this.initShadowScene();
     this.initLineRenderer();
+
+    let debugCubeData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0, false);
+    this.debugCube = this.createObjectFromData(debugCubeData.pointsArray, debugCubeData.normalsArray, debugCubeData.texCoordArray, [], [255, 255, 255, 255], null, true, 40.0);
   }
   
   // Add a renderable object to the current scene
@@ -458,14 +461,32 @@ class WebGLRenderer {
     }
   }
 
+  drawSkeletons(){
+    const gl = this.gl;
+    const currentScene = this.currentScene;
+    let currentShaderVariant = this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+    if (!this.shaderProgramVariants[currentShaderVariant]) {
+      this.createProgramVariants([currentShaderVariant]);
+    }
+    const programInfo = this.shaderProgramVariants[currentShaderVariant];
+    gl.useProgram(programInfo.program);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
+
+    for (let skeleton of currentScene.skeletons){
+      for (let object of skeleton.nodes){
+        this.debugCube.transform.modelMatrix = object.transform.modelMatrix;
+        this.drawObject(this.debugCube, false, true);
+      }
+    }
+  }
   // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
   // This enhancement should be paired with batch rendering
-  drawObject(object, skinned){
+  drawObject(object, skinned, wireframe){
     const gl = this.gl;
     const currentScene = this.currentScene;
     //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
     let currentShaderVariant = object.material.shaderVariant;
-    if(this.forceWireframe){
+    if(wireframe){
       currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
     }
     if (skinned == true){
@@ -476,6 +497,9 @@ class WebGLRenderer {
     }
     const programInfo = this.shaderProgramVariants[currentShaderVariant];
     gl.useProgram(programInfo.program);
+
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
+
 
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
@@ -507,7 +531,6 @@ class WebGLRenderer {
 
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
 
     let normalMatrix = calculateNormalMatrix(object.transform.modelMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
@@ -553,22 +576,23 @@ class WebGLRenderer {
     // Draw opaque objects, then transparent, unskinned objects, then skinned
     for (const key in currentScene.unskinnedOpaqueObjects) {
       let object = currentScene.unskinnedOpaqueObjects[key];
-      this.drawObject(object, false);
+      this.drawObject(object, false, this.forceWireframe);
     }
     for (const key in currentScene.skinnedOpaqueObjects) {
       let object = currentScene.skinnedOpaqueObjects[key];
-      this.drawObject(object, true);
+      this.drawObject(object, true, this.forceWireframe);
     }
     gl.enable(gl.BLEND);
     for (const key in currentScene.unskinnedTransparentObjects) {
       let object = currentScene.unskinnedTransparentObjects[key];
-      this.drawObject(object, false);
+      this.drawObject(object, false, this.forceWireframe);
     }
     for (const key in currentScene.skinnedTransparentObjects) {
       let object = currentScene.skinnedTransparentObjects[key];
-      this.drawObject(object, true);
+      this.drawObject(object, true, this.forceWireframe);
     }
     gl.disable(gl.BLEND);
+    this.drawSkeletons();
     this.updateCamera();
   }
 

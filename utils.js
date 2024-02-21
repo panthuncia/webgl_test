@@ -976,10 +976,14 @@ function getAccessorData(gltfData, accessorIndex) {
 }
 
 function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
-  const nodes = gltfData.nodes.map(() => new SceneNode());
-  const nodeMap = {};
+  const nodes = [];
   // create SceneNode instances for each GLTF node
-  gltfData.nodes.forEach((gltfNode, index) => {
+  let i=0;
+  for(let gltfNode of gltfData.nodes) {
+    if (i==90){
+      console.log("test");
+    }
+    i++;
     let node = null;
     if (gltfNode.mesh != undefined){
       let data = meshesAndMaterials[gltfNode.mesh];
@@ -990,6 +994,7 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
       }
     } else {
       node = renderer.createNode(gltfData.name);
+      node.originalIndex = nodes.length;
     }
     const position = vec3.create();
     const rotation = quat.create();
@@ -1007,18 +1012,26 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
       node.transform.setLocalScale(scale);
       node.transform.setLocalRotationFromQuaternion(rotation);
     } else{
-      //console.log(gltfNode)
+      console.log("node with no matrix");
+      if (gltfNode.translation != undefined){
+        node.transform.setLocalPosition(gltfNode.translation);
+      }
+      if (gltfNode.scale != undefined){
+        node.transform.setLocalScale(gltfNode.scale);
+      }
+      if (gltfNode.rotation != undefined){
+        node.transform.setLocalRotationFromQuaternion(gltfNode.rotation);
+      }
     }
-    nodes[index] = node;
-    nodeMap[index] = node;
-  });
+    nodes.push(node);
+  };
 
   // establish parent-child relationships
   gltfData.nodes.forEach((gltfNode, index) => {
     const node = nodes[index];
     if (gltfNode.children) {
       gltfNode.children.forEach((childIndex) => {
-        const childNode = nodeMap[childIndex];
+        const childNode = nodes[childIndex];
         node.addChild(childNode);
       });
     }
@@ -1128,11 +1141,15 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
 }
 
 function parseGLTFSkins(gltfData, nodes, binaryData) {
-  const skins = gltfData.skins.map(skin => {
-      const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
-      const joints = skin.joints.map(jointIndex => nodes[jointIndex]);
-      return new Skeleton(joints, inverseBindMatrices);
-  });
+  let skins = [];
+  for (let skin of gltfData.skins){
+    const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
+    let joints = [];
+    for (let joint of skin.joints){
+      joints.push(nodes[joint]);
+    }
+    skins.push(new Skeleton(joints, inverseBindMatrices));
+  }
   return skins;
 }
 
@@ -1146,7 +1163,6 @@ function setSkins(skins, nodes){
 
 async function loadAndParseGLTF(renderer, dir, filename) {
   let meshesAndMaterials = [];
-  let nodes = [];
   try {
     // Fetch the GLTF JSON file
     const url = dir+"/"+filename;
