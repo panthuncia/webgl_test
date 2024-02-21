@@ -373,7 +373,7 @@ function calculateForwardVector(cameraPosition, targetPosition) {
 }
 
 // Combination of linear and logarithmic shadow cascade falloff
-function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.5) {
+function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.9) {
   let splits = [];
   let end = Math.min(zFar, maxDist);
   let logNear = Math.log(zNear);
@@ -497,11 +497,22 @@ function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
 // Helper method for data view
 function dataViewSetFloatArray(dataView, floatArray, baseOffset) {
   for (let i = 0; i < floatArray.length; i++) {
+    let offset = baseOffset + i * 16; //STD140 specifies 16 bytes of padding for each float in a float array...
+    dataView.setFloat32(offset, floatArray[i], true);
+  }
+}
+
+// Helper method for data view
+function dataViewSetVec4Array(dataView, floatArray, baseOffset) {
+  for (let i = 0; i < floatArray.length; i++) {
     let offset = baseOffset + i * 4;
     dataView.setFloat32(offset, floatArray[i], true);
   }
 }
 
+function dataViewSetVec4(dataView, floatArray, baseOffset) {
+  dataViewSetVec4Array(dataView, floatArray, baseOffset);
+}
 
 // Calculate u, v texcoord of a given position on a sphere
 function calculateUV(a) {

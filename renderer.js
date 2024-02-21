@@ -24,7 +24,7 @@ class WebGLRenderer {
     let fov = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
-    let zFar = 1000.0;
+    let zFar = 200.0;
     let camera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
     // Scene setup
     this.currentScene = {
@@ -52,7 +52,7 @@ class WebGLRenderer {
     this.SHADOW_HEIGHT = 2048; //8192;
     this.SHADOW_CASCADE_DISTANCE = 100;
 
-    this.NUM_SHADOW_CASCADES = 2;
+    this.NUM_SHADOW_CASCADES = 4;
     this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
 
     this.MAX_DIRECTIONAL_LIGHTS = 2;
@@ -370,7 +370,6 @@ class WebGLRenderer {
         },
         uniformLocations: {
           projectionMatrix: gl.getUniformLocation(shaderProgram, "u_projectionMatrix"),
-          viewMatrix: gl.getUniformLocation(shaderProgram, "u_viewMatrix"),
           modelMatrix: gl.getUniformLocation(shaderProgram, "u_modelMatrix"),
           modelViewMatrix: gl.getUniformLocation(shaderProgram, "u_modelViewMatrix"),
           normalMatrix: gl.getUniformLocation(shaderProgram, "u_normalMatrix"),
@@ -433,7 +432,7 @@ class WebGLRenderer {
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_metallicFactor, object.material.metallicFactor, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_roughnessFactor, object.material.roughnessFactor, true);
-    dataViewSetFloatArray(this.buffers.perMaterialDataView, object.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor)
+    dataViewSetVec4(this.buffers.perMaterialDataView, object.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor)
 
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
@@ -456,7 +455,6 @@ class WebGLRenderer {
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, this.currentScene.camera.viewMatrix, object.transform.modelMatrix);
 
-    gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, this.currentScene.camera.viewMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
@@ -577,11 +575,11 @@ class WebGLRenderer {
     }
 
     //update buffer data
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPositionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightPosWorldSpace);
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightPropertiesData, this.buffers.uniformLocations.lightUniformLocations.u_lightProperties);
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightColorsData, this.buffers.uniformLocations.lightUniformLocations.u_lightColor);
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightAttenuationsData, this.buffers.uniformLocations.lightUniformLocations.u_lightAttenuation);
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.lightDirectionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightDirWorldSpace);
+    dataViewSetVec4Array(this.buffers.lightDataView, this.currentScene.lightPositionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightPosWorldSpace);
+    dataViewSetVec4Array(this.buffers.lightDataView, this.currentScene.lightPropertiesData, this.buffers.uniformLocations.lightUniformLocations.u_lightProperties);
+    dataViewSetVec4Array(this.buffers.lightDataView, this.currentScene.lightColorsData, this.buffers.uniformLocations.lightUniformLocations.u_lightColor);
+    dataViewSetVec4Array(this.buffers.lightDataView, this.currentScene.lightAttenuationsData, this.buffers.uniformLocations.lightUniformLocations.u_lightAttenuation);
+    dataViewSetVec4Array(this.buffers.lightDataView, this.currentScene.lightDirectionsData, this.buffers.uniformLocations.lightUniformLocations.u_lightDirWorldSpace);
   }
 
   initLightVectors() {
@@ -671,7 +669,7 @@ class WebGLRenderer {
     this.currentScene.camera.update();
     
     //Update data view
-    dataViewSetFloatArray(this.buffers.perFrameDataView, this.currentScene.camera.transform.getGlobalPosition(), this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
+    dataViewSetVec4(this.buffers.perFrameDataView, this.currentScene.camera.transform.getGlobalPosition(), this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
 
     // Update shadow cascades after camera moves
     this.updateCascades();

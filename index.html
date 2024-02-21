@@ -15,24 +15,26 @@
     #endif
 
     uniform mat4 u_modelMatrix;
-    uniform mat4 u_viewMatrix;
     uniform mat4 u_modelViewMatrix;
     uniform mat4 u_projectionMatrix;
     uniform mat3 u_normalMatrix;
 
     out vec3 v_normal;
     out vec4 v_fragPos;
+    out vec4 v_fragPosViewSpace;
     out vec2 v_texCoord;
     out vec3 v_baryCoord;
-    out mat4 m_viewMatrix;
     #if defined USE_NORMAL_MAP || defined USE_PARALLAX
         out mat3 m_TBN;
         out mat3 m_TBNInverse;
     #endif
 
     void main() {
-        // Transform the position into view space
-        v_fragPos = vec4(u_modelMatrix * vec4(a_position, 1.0));
+        // Transform the position into world and view space
+        vec4 pos = vec4(a_position, 1.0);
+        v_fragPos = vec4(u_modelMatrix * pos);
+        v_fragPosViewSpace = vec4(u_modelViewMatrix * pos);
+
     
         // Transform the normal
         // Normal matrix is calculated as inverse transpose
@@ -46,7 +48,6 @@
         // Pass barycentric coords for wireframe
         v_baryCoord = a_baryCoord;
     
-        m_viewMatrix = u_viewMatrix;
         // Calculate TBN matrix, for transforming tangent-space coordinates to view space
         // Used in normal mapping
         #if defined USE_NORMAL_MAP || defined USE_PARALLAX
@@ -58,7 +59,7 @@
         #endif
     
         // Set the position
-        gl_Position = u_projectionMatrix * u_viewMatrix * v_fragPos;
+        gl_Position = u_projectionMatrix * u_modelViewMatrix * pos;
 
     }
 </script>
@@ -72,9 +73,9 @@
     in vec3 v_normal;
 
     in vec4 v_fragPos;
+    in vec4 v_fragPosViewSpace;
     in vec2 v_texCoord;  // Received from vertex shader
     in vec3 v_baryCoord;
-    in mat4 m_viewMatrix;
     #if defined USE_NORMAL_MAP || defined USE_PARALLAX
         in mat3 m_TBN; // Received from vertex shader
         in mat3 m_TBNInverse;
@@ -122,8 +123,7 @@
         uniform mat4 u_lightSpaceMatrices[MAX_SPOT_LIGHTS]; // for transforming fragments to light-space for shadow sampling
         uniform mat4 u_lightCascadeMatrices[NUM_CASCADE_SPLITS * MAX_DIRECTIONAL_LIGHTS];
         uniform mat4 u_lightCubemapMatrices[6*MAX_POINT_LIGHTS];
-        
-        uniform float u_cascadeSplits[NUM_CASCADE_SPLITS];
+        uniform float u_cascadeSplits[NUM_CASCADE_SPLITS]; // This has 16-byte step per value, because STD140
         uniform int u_numLights;
     };
 
@@ -429,7 +429,9 @@
     }
 
     float calculateCascadedShadow(vec4 fragPosWorldSpace, int dirLightNum, vec3 normal, int lightIndex) {
-        int cascadeIndex = calculateShadowCascadeIndex(abs(v_fragPos.z)); //abs because -z is forwards
+        float depth = abs(v_fragPosViewSpace.z);
+        int cascadeIndex = calculateShadowCascadeIndex(depth);
+
         int infoIndex = NUM_CASCADE_SPLITS*dirLightNum+cascadeIndex;
         vec4 fragPosLightSpace = u_lightCascadeMatrices[infoIndex] * fragPosWorldSpace;
         vec3 uv = fragPosLightSpace.xyz; /// fragPosLightSpace.w;
@@ -481,7 +483,7 @@
     }
 
     float calculatePointShadow(vec4 fragPosWorldSpace, int pointLightNum, int lightIndex){
-        vec4 lightPosWorldSpace = u_viewMatrixInverse*vec4(u_lightPosWorldSpace[lightIndex].xyz, 1);
+        vec4 lightPosWorldSpace = vec4(u_lightPosWorldSpace[lightIndex]);
         vec3 dir = fragPosWorldSpace.xyz - lightPosWorldSpace.xyz;
         int faceIndex = 0;
         float maxDir = max(max(abs(dir.x), abs(dir.y)), abs(dir.z));

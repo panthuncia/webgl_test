@@ -22,13 +22,16 @@ async function main() {
 
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
-  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/car", "scene.gltf");
+  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/dragon", "scene.gltf");
   console.log(nodes);
-  nodes[0].transform.setLocalPosition([0, 0, 0]);
-  nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([10, 10, 10]);
-  renderer.removeObjectByName("Plane.035__0");
+  // nodes[0].transform.setLocalPosition([0, 0, 0]);
+  // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
+  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
+  nodes[0].transform.setLocalScale([10, 10, 10]);
+  //renderer.removeObjectByName("Plane.035__0");
+
+  let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
+  renderer.addObject(terrain);
 
   let addedObjects = [];
   let animatedObjects = [];
@@ -39,7 +42,7 @@ async function main() {
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  renderer.addObject(rock);
+  //renderer.addObject(rock);
 
 
   let chaikin_iterations = 0;
@@ -54,12 +57,12 @@ async function main() {
   [5, 3, -5]];
 
   let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 1, 1], 80.0, 1.0, 0.09, 0.032);
-  renderer.addLight(light2);
+  //renderer.addLight(light2);
 
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], "light 2 object", true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
-  renderer.addObject(light2Object);
-  light2.addChild(light2Object);
+  //renderer.addObject(light2Object);
+  //light2.addChild(light2Object);
   //light2.addChild(renderer.currentScene.camera);
 
 
@@ -80,7 +83,7 @@ async function main() {
   renderer.addNode(light2ScaleObject);
   light2ScaleObject.addChild(light2);
 
-  lines[light2.localID] = setChaikin(light2, light_positions, 8, playTime);
+  //lines[light2.localID] = setChaikin(light2, light_positions, 8, playTime);
   animatedObjects.push(light2)
   light2.animationController.pause();
 
