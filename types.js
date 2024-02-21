@@ -1,5 +1,5 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = []) {
+  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = [], joints = null, weights = null) {
     this.vertices = vertices;
     this.normals = normals;
     this.indices = indices;
@@ -7,6 +7,7 @@ class Mesh {
     this.bitangents = bitangents;
     this.baryCoords = baryCoords;
     this.gl = gl;
+    this.shaderVariant = 0;
     // Create VAO
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -39,20 +40,42 @@ class Mesh {
     gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(3);
 
+    let currentAttribIndex = 4;
     // Tangents and bitangents (if present)
     if (tangents != null) {
       this.tangentBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(4, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(4);
+      gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
 
       this.bitangentBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-      gl.vertexAttribPointer(5, 3, gl.FLOAT, false, 0, 0);
-      gl.enableVertexAttribArray(5);
+      gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
     }
+
+    //joints and weights (if present)
+    if (joints && weights){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
+      this.jointBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.jointBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Uint16Array(joints), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      gl.vertexAttribPointer(currentAttribIndex, 4, gl.UNSIGNED_SHORT, false, 0, 0);
+      currentAttribIndex++;
+
+      this.weightBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.weightBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(weights), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(currentAttribIndex, 4, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
+    }
+
     // Index buffer (if present)
     this.hasIndexBuffer = false;
     if (indices.length>0) {
@@ -64,7 +87,7 @@ class Mesh {
     } else {
       this.draw = this.drawArraysInternal;
     }
-
+    
     // Unbind VAO
     gl.bindVertexArray(null);
   }
@@ -358,6 +381,21 @@ class RenderableObject extends SceneNode {
     super();
     this.setData(meshes, material);
     this.name = name;
+    this.hasUnskinned = false;
+    this.hasSkinned = false;
+    this.skinnedMeshes = [];
+    this.unskinnedMeshes = [];
+    // Sort meshes into skinned and unskinned, as they need different shader programs
+    // Having two arrays prevents the need to re-bind a bunch of stuff when switching between variants
+    for (let mesh of meshes){
+      if (mesh.shaderVariant & SHADER_VARIANTS.SHADER_VARIANT_SKINNED){
+        this.hasSkinned = true;
+        this.skinnedMeshes.push(mesh);
+      } else {
+        this.hasUnskinned = true;
+        this.unskinnedMeshes.push(mesh);
+      }
+    }
   }
   setMeshes(meshes){
     this.meshes = meshes;

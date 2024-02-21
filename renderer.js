@@ -35,6 +35,11 @@ class WebGLRenderer {
       numLights: 0,
       objects: {},
       objectsByName: {},
+      //skinning and transparency need to be drawn in batches
+      skinnedOpaqueObjects: {},
+      skinnedTransparentObjects: {},
+      unskinnedOpaqueObjects: {},
+      unskinnedTransparentObjects: {},
       nodes: {},
       nodesByName:{},
       numObjects: 0,
@@ -117,6 +122,20 @@ class WebGLRenderer {
       }
       this.currentScene.objectsByName[object.name] = object;
     }
+    if (object.hasSkinned){
+      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
+        this.currentScene.skinnedOpaqueObjects[object.id] = object;
+      } else {
+        this.currentScene.skinnedTransparentObjects[object.id] = object;
+      }
+    }
+    if (object.hasUnskinned){
+      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
+        this.currentScene.unskinnedOpaqueObjects[object.id] = object;
+      } else {
+        this.currentScene.unskinnedTransparentObjects[object.id] = object;
+      }
+    }
     return object.localID;
   }
 
@@ -136,7 +155,7 @@ class WebGLRenderer {
     for (const geometry of data.geometries) {
       let tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
       let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-      meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
+      meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
     }
     let renderable = new RenderableObject(meshes, material, name);
     this.addObject(renderable);
@@ -166,6 +185,20 @@ class WebGLRenderer {
     }
     if (object.name != null){
       delete this.currentScene.objectsByName[object.name];
+    }
+    if (object.hasSkinned){
+      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
+        delete this.currentScene.skinnedOpaqueObjects[object.id];
+      } else {
+        delete this.currentScene.skinnedTransparentObjects[object.id];
+      }
+    }
+    if (object.hasUnskinned){
+      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
+        delete this.currentScene.unskinnedOpaqueObjects[object.id];
+      } else {
+        delete this.currentScene.unskinnedTransparentObjects[object.id];
+      }
     }
     delete this.currentScene.objects[objectID];
   }
@@ -246,6 +279,9 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR_MAPS) {
       defines += "#define PBR_MAPS\n";
     }
+    // if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED) {
+    //   defines += "#define SKINNED\n";
+    // }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -413,18 +449,21 @@ class WebGLRenderer {
 
   // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
   // This enhancement should be paired with batch rendering
-  drawObject(object){
+  drawObject(object, skinned){
     const gl = this.gl;
     const currentScene = this.currentScene;
     //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
-    let currentVariant = object.material.shaderVariant;
+    let currentShaderVariant = object.material.shaderVariant;
     if(this.forceWireframe){
-      currentVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
     }
-    if (!this.shaderProgramVariants[currentVariant]) {
-      this.createProgramVariants([currentVariant]);
+    if (skinned == true){
+      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
     }
-    const programInfo = this.shaderProgramVariants[currentVariant];
+    if (!this.shaderProgramVariants[currentShaderVariant]) {
+      this.createProgramVariants([currentShaderVariant]);
+    }
+    const programInfo = this.shaderProgramVariants[currentShaderVariant];
     gl.useProgram(programInfo.program);
 
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
@@ -462,10 +501,6 @@ class WebGLRenderer {
     let normalMatrix = calculateNormalMatrix(object.transform.modelMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
 
-    if (currentVariant & this.SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-      gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, object.transform.modelMatrix);
-    }
-
     let textureUnit = textureUnitAfterShadowMaps;
     object.bindTextures(gl, textureUnit, programInfo);
 
@@ -475,6 +510,7 @@ class WebGLRenderer {
       gl.bindVertexArray(mesh.vao);
       mesh.draw(gl);
       gl.bindVertexArray(null);
+      //gl.useProgram(programInfo.program);
       i += 1;
     }
   }
@@ -498,19 +534,23 @@ class WebGLRenderer {
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
     
-    // Draw opaque objects, then transparent
-    let transparentObjects = [];
-    for (const key in currentScene.objects) {
-      let object = currentScene.objects[key];
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        this.drawObject(object);
-      } else {
-        transparentObjects.push(object);
-      }
+    // Draw opaque objects, then transparent, unskinned objects, then skinned
+    for (const key in currentScene.unskinnedOpaqueObjects) {
+      let object = currentScene.unskinnedOpaqueObjects[key];
+      this.drawObject(object, false);
+    }
+    for (const key in currentScene.skinnedOpaqueObjects) {
+      let object = currentScene.skinnedOpaqueObjects[key];
+      this.drawObject(object, true);
     }
     gl.enable(gl.BLEND);
-    for (let object of transparentObjects){
-      this.drawObject(object);
+    for (const key in currentScene.unskinnedTransparentObjects) {
+      let object = currentScene.unskinnedTransparentObjects[key];
+      this.drawObject(object, false);
+    }
+    for (const key in currentScene.skinnedTransparentObjects) {
+      let object = currentScene.skinnedTransparentObjects[key];
+      this.drawObject(object, true);
     }
     gl.disable(gl.BLEND);
     this.updateCamera();

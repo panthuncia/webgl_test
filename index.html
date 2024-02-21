@@ -4,6 +4,7 @@
     <title>WebGL playground</title>
 </head>
 <script id="primaryVSSource" type="x-shader/x-vertex">
+    #define MAX_BONES 128
 
     in vec3 a_position;
     in vec3 a_normal;
@@ -12,6 +13,12 @@
     #if defined USE_NORMAL_MAP || defined USE_PARALLAX
         in vec3 a_tangent;
         in vec3 a_bitangent;
+    #endif
+    #if defined SKINNED
+        in vec4 a_jointIndices;
+        in vec4 a_jointWeights;
+        uniform mat4 u_inverseBindMatrices[MAX_BONES];
+        uniform mat4 u_boneTransforms[MAX_BONES];
     #endif
 
     uniform mat4 u_modelMatrix;
@@ -30,8 +37,23 @@
     #endif
 
     void main() {
-        // Transform the position into world and view space
         vec4 pos = vec4(a_position, 1.0);
+        //If this is a skinned mesh, apply the bind matrices and bone transforms
+        #ifdef SKINNED
+        mat4 skinMatrix = mat4(0.0);
+        for (int i = 0; i < 4; i++) {
+            int jointIndex = int(a_jointIndices[i]);
+            float weight = a_jointWeights[i];
+
+            // Apply the inverse bind matrix, then the current joint matrix
+            mat4 jointMatrix = u_boneTransforms[jointIndex] * u_inverseBindMatrices[jointIndex];
+
+            // Accumulate the result weighted by the vertex's weight for this joint
+            skinMatrix += weight * jointMatrix;
+        }
+        pos =  skinMatrix * pos;
+        #endif
+        // Transform the position into world and view space
         v_fragPos = vec4(u_modelMatrix * pos);
         v_fragPosViewSpace = vec4(u_modelViewMatrix * pos);
 

@@ -982,6 +982,9 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
   gltfData.nodes.forEach((gltfNode, index) => {
     let node = null;
     if (gltfNode.mesh != undefined){
+      if(gltfNode.skin != undefined){
+        console.log("found skinned mesh");
+      }
       let data = meshesAndMaterials[gltfNode.mesh];
       node = renderer.createRenderableObject(data.mesh, data.material, gltfNode.name);
     } else {
@@ -1176,8 +1179,8 @@ async function loadAndParseGLTF(renderer, dir, filename) {
     }
     //console.log(meshes);
     let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
-    let skins = parseGLTFSkins(gltfData, nodes, binaryData);
-    console.log(skins);
+    let { joints, inverseBindMatrices} = parseGLTFSkins(gltfData, nodes, binaryData);
+    console.log(joints);
     return nodes;
   } catch (error) {
     console.error(error);
