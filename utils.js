@@ -1022,7 +1022,7 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
 
   //find and return nodes with no parents
   const rootNodes = nodes.filter(node => node.parent.localID == -1);
-  return rootNodes;
+  return {nodes, rootNodes};
 }
 
 function createDefaultTexture(gl){
@@ -1043,20 +1043,30 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
   const gl = renderer.gl;
   let defaultTexture = createDefaultTexture(gl);
   let images = [];
-  let textures = [];
+  let linearTextures = [];
+  let srgbTextures = [];
   let materials = [];
   for(gltfImage of gltfData.images) {
     const image = await loadTexture(dir+"/"+gltfImage.uri);
     images.push(image);
   }
+  //Create linear and sRGB texture for each, because glTF doesn't specify usage in the texture definition :/
+  //we will just delete the unused one.
   gltfData.textures.forEach((gltfTexture, index) => {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    const linearTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, linearTexture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
-    textures[index] = texture;
+    linearTextures[index] = linearTexture;
+    const srgbTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, srgbTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+    srgbTextures[index] = srgbTexture;
   })
   gltfData.materials.forEach((gltfMaterial, index) => {
     let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null;
@@ -1064,12 +1074,14 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     let metallicFactor = null, roughnessFactor = null, baseColorFactor = null;
     if (gltfMaterial.pbrMetallicRoughness) {
       if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
-        texture = textures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+        texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+        gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
       } else {
         texture = defaultTexture;
       }
       if (gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture) {
-        metallicRoughness = textures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
+        metallicRoughness = linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
+        gl.deleteTexture(srgbTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]);
       }
       if (gltfMaterial.pbrMetallicRoughness.metallicFactor){
         metallicFactor = gltfMaterial.pbrMetallicRoughness.metallicFactor;
@@ -1089,10 +1101,12 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     }
 
     if (gltfMaterial.normalTexture) {
-      normal = textures[gltfMaterial.normalTexture.index];
+      normal = linearTextures[gltfMaterial.normalTexture.index];
+      gl.deleteTexture(srgbTextures[gltfMaterial.normalTexture.index]);
     }
     if (gltfMaterial.occlusionTexture) {
-      aoMap = textures[gltfMaterial.occlusionTexture.index];
+      aoMap = linearTextures[gltfMaterial.occlusionTexture.index];
+      gl.deleteTexture(srgbTextures[gltfMaterial.occlusionTexture.index]);
     }
 
     let blendMode = BLEND_MODE.BLEND_MODE_BLEND;
@@ -1107,6 +1121,15 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     materials.push(material);
   });
   return materials;
+}
+
+function parseGLTFSkins(gltfData, nodes, binaryData) {
+  const skins = gltfData.skins.map(skin => {
+      const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
+      const joints = skin.joints.map(jointIndex => nodes[jointIndex]);
+      return { joints, inverseBindMatrices };
+  });
+  return skins;
 }
 
 async function loadAndParseGLTF(renderer, dir, filename) {
@@ -1137,20 +1160,27 @@ async function loadAndParseGLTF(renderer, dir, filename) {
 
     const binaryData = binBuffers[0]; // one .bin file for now
     for (const mesh of gltfData.meshes) {
-      meshesAndMaterials.push({mesh: {geometries:[{data:{
-        positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
-        normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
-        texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0)),
-        indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices))
-      }}]},
-      material: materials[mesh.primitives[0].material]
-    });
+      let data = {mesh: {geometries:[{data:{
+          positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
+          normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
+          texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0)),
+          indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices)),
+        }}]},
+        material: materials[mesh.primitives[0].material]
+      };
+      if (mesh.primitives[0].attributes.JOINTS_0){
+        data.mesh.geometries[0].data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.JOINTS_0));
+        data.mesh.geometries[0].data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.WEIGHTS_0));
+      }
+      meshesAndMaterials.push(data);
     }
     //console.log(meshes);
-    nodes = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
-    //console.log(nodes);
+    let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
+    let skins = parseGLTFSkins(gltfData, nodes, binaryData);
+    console.log(skins);
+    return nodes;
   } catch (error) {
     console.error(error);
   }
-  return nodes;
+  return [];
 }
