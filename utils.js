@@ -982,11 +982,12 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
   gltfData.nodes.forEach((gltfNode, index) => {
     let node = null;
     if (gltfNode.mesh != undefined){
-      if(gltfNode.skin != undefined){
-        console.log("found skinned mesh");
-      }
       let data = meshesAndMaterials[gltfNode.mesh];
       node = renderer.createRenderableObject(data.mesh, data.material, gltfNode.name);
+      if(gltfNode.skin != undefined){
+        console.log("found skinned mesh");
+        node.skinInstance = gltfNode.skin; //hack for setting skins later
+      }
     } else {
       node = renderer.createNode(gltfData.name);
     }
@@ -1130,9 +1131,17 @@ function parseGLTFSkins(gltfData, nodes, binaryData) {
   const skins = gltfData.skins.map(skin => {
       const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
       const joints = skin.joints.map(jointIndex => nodes[jointIndex]);
-      return { joints, inverseBindMatrices };
+      return new Skeleton(joints, inverseBindMatrices);
   });
   return skins;
+}
+
+function setSkins(skins, nodes){
+  for (let node of nodes){
+    if (node.skinInstance != undefined){
+      node.setSkin(skins[node.skinInstance]);
+    }
+  }
 }
 
 async function loadAndParseGLTF(renderer, dir, filename) {
@@ -1179,9 +1188,13 @@ async function loadAndParseGLTF(renderer, dir, filename) {
     }
     //console.log(meshes);
     let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
-    let { joints, inverseBindMatrices} = parseGLTFSkins(gltfData, nodes, binaryData);
-    console.log(joints);
-    return nodes;
+    let skins = parseGLTFSkins(gltfData, nodes, binaryData);
+    for (let skeleton of skins){
+      renderer.addSkeleton(skeleton);
+    }
+    setSkins(skins, nodes);
+    console.log(skins);
+    return rootNodes;
   } catch (error) {
     console.error(error);
   }

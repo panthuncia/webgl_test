@@ -35,6 +35,7 @@ class WebGLRenderer {
       numLights: 0,
       objects: {},
       objectsByName: {},
+      skeletons: [],
       //skinning and transparency need to be drawn in batches
       skinnedOpaqueObjects: {},
       skinnedTransparentObjects: {},
@@ -244,6 +245,11 @@ class WebGLRenderer {
     }
   }
 
+  //adds a skeleton to the scene, so we can update it properly in our update() step
+  addSkeleton(skeleton){
+    this.currentScene.skeletons.push(skeleton);
+  }
+
   //Get a variant of the main shaders with a given variant ID
   getProgram(fsSource, vsSource, variantID) {
     const gl = this.gl;
@@ -279,9 +285,9 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_PBR_MAPS) {
       defines += "#define PBR_MAPS\n";
     }
-    // if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED) {
-    //   defines += "#define SKINNED\n";
-    // }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED) {
+      defines += "#define SKINNED\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -413,6 +419,8 @@ class WebGLRenderer {
           shadowCascades: gl.getUniformLocation(shaderProgram, "u_shadowCascades"),
           shadowMaps: gl.getUniformLocation(shaderProgram, "u_shadowMaps"),
           shadowCubemaps: gl.getUniformLocation(shaderProgram, "u_shadowCubemaps"),
+          boneTransforms: gl.getUniformLocation(shaderProgram, "u_boneTransforms"),
+          inverseBindMatrices: gl.getUniformLocation(shaderProgram, "u_inverseBindMatrices"),
         },
       };
       //conditional attributes and uniforms
@@ -445,6 +453,9 @@ class WebGLRenderer {
   // Update the scene graph from root
   updateScene() {
     this.currentScene.sceneRoot.forceUpdate();
+    for(let skeleton of this.currentScene.skeletons){
+      skeleton.updateTransforms();
+    }
   }
 
   // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
@@ -500,6 +511,11 @@ class WebGLRenderer {
 
     let normalMatrix = calculateNormalMatrix(object.transform.modelMatrix);
     gl.uniformMatrix3fv(programInfo.uniformLocations.normalMatrix, false, normalMatrix);
+
+    if (skinned == true){
+      gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
+    }
 
     let textureUnit = textureUnitAfterShadowMaps;
     object.bindTextures(gl, textureUnit, programInfo);

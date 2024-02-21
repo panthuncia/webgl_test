@@ -288,6 +288,19 @@ class AnimationController {
   }
 }
 
+class Skeleton {
+  constructor(nodes, inverseBindMatrices){
+    this.nodes = nodes;
+    this.inverseBindMatrices = new Float32Array(inverseBindMatrices);
+    this.boneTransforms = new Float32Array(nodes.length*16); 
+  }
+  updateTransforms(){
+    for(let i=0; i<this.nodes.length; i++){
+      this.boneTransforms.set(this.nodes[i].transform.modelMatrix, i*16);
+    }
+  }
+}
+
 // This class forms the basis for the renderer's scene graph
 class SceneNode {
   constructor(name = null) {
@@ -297,6 +310,7 @@ class SceneNode {
     this.animationController = new AnimationController(this);
     this.localID = -1;
     this.name = name;
+    this.skeleton = null;
   }
   addChild(node) {
     this.children[node.localID] = node;
@@ -308,6 +322,9 @@ class SceneNode {
   }
   removeChild(childId){
     delete this.children[childId];
+  }
+  setSkin(skeleton){
+    this.skeleton = skeleton;
   }
   update() {
     if (this.transform.isDirty) {
