@@ -36,6 +36,7 @@ class WebGLRenderer {
       objects: {},
       objectsByName: {},
       skeletons: [],
+      animatedSkeletons: [],
       //skinning and transparency need to be drawn in batches
       skinnedOpaqueObjects: {},
       skinnedTransparentObjects: {},
@@ -111,6 +112,9 @@ class WebGLRenderer {
 
     let debugCubeData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0, false);
     this.debugCube = this.createObjectFromData(debugCubeData.pointsArray, debugCubeData.normalsArray, debugCubeData.texCoordArray, [], [255, 255, 255, 255], null, true, 40.0);
+    
+    //time, for animations
+    this.lastTime = new Date().getTime() / 1000;
   }
   
   // Add a renderable object to the current scene
@@ -251,6 +255,10 @@ class WebGLRenderer {
   //adds a skeleton to the scene, so we can update it properly in our update() step
   addSkeleton(skeleton){
     this.currentScene.skeletons.push(skeleton);
+    if (skeleton.animations.length>0){
+      skeleton.setAnimation(skeleton.animations.length-1);
+      this.currentScene.animatedSkeletons.push(skeleton);
+    }
   }
 
   //Get a variant of the main shaders with a given variant ID
@@ -455,10 +463,18 @@ class WebGLRenderer {
 
   // Update the scene graph from root
   updateScene() {
-    this.currentScene.sceneRoot.forceUpdate();
-    for(let skeleton of this.currentScene.skeletons){
+    //update animations
+    let currentTime = new Date().getTime() / 1000;
+    let elapsed = currentTime - this.lastTime;
+    this.lastTime = currentTime;
+    for(let skeleton of this.currentScene.animatedSkeletons){
+      for (let node of skeleton.nodes){
+        node.animationController.update(elapsed);
+      }
       skeleton.updateTransforms();
     }
+    //update scene tree
+    this.currentScene.sceneRoot.forceUpdate();
   }
 
   drawSkeletons(){
@@ -472,6 +488,9 @@ class WebGLRenderer {
     gl.useProgram(programInfo.program);
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
 
+    // Skeleton node transforms are in their own "skeleton-space". 
+    // We need to transform them into the relevant model's local space before drawing, or they will make no sense.
+    gl.disable(gl.DEPTH_TEST);
     for (let key in currentScene.objects){
       let object = currentScene.objects[key];
       if (object.skeleton != null){
@@ -480,9 +499,14 @@ class WebGLRenderer {
           mat4.multiply(boneMatrix, object.transform.modelMatrix, bone.transform.modelMatrix);
           this.debugCube.transform.modelMatrix = boneMatrix;
           this.drawObject(this.debugCube, false, true);
+          
+          let parentBoneMatrix = mat4.create();
+          mat4.multiply(parentBoneMatrix, object.transform.modelMatrix, bone.parent.transform.modelMatrix);
+          this.drawLines([...positionFromMatrix(parentBoneMatrix), ...positionFromMatrix(boneMatrix)], mat4.create());
         }
       }
     }
+    gl.enable(gl.DEPTH_TEST);
   }
   drawNodes(){
     const gl = this.gl;

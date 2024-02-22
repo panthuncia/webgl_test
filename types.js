@@ -202,38 +202,52 @@ class AnimationClip {
   }
 
   addPositionKeyframe(time, position) {
-    this.positionKeyframes.push(new Keyframe(this.duration+time, position));
-    this.duration+=time;
+    this.positionKeyframes.push(new Keyframe(time, position));
+    this.updateDuration(time);
   }
 
   addRotationKeyframe(time, rotation) {
     this.rotationKeyframes.push(new Keyframe(time, rotation));
-    this.duration+=time;
+    this.updateDuration(time);
   }
 
   addScaleKeyframe(time, scale) {
     this.scaleKeyframes.push(new Keyframe(time, scale));
-    this.duration+=time;
+    this.updateDuration(time);
   }
 
-  findBoundingKeyframes(currentTime){
-    let prevKeyframe = this.positionKeyframes[0];
-    let nextKeyframe = this.positionKeyframes[this.positionKeyframes.length - 1];
-    let index = 0;
-    if (this.positionKeyframes.length === 0) {
-      return false;
-    } else {
-      for (let i = 0; i < this.positionKeyframes.length - 1; i++) {
-        if (currentTime >= this.positionKeyframes[i].time && currentTime <= this.positionKeyframes[i+1].time) {
-          prevKeyframe = this.positionKeyframes[i];
-          nextKeyframe = this.positionKeyframes[i + 1];
-          index = i;
-          break;
-        }
+  updateDuration(time) {
+    // Update the total duration of the animation based on the latest keyframe time
+    if (time > this.duration) {
+      this.duration = time;
+    }
+  }
+
+  findBoundingKeyframes(currentTime, keyframes) {
+    let prevKeyframe = keyframes[0];
+    let nextKeyframe = keyframes[keyframes.length - 1];
+
+    for (let i = 0; i < keyframes.length - 1; i++) {
+      if (currentTime >= keyframes[i].time && currentTime < keyframes[i + 1].time) {
+        prevKeyframe = keyframes[i];
+        nextKeyframe = keyframes[i + 1];
+        break;
       }
     }
-  
-    return {position:{index, prevKeyframe, nextKeyframe }};
+
+    return { prevKeyframe, nextKeyframe };
+  }
+}
+
+class Animation {
+  constructor(name){
+    this.nodesMap = {};
+    this.name = name
+    // let i=0;
+    // for (let node of nodes){
+    //   this.nodesMap[node.localID] = clips[i]  
+    //   i++;
+    // }
   }
 }
 
@@ -279,12 +293,12 @@ class AnimationController {
   }
 
   updateTransform() {
-    let boundingFrames = this.animationClip.findBoundingKeyframes(this.currentTime);
-    const timeElapsed = this.currentTime - boundingFrames.position.prevKeyframe.time;
-    const diff = boundingFrames.position.nextKeyframe.time-boundingFrames.position.prevKeyframe.time;
+    let boundingPositionFrames = this.animationClip.findBoundingKeyframes(this.currentTime, this.animationClip.positionKeyframes);
+    const timeElapsed = this.currentTime - boundingPositionFrames.prevKeyframe.time;
+    const diff = boundingPositionFrames.nextKeyframe.time-boundingPositionFrames.prevKeyframe.time;
     const t = diff > 0 ? timeElapsed / diff : 0;
-    let interpolatedPosition = lerpTransform(boundingFrames.position.prevKeyframe.transform, boundingFrames.position.nextKeyframe.transform, t);
-    this.node.transform.setLocalPosition(interpolatedPosition.pos);
+    let interpolatedPosition = lerpPosition(boundingPositionFrames.prevKeyframe.transform, boundingPositionFrames.nextKeyframe.transform, t);
+    this.node.transform.setLocalPosition(interpolatedPosition);
   }
 }
 
@@ -293,6 +307,28 @@ class Skeleton {
     this.nodes = nodes;
     this.inverseBindMatrices = new Float32Array(inverseBindMatrices);
     this.boneTransforms = new Float32Array(nodes.length*16); 
+    this.animations = [];
+    this.animationsByName = {};
+  }
+  addAnimation(animation){
+    if(animation.name in this.animationsByName){
+      console.warn("Duplicate animation names are not allowed in a single skeleton");
+      return;
+    }
+    this.animations.push(animation);
+    this.animationsByName[animation.name]=animation;
+  }
+  setAnimation(index){
+    if (this.animations.length<=index){
+      console.warn("Animation index out of range");
+      return;
+    }
+    let animation = this.animations[index];
+    for (let node of this.nodes){
+      if (animation.nodesMap[node.localID] != undefined){
+        node.animationController.setAnimationClip(animation.nodesMap[node.localID]);
+      }
+    }
   }
   updateTransforms(){
     for(let i=0; i<this.nodes.length; i++){

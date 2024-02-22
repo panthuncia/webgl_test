@@ -699,6 +699,17 @@ function lerpTransform(transformA, transformB, t) {
   return newTransform;
 }
 
+function positionFromMatrix(matrix) {
+  let position = vec3.fromValues(matrix[12], matrix[13], matrix[14]);
+  return position;
+}
+
+function lerpPosition(posA, posB, t){
+  let newPos = vec3.create();
+  vec3.lerp(newPos, posA, posB, t);
+  return newPos;
+}
+
 // Create line arrays from array of positions
 function linesFromPositions(positions){
   let lines = [];
@@ -1134,7 +1145,7 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
   return materials;
 }
 
-function parseGLTFSkins(gltfData, nodes, binaryData) {
+function parseGLTFSkins(gltfData, nodes, binaryData, animations, renderer) {
   let skins = [];
   if (gltfData.skins == undefined){
     return skins;
@@ -1145,17 +1156,90 @@ function parseGLTFSkins(gltfData, nodes, binaryData) {
     for (let joint of skin.joints){
       joints.push(nodes[joint]);
     }
-    skins.push(new Skeleton(joints, inverseBindMatrices));
+    let skeleton = new Skeleton(joints, inverseBindMatrices);
+    //register animations that reference joints in this skeleton
+    for (let joint of skin.joints){
+      for (let animation of animations){
+        if(nodes[joint].localID in animation.nodesMap && ! (animation.name in skeleton.animationsByName)){
+          skeleton.addAnimation(animation);
+        }
+      }
+    }
+    skins.push(skeleton);
   }
   return skins;
 }
 
-function setSkins(skins, nodes){
+function setSkins(skins, nodes, renderer){
   for (let node of nodes){
     if (node.skinInstance != undefined){
       node.setSkin(skins[node.skinInstance]);
     }
   }
+}
+
+function numComponentsForPath(path) {
+  switch (path) {
+    case "translation":
+    case "scale":
+      return 3; // X, Y, Z
+    case "rotation":
+      return 4; // X, Y, Z, W
+    default:
+      throw new Error(`Unknown path: ${path}`);
+  }
+}
+
+function parseGLTFAnimationToClips(gltfAnimation, gltfData, binaryData, nodes) {
+  const animation = new Animation(gltfAnimation.name);// new AnimationClip();
+
+  for (const channel of gltfAnimation.channels) {
+    const sampler = gltfAnimation.samplers[channel.sampler];
+    const inputAccessor = getAccessorData(gltfData, sampler.input);
+    const outputAccessor = getAccessorData(gltfData, sampler.output);
+
+    const inputs = extractDataFromBuffer(binaryData, inputAccessor); // Time keyframes
+    const outputs = extractDataFromBuffer(binaryData, outputAccessor); // Value keyframes
+
+    const path = channel.target.path; // "translation", "rotation", or "scale"
+    const node = nodes[channel.target.node].localID;
+    if (animation.nodesMap[node] == undefined){
+      animation.nodesMap[node] = new AnimationClip();
+    }
+
+    for (let i = 0; i < inputs.length; i++) {
+      const time = inputs[i];
+      const value = outputs.slice(i * numComponentsForPath(path), (i + 1) * numComponentsForPath(path));
+      
+      switch (path) {
+        case "translation":
+          animation.nodesMap[node].addPositionKeyframe(time, vec3.fromValues(value[0], value[1], value[2]));
+          break;
+        case "rotation":
+          animation.nodesMap[node].addRotationKeyframe(time, quat.fromValues(value[0], value[1], value[2], value[3]));
+          break;
+        case "scale":
+          animation.nodesMap[node].addScaleKeyframe(time, vec3.fromValues(value[0], value[1], value[2]));
+          break;
+      }
+    }
+  }
+
+  return animation;
+}
+
+function parseGLTFAnimations(gltfData, binaryData, nodes) {
+  const animations = [];
+  if (!gltfData.animations) {
+    return animations;
+  }
+
+  for (const animation of gltfData.animations) {
+    let parsedAnimation = parseGLTFAnimationToClips(animation, gltfData, binaryData, nodes);
+    animations.push(parsedAnimation);
+  }
+
+  return animations;
 }
 
 async function loadAndParseGLTF(renderer, dir, filename) {
@@ -1183,7 +1267,7 @@ async function loadAndParseGLTF(renderer, dir, filename) {
 
     let materials = await parseGLTFMaterials(renderer, gltfData, dir);
 
-    const binaryData = binBuffers[0]; // one .bin file for now
+    const binaryData = binBuffers[0]; // One .bin file for now
     for (const mesh of gltfData.meshes) {
       let data = {mesh: {geometries:[{data:{
           positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
@@ -1201,12 +1285,13 @@ async function loadAndParseGLTF(renderer, dir, filename) {
     }
     //console.log(meshes);
     let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
-    let skins = parseGLTFSkins(gltfData, nodes, binaryData);
+    let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
+    let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
     for (let skeleton of skins){
       renderer.addSkeleton(skeleton);
     }
     setSkins(skins, nodes);
-    console.log(skins);
+    console.log(animations);
     return rootNodes;
   } catch (error) {
     console.error(error);

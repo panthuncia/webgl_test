@@ -84,115 +84,19 @@ async function main() {
   renderer.addNode(light2ScaleObject);
   light2ScaleObject.addChild(light2);
 
-  lines[light2.localID] = setChaikin(light2, light_positions, 8, playTime);
-  animatedObjects.push(light2)
-  light2.animationController.pause();
 
-  let playing = false;
-  let newellMethod = false;
-  function setChaikin(object, points, amount, playTime){
-      let positions = chaikin(points, amount);
-      let newAnimation = new AnimationClip();
-      newAnimation.addPositionKeyframe(0, new Transform(positions[0]));
-      for (let i=1; i<positions.length-1; i++){
-        newAnimation.addPositionKeyframe(playTime/(positions.length-1), new Transform(positions[i]));
-      }
-      object.animationController.setAnimationClip(newAnimation);
-      return linesFromPositions(positions);
-  }
 
-  function toggleAnimation(){
-    if(!playing){
-      for (let anim of animatedObjects){
-        anim.animationController.unpause();
-      }
-      //mainObject.animationController.unpause();
-      playing = true;
-    } else {
-      for (let anim of animatedObjects){
-        anim.animationController.pause();
-      }
-      playing = false;
-    }
-  }
-  playtimes = {}
-  function addNewCube(){
-    let color = generateStrongColor();
-    let object = renderer.createObjectFromData(subdivisionData.pointsArray, subdivisionData.normalsArray, subdivisionData.texCoordArray, [color.r, color.g, color.b, 255]);
-    renderer.addObject(object);
-    let thisPlaytime = Math.random()*15+8;
-    playtimes[object.localID] = thisPlaytime;
-    setChaikin(object, original_positions, chaikin_iterations, thisPlaytime);
-    animatedObjects.push(object);
-    addedObjects.push(object);
-  }
-
-  function addRandomLight(){
-    if(renderer.currentScene.numLights>=renderer.MAX_POINT_LIGHTS){
-      console.log("Reached max number of lights");
-      return;
-    }
-    let color = generateStrongColor();
-    let light = new Light(LightType.POINT, [0, 0, 0], [color.r/255, color.g/255, color.b/255], 40.0, 1.0, 0.09, 0.032);
-    renderer.addLight(light);
-    let lightTransformObject = new SceneNode();
-    lightTransformObject.transform.setLocalScale([3, 3, 3]);
-    
-    let x = getRandomInt(40)-20;
-    let y = getRandomInt(40)-20;
-    let z = getRandomInt(40)-20;
-    lightTransformObject.transform.setLocalPosition([x, y, z]);
-
-    let eulx = getRandomInt(360)*(Math.PI/180);
-    let euly = getRandomInt(360)*(Math.PI/180);
-    let eulz = getRandomInt(360)*(Math.PI/180);
-    lightTransformObject.transform.setLocalRotation([eulx, euly, eulz]);
-
-    let lightObject = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [light.color[0]*255, light.color[1]*255, light.color[2]*255, 255], true, 40.0);
-    lightObject.transform.setLocalScale([0.4, 0.4, 0.4]);
-    renderer.addObject(lightObject);
-    light.addChild(lightObject);
-
-    renderer.addNode(lightTransformObject);
-    lightTransformObject.addChild(light);
-    let time = getRandomInt(10)+5;
-    setChaikin(light, light_positions, 8, time);
-    animatedObjects.push(light);
-    if(!playing){
-      light.animationController.pause();
-    }
-  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'm') {
         renderer.forceWireframe = !renderer.forceWireframe;
       }
-      else if (event.key.toLowerCase() === 'a'){
-      toggleAnimation();
-    } else if (event.key.toLowerCase() === 'n'){
-      newellMethod = !newellMethod;
-      // Rebuild sphere
-      changeSphereSubdivision(0);
-    } else if (event.key.toLowerCase() === 'z') {
-      addRandomLight();
-    }
   });
   
-  let lastTime = new Date().getTime() / 1000;
   await createDebugQuad(renderer.gl);
   async function drawScene() {
-    let currentTime = new Date().getTime() / 1000;
-    let elapsed = currentTime - lastTime;
-    lastTime = currentTime;
-    for (let anim of animatedObjects){
-      anim.animationController.update(elapsed);
-    }
     
     renderer.drawScene();
-    for (let key in lines){
-      let object = renderer.getEntityById(key);
-      renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
-    }
     requestAnimationFrame(drawScene);
   }
   requestAnimationFrame(drawScene);
