@@ -704,12 +704,17 @@ function positionFromMatrix(matrix) {
   return position;
 }
 
-function lerpPosition(posA, posB, t){
+function lerpVec3(posA, posB, t){
   let newPos = vec3.create();
   vec3.lerp(newPos, posA, posB, t);
   return newPos;
 }
 
+function lerpRotation(quatA, quatB, t){
+  let newRot = quat.create();
+  quat.slerp(newRot, quatA, quatB, t);
+  return newRot;
+}
 // Create line arrays from array of positions
 function linesFromPositions(positions){
   let lines = [];
@@ -1186,7 +1191,7 @@ function numComponentsForPath(path) {
     case "rotation":
       return 4; // X, Y, Z, W
     default:
-      throw new Error(`Unknown path: ${path}`);
+      console.warn(`Unsupported path: ${path}`);
   }
 }
 

@@ -294,11 +294,29 @@ class AnimationController {
 
   updateTransform() {
     let boundingPositionFrames = this.animationClip.findBoundingKeyframes(this.currentTime, this.animationClip.positionKeyframes);
-    const timeElapsed = this.currentTime - boundingPositionFrames.prevKeyframe.time;
-    const diff = boundingPositionFrames.nextKeyframe.time-boundingPositionFrames.prevKeyframe.time;
-    const t = diff > 0 ? timeElapsed / diff : 0;
-    let interpolatedPosition = lerpPosition(boundingPositionFrames.prevKeyframe.transform, boundingPositionFrames.nextKeyframe.transform, t);
-    this.node.transform.setLocalPosition(interpolatedPosition);
+    if(boundingPositionFrames.prevKeyframe && boundingPositionFrames.nextKeyframe){
+      const timeElapsed = this.currentTime - boundingPositionFrames.prevKeyframe.time;
+      const diff = boundingPositionFrames.nextKeyframe.time-boundingPositionFrames.prevKeyframe.time;
+      const t = diff > 0 ? timeElapsed / diff : 0;
+      let interpolatedPosition = lerpVec3(boundingPositionFrames.prevKeyframe.transform, boundingPositionFrames.nextKeyframe.transform, t);
+      this.node.transform.setLocalPosition(interpolatedPosition);
+    }
+    let boundingRotationFrames = this.animationClip.findBoundingKeyframes(this.currentTime, this.animationClip.rotationKeyframes);
+    if(boundingRotationFrames.prevKeyframe && boundingRotationFrames.nextKeyframe){
+      const timeElapsed = this.currentTime - boundingRotationFrames.prevKeyframe.time;
+      const diff = boundingRotationFrames.nextKeyframe.time-boundingRotationFrames.prevKeyframe.time;
+      const t = diff > 0 ? timeElapsed / diff : 0;
+      let interpolatedRotation = lerpRotation(boundingRotationFrames.prevKeyframe.transform, boundingRotationFrames.nextKeyframe.transform, t);
+      this.node.transform.setLocalRotationFromQuaternion(interpolatedRotation);
+    }
+    let boundingScaleFrames = this.animationClip.findBoundingKeyframes(this.currentTime, this.animationClip.scaleKeyframes);
+    if(boundingScaleFrames.prevKeyframe && boundingScaleFrames.nextKeyframe){
+      const timeElapsed = this.currentTime - boundingScaleFrames.prevKeyframe.time;
+      const diff = boundingScaleFrames.nextKeyframe.time-boundingScaleFrames.prevKeyframe.time;
+      const t = diff > 0 ? timeElapsed / diff : 0;
+      let interpolatedScale = lerpVec3(boundingScaleFrames.prevKeyframe.transform, boundingScaleFrames.nextKeyframe.transform, t);
+      this.node.transform.setLocalScale(interpolatedScale);
+    }
   }
 }
 
