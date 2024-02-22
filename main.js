@@ -24,10 +24,11 @@ async function main() {
   let renderer = new WebGLRenderer("webgl-canvas");
   let nodes = await loadAndParseGLTF(renderer, "objects/gltf/dragon", "scene.gltf");
   console.log(nodes);
-  // nodes[0].transform.setLocalPosition([0, 0, 0]);
+  nodes[0].transform.setLocalPosition([0, 0, 0]);
   // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  nodes[0].transform.setLocalScale([10, 10, 10]);
+  //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
+  //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
+  nodes[0].transform.setLocalScale([40, 40, 40]);
   //renderer.removeObjectByName("Plane.035__0");
 
   //let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));

@@ -1,6 +1,6 @@
 WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
-    const gl = this.gl;
-    for (const key in this.currentScene.objects) {
+  const gl = this.gl;
+  for (const key in this.currentScene.objects) {
     let object = this.currentScene.objects[key];
     //if object does not interact with light
     if (object.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING){
@@ -17,7 +17,7 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix) {
 
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
       // Draw mesh
-      mesh.draw(gl);
+      //mesh.draw(gl);
     }
   }
 };

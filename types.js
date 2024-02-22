@@ -310,7 +310,6 @@ class SceneNode {
     this.animationController = new AnimationController(this);
     this.localID = -1;
     this.name = name;
-    this.skeleton = null;
   }
   addChild(node) {
     this.children[node.localID] = node;
@@ -322,9 +321,6 @@ class SceneNode {
   }
   removeChild(childId){
     delete this.children[childId];
-  }
-  setSkin(skeleton){
-    this.skeleton = skeleton;
   }
   update() {
     if (this.transform.isDirty) {
@@ -402,6 +398,7 @@ class RenderableObject extends SceneNode {
     this.hasSkinned = false;
     this.skinnedMeshes = [];
     this.unskinnedMeshes = [];
+    this.skeleton = null;
     // Sort meshes into skinned and unskinned, as they need different shader programs
     // Having two arrays prevents the need to re-bind a bunch of stuff when switching between variants
     for (let mesh of meshes){
@@ -413,6 +410,9 @@ class RenderableObject extends SceneNode {
         this.unskinnedMeshes.push(mesh);
       }
     }
+  }
+  setSkin(skeleton){
+    this.skeleton = skeleton;
   }
   setMeshes(meshes){
     this.meshes = meshes;

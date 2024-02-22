@@ -128,16 +128,16 @@ class WebGLRenderer {
     }
     if (object.hasSkinned){
       if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        this.currentScene.skinnedOpaqueObjects[object.id] = object;
+        this.currentScene.skinnedOpaqueObjects[object.localID] = object;
       } else {
-        this.currentScene.skinnedTransparentObjects[object.id] = object;
+        this.currentScene.skinnedTransparentObjects[object.localID] = object;
       }
     }
     if (object.hasUnskinned){
       if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        this.currentScene.unskinnedOpaqueObjects[object.id] = object;
+        this.currentScene.unskinnedOpaqueObjects[object.localID] = object;
       } else {
-        this.currentScene.unskinnedTransparentObjects[object.id] = object;
+        this.currentScene.unskinnedTransparentObjects[object.localID] = object;
       }
     }
     return object.localID;
@@ -192,16 +192,16 @@ class WebGLRenderer {
     }
     if (object.hasSkinned){
       if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        delete this.currentScene.skinnedOpaqueObjects[object.id];
+        delete this.currentScene.skinnedOpaqueObjects[object.localID];
       } else {
-        delete this.currentScene.skinnedTransparentObjects[object.id];
+        delete this.currentScene.skinnedTransparentObjects[object.localID];
       }
     }
     if (object.hasUnskinned){
       if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        delete this.currentScene.unskinnedOpaqueObjects[object.id];
+        delete this.currentScene.unskinnedOpaqueObjects[object.localID];
       } else {
-        delete this.currentScene.unskinnedTransparentObjects[object.id];
+        delete this.currentScene.unskinnedTransparentObjects[object.localID];
       }
     }
     delete this.currentScene.objects[objectID];
@@ -472,12 +472,34 @@ class WebGLRenderer {
     gl.useProgram(programInfo.program);
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
 
-    for (let skeleton of currentScene.skeletons){
-      for (let object of skeleton.nodes){
+    for (let key in currentScene.objects){
+      let object = currentScene.objects[key];
+      if (object.skeleton != null){
+        for (let bone of object.skeleton.nodes){
+          let boneMatrix = mat4.create();
+          mat4.multiply(boneMatrix, object.transform.modelMatrix, bone.transform.modelMatrix);
+          this.debugCube.transform.modelMatrix = boneMatrix;
+          this.drawObject(this.debugCube, false, true);
+        }
+      }
+    }
+  }
+  drawNodes(){
+    const gl = this.gl;
+    const currentScene = this.currentScene;
+    let currentShaderVariant = this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+    if (!this.shaderProgramVariants[currentShaderVariant]) {
+      this.createProgramVariants([currentShaderVariant]);
+    }
+    const programInfo = this.shaderProgramVariants[currentShaderVariant];
+    gl.useProgram(programInfo.program);
+    gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
+
+      for (let key in this.currentScene.nodes){
+        let object = this.currentScene.nodes[key];
         this.debugCube.transform.modelMatrix = object.transform.modelMatrix;
         this.drawObject(this.debugCube, false, true);
       }
-    }
   }
   // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
   // This enhancement should be paired with batch rendering

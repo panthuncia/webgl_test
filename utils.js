@@ -978,12 +978,7 @@ function getAccessorData(gltfData, accessorIndex) {
 function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
   const nodes = [];
   // create SceneNode instances for each GLTF node
-  let i=0;
   for(let gltfNode of gltfData.nodes) {
-    if (i==90){
-      console.log("test");
-    }
-    i++;
     let node = null;
     if (gltfNode.mesh != undefined){
       let data = meshesAndMaterials[gltfNode.mesh];
@@ -996,10 +991,10 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
       node = renderer.createNode(gltfData.name);
       node.originalIndex = nodes.length;
     }
-    const position = vec3.create();
-    const rotation = quat.create();
-    const scale = vec3.create();
     if (gltfNode.matrix != undefined){
+      const position = vec3.create();
+      const rotation = quat.create();
+      const scale = vec3.create();
       matrix = mat4.fromValues(...gltfNode.matrix);
 
       mat4.getTranslation(position, matrix);
@@ -1012,7 +1007,6 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
       node.transform.setLocalScale(scale);
       node.transform.setLocalRotationFromQuaternion(rotation);
     } else{
-      console.log("node with no matrix");
       if (gltfNode.translation != undefined){
         node.transform.setLocalPosition(gltfNode.translation);
       }
@@ -1142,6 +1136,9 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
 
 function parseGLTFSkins(gltfData, nodes, binaryData) {
   let skins = [];
+  if (gltfData.skins == undefined){
+    return skins;
+  }
   for (let skin of gltfData.skins){
     const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
     let joints = [];

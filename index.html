@@ -4,7 +4,7 @@
     <title>WebGL playground</title>
 </head>
 <script id="primaryVSSource" type="x-shader/x-vertex">
-    #define MAX_BONES 128
+    #define MAX_BONES 256
 
     in vec3 a_position;
     in vec3 a_normal;
@@ -40,10 +40,6 @@
         vec4 pos = vec4(a_position, 1.0);
         //If this is a skinned mesh, apply the bind matrices and bone transforms
         #ifdef SKINNED
-        if(a_jointIndices[0] == uint(0) && a_jointIndices[1] == uint(0) && a_jointIndices[2] == uint(0) && a_jointIndices[3] == uint(0)){
-            gl_Position = vec4(10000.0, 1000.0,  0.0, -10000.0);
-            return;
-        }
         mat4 skinMatrix = a_jointWeights.x*(u_boneTransforms[a_jointIndices.x]*u_inverseBindMatrices[a_jointIndices.x])+ 
         a_jointWeights.y*(u_boneTransforms[a_jointIndices.y]*u_inverseBindMatrices[a_jointIndices.y])+ 
         a_jointWeights.z*(u_boneTransforms[a_jointIndices.z]*u_inverseBindMatrices[a_jointIndices.z])+ 
