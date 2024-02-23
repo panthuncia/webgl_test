@@ -38,24 +38,45 @@
 
     void main() {
         vec4 pos = vec4(a_position, 1.0);
-        //If this is a skinned mesh, apply the bind matrices and bone transforms
-        #ifdef SKINNED
-        mat4 skinMatrix = a_jointWeights.x*(u_boneTransforms[a_jointIndices.x]*u_inverseBindMatrices[a_jointIndices.x])+ 
-        a_jointWeights.y*(u_boneTransforms[a_jointIndices.y]*u_inverseBindMatrices[a_jointIndices.y])+ 
-        a_jointWeights.z*(u_boneTransforms[a_jointIndices.z]*u_inverseBindMatrices[a_jointIndices.z])+ 
-        a_jointWeights.w*(u_boneTransforms[a_jointIndices.w]*u_inverseBindMatrices[a_jointIndices.w]); 
 
-        pos =  skinMatrix * pos;
+        //If this is a skinned mesh, apply the bind matrices and bone transforms
+        
+        #ifdef SKINNED
+            mat4 skinMatrix = a_jointWeights.x*(u_boneTransforms[a_jointIndices.x]*u_inverseBindMatrices[a_jointIndices.x])+ 
+            a_jointWeights.y*(u_boneTransforms[a_jointIndices.y]*u_inverseBindMatrices[a_jointIndices.y])+ 
+            a_jointWeights.z*(u_boneTransforms[a_jointIndices.z]*u_inverseBindMatrices[a_jointIndices.z])+ 
+            a_jointWeights.w*(u_boneTransforms[a_jointIndices.w]*u_inverseBindMatrices[a_jointIndices.w]); 
+
+            pos =  skinMatrix * pos;
+            mat3 normalMatrix = mat3(skinMatrix);
+            v_normal = normalize(normalMatrix * a_normal);
+                    // Calculate TBN matrix, for transforming tangent-space coordinates to view space
+            // Used in normal mapping
+            #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+                vec3 T = normalize(normalMatrix*a_tangent);
+                vec3 B = normalize(normalMatrix*a_bitangent);
+                vec3 N = normalize(normalMatrix*a_normal);
+                m_TBN = mat3(T, B, N);
+                m_TBNInverse = transpose(m_TBN);
+            #endif
+        #else
+            // Calculate TBN matrix, for transforming tangent-space coordinates to view space
+            // Used in normal mapping
+            #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+                vec3 T = normalize(u_normalMatrix*a_tangent);
+                vec3 B = normalize(u_normalMatrix*a_bitangent);
+                vec3 N = normalize(u_normalMatrix*a_normal);
+                m_TBN = mat3(T, B, N);
+                m_TBNInverse = transpose(m_TBN);
+            #endif
+            // Transform the normal
+            // Normal matrix is calculated as inverse transpose
+            // of model-view matrix to modify normals appropriately when object is scaled
+            v_normal = normalize(u_normalMatrix * a_normal);
         #endif
         // Transform the position into world and view space
         v_fragPos = vec4(u_modelMatrix * pos);
         v_fragPosViewSpace = vec4(u_modelViewMatrix * pos);
-
-    
-        // Transform the normal
-        // Normal matrix is calculated as inverse transpose
-        // of model-view matrix to modify normals appropriately when object is scaled
-        v_normal = normalize(u_normalMatrix * a_normal);
 
     
         // Pass texcoord to fs
@@ -64,15 +85,6 @@
         // Pass barycentric coords for wireframe
         v_baryCoord = a_baryCoord;
     
-        // Calculate TBN matrix, for transforming tangent-space coordinates to view space
-        // Used in normal mapping
-        #if defined USE_NORMAL_MAP || defined USE_PARALLAX
-            vec3 T = normalize(u_normalMatrix*a_tangent);
-            vec3 B = normalize(u_normalMatrix*a_bitangent);
-            vec3 N = normalize(u_normalMatrix*a_normal);
-            m_TBN = mat3(T, B, N);
-            m_TBNInverse = transpose(m_TBN);
-        #endif
     
         // Set the position
         gl_Position = u_projectionMatrix * u_modelViewMatrix * pos;
@@ -118,6 +130,7 @@
         uniform float u_ambientStrength;
         uniform float u_specularStrength;
         uniform float u_textureScale;
+        uniform vec4 u_emissiveFactor;
         #ifdef USE_PBR
             uniform float u_metallicFactor;
             uniform float u_roughnessFactor;
@@ -167,6 +180,9 @@
     #endif
     #ifdef USE_OPACITY_MAP
         uniform sampler2D u_opacity;
+    #endif
+    #ifdef EMISSIVE_TEXTURE
+        uniform sampler2D u_emissive;
     #endif
 
     out vec4 fragmentColor;
@@ -588,9 +604,10 @@
             #else
                 vec3 normal = v_normal;
             #endif
+            
 
-            //fragmentColor = vec4(normal, 1.0);
-            //return;
+            fragmentColor = vec4(normal, 1.0);
+            return;
             // Set up pbr values, if we are using it
             float metallic = 0.0;
             float roughness = 0.0;
@@ -645,13 +662,21 @@
                 vec3 ambient = u_ambientStrength * baseColor.xyz * texture(u_aoMap, uv).r * AMBIENT_SCALING_FACTOR;
                 // color.xyz *= aoColor.r;
             #else
-                vec3 ambient = u_ambientStrength * baseColor.xyz * AMBIENT_SCALING_FACTOR;
+                vec3 ambient = vec3(0, 0, 0);//u_ambientStrength * baseColor.xyz * AMBIENT_SCALING_FACTOR;
             #endif  
             lighting += ambient;
         #else
             float lighting = u_ambientStrength;
         #endif
         vec3 color = baseColor.xyz * lighting;
+
+                //apply emissive factor
+        #ifdef EMISSIVE_TEXTURE
+            color += texture(u_emissive, uv).rgb*u_emissiveFactor.xyz;
+        #else
+            color += u_emissiveFactor.xyz;
+        #endif
+
         // Reinhard tonemapping
         color = reinhardJodie(color);
         #ifdef USE_PBR

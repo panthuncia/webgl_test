@@ -161,9 +161,12 @@ class WebGLRenderer {
   createRenderableObject(data, material, name){
     let meshes = [];
     for (const geometry of data.geometries) {
-      let tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+      let tanbit = null;
+      if (geometry.data.texcoord){
+        tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      }
       let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-      meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
+      meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit == null? null : tanbit.tangents, tanbit == null? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
     }
     let renderable = new RenderableObject(meshes, material, name);
     this.addObject(renderable);
@@ -299,6 +302,9 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED) {
       defines += "#define SKINNED\n";
     }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
+      defines += "#define EMISSIVE_TEXTURE\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -360,7 +366,7 @@ class WebGLRenderer {
     // gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ones);
 
     const perFrameUniformNames = ["u_camPosWorldSpace","u_viewMatrixInverse"];
-    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength", "u_textureScale", "u_metallicFactor", "u_roughnessFactor", "u_baseColorFactor"];
+    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength", "u_emissiveFactor", "u_textureScale", "u_metallicFactor", "u_roughnessFactor", "u_baseColorFactor"];
     const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosWorldSpace", "u_lightDirWorldSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
 
     //get uniform offsets by name
@@ -457,6 +463,9 @@ class WebGLRenderer {
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
         programInfo.uniformLocations.opacity = gl.getUniformLocation(shaderProgram, "u_opacity");
       }
+      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
+        programInfo.uniformLocations.emissive = gl.getUniformLocation(shaderProgram, "u_emissive");
+      }
       this.shaderProgramVariants[variantID] = programInfo;
     }
   }
@@ -498,11 +507,11 @@ class WebGLRenderer {
           let boneMatrix = mat4.create();
           mat4.multiply(boneMatrix, object.transform.modelMatrix, bone.transform.modelMatrix);
           this.debugCube.transform.modelMatrix = boneMatrix;
-          this.drawObject(this.debugCube, false, true);
+          //this.drawObject(this.debugCube, false, true);
           
           let parentBoneMatrix = mat4.create();
           mat4.multiply(parentBoneMatrix, object.transform.modelMatrix, bone.parent.transform.modelMatrix);
-          this.drawLines([...positionFromMatrix(parentBoneMatrix), ...positionFromMatrix(boneMatrix)], mat4.create());
+          //this.drawLines([...positionFromMatrix(parentBoneMatrix), ...positionFromMatrix(boneMatrix)], mat4.create());
         }
       }
     }
@@ -549,6 +558,7 @@ class WebGLRenderer {
 
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
+    dataViewSetVec4(this.buffers.perMaterialDataView, object.material.emissiveFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_emissiveFactor);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_metallicFactor, object.material.metallicFactor, true);
     this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_roughnessFactor, object.material.roughnessFactor, true);
@@ -854,7 +864,7 @@ class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    let material = new Material(texture, null, false, null, null, null, null, false, null, null, [1, 1, 1, 1], null, BLEND_MODE.BLEND_MODE_OPAQUE, 1.0, skipLighting, ambientStrength);
+    let material = new Material(texture, null, false, null, null, null, null, false, null, null, [1, 1, 1, 1], null, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, 1.0, skipLighting, ambientStrength);
     let renderable = createRenderable(gl, name, objectData, material);
     return renderable;
   }
@@ -887,9 +897,12 @@ class WebGLRenderer {
     }
     meshes = [];
     for (const geometry of data.geometries) {
-      let tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      let tanbit = null;
+      if (geometry.data.texcoord){
+        tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      }
       let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
-      meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords, tanbit.tangents, tanbit.bitangents));
+      meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords,tanbit == null? null :  tanbit.tangents,tanbit == null? null :  tanbit.bitangents));
     }
     object.setMeshes(meshes);
   }
@@ -988,7 +1001,7 @@ class WebGLRenderer {
     let objectData = await getObj("objects/" + modelDescription.model);
     console.log(objectData);
 
-    let material = new Material(texture, normalMap, invertNormalMap, aoMap, heightMap, metallic, roughness, false, metallicFactor, roughnessFactor, baseColorFactor, opacity, BLEND_MODE.BLEND_MODE_OPAQUE, textureScale, false, 0.1, 1.0); //TODO: handle opaqueness on non-gltf models
+    let material = new Material(texture, normalMap, invertNormalMap, aoMap, heightMap, metallic, roughness, false, metallicFactor, roughnessFactor, baseColorFactor, opacity, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, textureScale, false, 0.1, 1.0); //TODO: handle opaqueness on non-gltf models
     return createRenderable(gl, name, objectData, material);
   }
   printRestrictions() {

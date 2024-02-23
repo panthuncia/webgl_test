@@ -396,8 +396,10 @@ class SceneNode {
   }
 }
 
+// This constructor is stupid
+// IDK how to fix it though
 class Material {
-  constructor(texture, normal = null, invertNormalMap = false, aoMap = null, heightMap = null, metallic = null, roughness = null, combinedMetallicRoughness = false, metallicFactor = null, roughnessFactor = null, baseColorFactor = [1, 1, 1, 1], opacity = null, blendMode = BLEND_MODE.BLEND_MODE_OPAQUE, textureScale = 1.0, skipLighting = false, ambientStrength = 1.0, specularStrength = 2.0){
+  constructor(texture, normal = null, invertNormalMap = false, aoMap = null, heightMap = null, metallic = null, roughness = null, combinedMetallicRoughness = false, metallicFactor = null, roughnessFactor = null, baseColorFactor = [1, 1, 1, 1], opacity = null, blendMode = BLEND_MODE.BLEND_MODE_OPAQUE, emissiveTexture = null, emissiveFactor = null, textureScale = 1.0, skipLighting = false, ambientStrength = 1.0, specularStrength = 2.0){
     this.ambientStrength = ambientStrength;
     this.specularStrength = specularStrength;
     this.textureScale = textureScale;
@@ -409,10 +411,24 @@ class Material {
     this.roughness = roughness;
     this.metallicFactor = metallicFactor;
     this.roughnessFactor = roughnessFactor;
+    if (baseColorFactor == null){
+      baseColorFactor = [1, 1, 1, 1];
+    }
     this.baseColorFactor = baseColorFactor;
     this.opacity = opacity;
     this.blendMode = blendMode;
     this.skipLighting = skipLighting;
+    this.emissiveTexture = emissiveTexture;
+    //if we have emissive texture, emissive factor is a multiplier. Else, it's a static offset.
+    if (emissiveFactor == null){
+      if (emissiveTexture == null){
+        emissiveFactor = [0, 0, 0, 1];
+      }
+      else {
+        emissiveFactor = [1, 1, 1, 1];
+      };
+    }
+    this.emissiveFactor = emissiveFactor;
 
     this.shaderVariant = 0;
     if (skipLighting) {
@@ -439,6 +455,9 @@ class Material {
     }
     if (combinedMetallicRoughness == true){
       this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS;
+    }
+    if (emissiveTexture != null){
+      this.shaderVariant |= SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE;
     }
   }
 }
@@ -530,6 +549,13 @@ class RenderableObject extends SceneNode {
       gl.bindTexture(gl.TEXTURE_2D, this.material.opacity);
       gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
       textureUnit += 1;
+    }
+
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.emissiveTexture);
+      gl.uniform1i(programInfo.uniformLocations.emissive, textureUnit);
+      textureUnit +=1;
     }
   }
 }

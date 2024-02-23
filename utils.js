@@ -1077,8 +1077,8 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     const image = await loadTexture(dir+"/"+gltfImage.uri);
     images.push(image);
   }
-  //Create linear and sRGB texture for each, because glTF doesn't specify usage in the texture definition :/
-  //we will just delete the unused one.
+  // Create linear and sRGB texture for each, because glTF doesn't specify usage in the texture definition :/
+  // we will just delete the unused one.
   gltfData.textures.forEach((gltfTexture, index) => {
     const linearTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, linearTexture);
@@ -1096,9 +1096,9 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     srgbTextures[index] = srgbTexture;
   })
   gltfData.materials.forEach((gltfMaterial, index) => {
-    let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null;
+    let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null, emissiveTexture = null;
 
-    let metallicFactor = null, roughnessFactor = null, baseColorFactor = null;
+    let metallicFactor = null, roughnessFactor = null, baseColorFactor = null, emissiveFactor = [0, 0, 0, 1];
     if (gltfMaterial.pbrMetallicRoughness) {
       if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
         texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
@@ -1135,16 +1135,23 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
       aoMap = linearTextures[gltfMaterial.occlusionTexture.index];
       gl.deleteTexture(srgbTextures[gltfMaterial.occlusionTexture.index]);
     }
+    if (gltfMaterial.emissiveTexture){
+      emissiveTexture = srgbTextures[gltfMaterial.emissiveTexture.index];
+      gl.deleteTexture(linearTextures[gltfMaterial.emissiveTexture.index]);
+      emissiveFactor = [1, 1, 1, 1];
+    }
+    if (gltfMaterial.emissiveFactor){
+      emissiveFactor = [...gltfMaterial.emissiveFactor, 1];
+    }
 
     let blendMode = BLEND_MODE.BLEND_MODE_BLEND;
     if (gltfMaterial.alphaMode == "OPAQUE" || gltfMaterial.alphaMode == undefined){
-      baseColorFactor[3] = 1;
       blendMode = BLEND_MODE.BLEND_MODE_OPAQUE;
     } else if (gltfMaterial.alphaMode == "MASK"){
       blendMode = BLEND_MODE.BLEND_MODE_MASK;
     }
 
-    const material = new Material(texture, normal, true, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity, blendMode);
+    const material = new Material(texture, normal, true, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity, blendMode, emissiveTexture, emissiveFactor);
     materials.push(material);
   });
   return materials;
@@ -1277,11 +1284,13 @@ async function loadAndParseGLTF(renderer, dir, filename) {
       let data = {mesh: {geometries:[{data:{
           positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
           normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
-          texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0)),
           indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices)),
         }}]},
         material: materials[mesh.primitives[0].material]
       };
+      if (mesh.primitives[0].attributes.TEXCOORD_0){
+        data.mesh.geometries[0].data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0));
+      }
       if (mesh.primitives[0].attributes.JOINTS_0){
         data.mesh.geometries[0].data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.JOINTS_0));
         data.mesh.geometries[0].data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.WEIGHTS_0));

@@ -28,7 +28,12 @@ async function main() {
   // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
   //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
+  nodes[0].transform.setLocalScale([5, 5, 5]);
   nodes[0].transform.setLocalScale([40, 40, 40]);
+  //nodes[0].transform.setLocalScale([100, 100, 100]);
+
+
+  //nodes[0].transform.setLocalScale([100, 100, 100]);
   //renderer.removeObjectByName("Plane.035__0");
 
   //let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
@@ -45,6 +50,14 @@ async function main() {
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
   //renderer.addObject(rock);
 
+  let aTrans = new Transform;
+  aTrans.setLocalPosition([10, 0, 0]);
+  aTrans.setLocalRotationFromEuler([0, Math.PI/4, 0]);
+  let bTrans = new Transform;
+  bTrans.setLocalPosition([0, 5, 0]);
+  let aMat = aTrans.getLocalModelMatrix();
+  bTrans.computeModelMatrixFromParent(aMat);
+
 
   let chaikin_iterations = 0;
   lines = {};
@@ -57,8 +70,8 @@ async function main() {
   [5, 3, 5],
   [5, 3, -5]];
 
-  let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 1, 1], 80.0, 1.0, 0.09, 0.032);
-  renderer.addLight(light2);
+  let light2 = new Light(LightType.POINT, [9, 6, 7], [1, 1, 1], 400.0, 1.0, 0.09, 0.032);
+  //renderer.addLight(light2);
 
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], "light 2 object", true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
@@ -69,7 +82,7 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 40.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 400.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   renderer.addLight(light5);
