@@ -162,8 +162,8 @@ class WebGLRenderer {
     let meshes = [];
     for (const geometry of data.geometries) {
       let tanbit = null;
-      if (geometry.data.texcoord){
-        tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      if (geometry.data.texcoords){
+        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
       }
       let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
       meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit == null? null : tanbit.tangents, tanbit == null? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
@@ -898,11 +898,11 @@ class WebGLRenderer {
     meshes = [];
     for (const geometry of data.geometries) {
       let tanbit = null;
-      if (geometry.data.texcoord){
-        tanbit = calculateTangentsBitangents(geometry.data.position, geometry.data.normal, geometry.data.texcoord);
+      if (geometry.data.texcoords){
+        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
       }
-      let baryCoords = getBarycentricCoordinates(geometry.data.position.length);
-      meshes.push(new Mesh(gl, geometry.data.position, geometry.data.normal, geometry.data.texcoord, baryCoords,tanbit == null? null :  tanbit.tangents,tanbit == null? null :  tanbit.bitangents));
+      let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
+      meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords,tanbit == null? null :  tanbit.tangents,tanbit == null? null :  tanbit.bitangents));
     }
     object.setMeshes(meshes);
   }
