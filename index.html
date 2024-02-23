@@ -47,7 +47,7 @@
             a_jointWeights.w*(u_boneTransforms[a_jointIndices.w]*u_inverseBindMatrices[a_jointIndices.w]); 
 
             pos =  skinMatrix * pos;
-            mat3 normalMatrix = mat3(skinMatrix);
+            mat3 normalMatrix = u_normalMatrix*mat3(skinMatrix);
         #else
             mat3 normalMatrix = u_normalMatrix;
         #endif
