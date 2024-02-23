@@ -24,7 +24,7 @@ class WebGLRenderer {
     let fov = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
-    let zFar = 200.0;
+    let zFar = 1000.0;
     let camera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
     // Scene setup
     this.currentScene = {
@@ -259,7 +259,7 @@ class WebGLRenderer {
   addSkeleton(skeleton){
     this.currentScene.skeletons.push(skeleton);
     if (skeleton.animations.length>0){
-      skeleton.setAnimation(skeleton.animations.length-1);
+      skeleton.setAnimation(2);
       this.currentScene.animatedSkeletons.push(skeleton);
     }
   }

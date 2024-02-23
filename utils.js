@@ -1297,11 +1297,51 @@ async function loadAndParseGLTF(renderer, dir, filename) {
   return [];
 }
 
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+  }
+  let string = window.btoa(binary);
+  return string;
+}
+
+function Base64ToArrayBuffer(str) {
+  let binaryString = window.atob(str);
+  let len = binaryString.length;
+  let bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  let arrayBuffer = bytes.buffer;
+  return arrayBuffer;
+}
+
+function setDownload(dataString){
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const myObj = {
+      data: dataString,
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObj));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "myData.json");
+    document.body.appendChild(downloadAnchorNode); // Required for Firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+});
+}
+
 //https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
 async function loadAndParseGLB(renderer, url) {
   let meshesAndMaterials = [];
   try {
-    const glbArrayBuffer = await fetchGLB(url);
+    const glbArrayBuffer = Base64ToArrayBuffer(dragonModel.data)//await fetchGLB(url);
+    //let dataString = arrayBufferToBase64(glbArrayBuffer);
+    //setDownload(dataString);
     const header = parseGLBHeader(glbArrayBuffer);
     const chunks = parseGLBChunks(glbArrayBuffer);
     

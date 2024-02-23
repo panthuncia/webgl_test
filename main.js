@@ -23,21 +23,26 @@ async function main() {
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
-  let nodes = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
+  let nodes = await loadAndParseGLB(renderer, "objects/gltf/dragon.glb");
   console.log(nodes);
   nodes[0].transform.setLocalPosition([0, 0, 0]);
   // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
+  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
-  nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
+  //nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
   //nodes[0].transform.setLocalScale([5, 5, 5]);
   //nodes[0].transform.setLocalScale([40, 40, 40]);
-  //nodes[0].transform.setLocalScale([100, 100, 100]);
+  nodes[0].transform.setLocalScale([100, 100, 100]);
   //nodes[0].transform.setLocalScale([400, 400, 400]);
   //renderer.removeObjectByName("Plane.035__0");
 
   //let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
   //renderer.addObject(terrain)
+
+  // let tiger = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
+  // tiger[0].transform.setLocalPosition([0, 0, 0]);
+  // tiger[0].transform.setLocalScale([0.5, 0.5, 0.5]);
 
   let addedObjects = [];
   let animatedObjects = [];
