@@ -22,20 +22,18 @@ async function main() {
 
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
-  let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
+  //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
+  let nodes = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
   console.log(nodes);
   nodes[0].transform.setLocalPosition([0, 0, 0]);
   // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
   //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
   nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
-
   //nodes[0].transform.setLocalScale([5, 5, 5]);
   //nodes[0].transform.setLocalScale([40, 40, 40]);
   //nodes[0].transform.setLocalScale([100, 100, 100]);
-
-
-  //nodes[0].transform.setLocalScale([100, 100, 100]);
+  //nodes[0].transform.setLocalScale([400, 400, 400]);
   //renderer.removeObjectByName("Plane.035__0");
 
   //let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
@@ -84,7 +82,7 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 50.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 100.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   renderer.addLight(light5);

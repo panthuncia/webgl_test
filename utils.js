@@ -807,83 +807,6 @@ function generateStrongColor() {
   return {r, g, b};
 }
 
-async function fetchGLB(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  return response.arrayBuffer();
-}
-
-function parseGLBHeader(glbArrayBuffer) {
-  const dataView = new DataView(glbArrayBuffer);
-  const magic = dataView.getUint32(0, true);
-  const version = dataView.getUint32(4, true);
-  const length = dataView.getUint32(8, true);
-
-  if (magic !== 0x46546C67) {
-    throw new Error("Invalid GLB format");
-  }
-
-  return { version, length };
-}
-
-function parseGLBChunks(glbArrayBuffer) {
-  const chunks = [];
-  let offset = 12; // Skip the header
-
-  while (offset < glbArrayBuffer.byteLength) {
-    const dataView = new DataView(glbArrayBuffer, offset);
-    const chunkLength = dataView.getUint32(0, true);
-    const chunkType = dataView.getUint32(4, true);
-    const chunkData = new Uint8Array(glbArrayBuffer, offset + 8, chunkLength);
-
-    chunks.push({ chunkLength, chunkType, chunkData });
-    offset += chunkLength + 8;
-  }
-
-  return chunks;
-}
-
-function decodeJSONChunk(chunkData) {
-  const textDecoder = new TextDecoder("utf-8");
-  const jsonText = textDecoder.decode(chunkData);
-  return JSON.parse(jsonText);
-}
-
-async function loadAndParseGLB(url) {
-  meshes = [];
-  try {
-    const glbArrayBuffer = await fetchGLB(url);
-    const header = parseGLBHeader(glbArrayBuffer);
-    const chunks = parseGLBChunks(glbArrayBuffer);
-    
-    const jsonChunk = chunks.find(chunk => chunk.chunkType === 0x4E4F534A); // 'JSON' in ASCII
-    if (!jsonChunk) {
-      throw new Error("JSON chunk not found");
-    }
-
-    const binChunk = chunks.find(chunk => chunk.chunkType === 0x4E4942); // 'BIN' in ASCII
-    
-    const gltfData = decodeJSONChunk(jsonChunk.chunkData);
-    console.log("GLTF Data:", gltfData);
-    const binaryData = binChunk.chunkData;
-    for (mesh of gltfData.meshes){
-      meshes.push({
-        positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
-        normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
-        texcoords: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
-        indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices))
-      });
-    }
-    console.log(meshes);
-
-  } catch (error) {
-    console.error(error);
-  }
-  return meshes;
-}
-
 function extractDataFromBuffer(binaryData, accessorData) {
   const { accessor, bufferView } = accessorData;
   const numComponents = numComponentsForType(accessor.type);
@@ -1066,34 +989,75 @@ function createDefaultTexture(gl){
   return texture;
 }
 
-async function parseGLTFMaterials(renderer, gltfData, dir){
-  const gl = renderer.gl;
-  let defaultTexture = createDefaultTexture(gl);
+// Load external images
+async function getGLTFImages(gltfData, dir){
   let images = [];
-  let linearTextures = [];
-  let srgbTextures = [];
-  let materials = [];
   for(gltfImage of gltfData.images) {
     const image = await loadTexture(dir+"/"+gltfImage.uri);
     images.push(image);
   }
+  return images;
+}
+
+//Load images stored in binary format
+async function getGLTFImagesFromBinary(gltfData, binaryData){
+  let images = [];
+  for (const gltfImage of gltfData.images) {
+    let imageBuffer;
+
+    if (gltfImage.uri) {
+        if (gltfImage.uri.startsWith('data:')) {
+            imageBuffer = decodeDataUri(gltfImage.uri);
+            const image = await createImageBitmap(new Blob([imageBuffer]));
+            images.push(image);
+        } else {
+            console.error("External URIs unsupported in glb files");
+        }
+    } else if (gltfImage.bufferView !== undefined) {
+        const bufferView = gltfData.bufferViews[gltfImage.bufferView];
+        const blob = new Blob([new Uint8Array(binaryData, bufferView.byteOffset, bufferView.byteLength)], { type: gltfImage.mimeType });
+        const image = await createImageBitmap(blob);
+        images.push(image);
+    }
+  }
+  return images;
+}
+
+async function parseGLTFMaterials(renderer, gltfData, dir, binaryData = null){
+  const gl = renderer.gl;
+  let defaultTexture = createDefaultTexture(gl);
+  let images = null;
+  if (binaryData != null){
+    images = await getGLTFImagesFromBinary(gltfData, binaryData);
+  }
+  else{
+    images = await getGLTFImages(gltfData, dir);
+  }
+  let linearTextures = [];
+  let srgbTextures = [];
+  let materials = [];
+
   // Create linear and sRGB texture for each, because glTF doesn't specify usage in the texture definition :/
   // we will just delete the unused one.
   gltfData.textures.forEach((gltfTexture, index) => {
-    const linearTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, linearTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
-    linearTextures[index] = linearTexture;
-    const srgbTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, srgbTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
-    srgbTextures[index] = srgbTexture;
+    if (images[gltfTexture.source]){
+      const linearTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, linearTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+      linearTextures[index] = linearTexture;
+      const srgbTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, srgbTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+      srgbTextures[index] = srgbTexture;
+    } else {
+      console.warn("Missing texture!");
+    }
   })
   gltfData.materials.forEach((gltfMaterial, index) => {
     let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null, emissiveTexture = null;
@@ -1101,14 +1065,22 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     let metallicFactor = null, roughnessFactor = null, baseColorFactor = null, emissiveFactor = [0, 0, 0, 1];
     if (gltfMaterial.pbrMetallicRoughness) {
       if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
-        texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
-        gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
+        if (srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]){
+          texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+          gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
+        } else {
+          texture = defaultTexture;
+        }
       } else {
         texture = defaultTexture;
       }
       if (gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture) {
-        metallicRoughness = linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
-        gl.deleteTexture(srgbTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]);
+        if (linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]){
+          metallicRoughness = linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
+          gl.deleteTexture(srgbTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]);
+        } else {
+          metallicRoughness = defaultTexture;
+        }
       }
       if (gltfMaterial.pbrMetallicRoughness.metallicFactor){
         metallicFactor = gltfMaterial.pbrMetallicRoughness.metallicFactor;
@@ -1128,17 +1100,29 @@ async function parseGLTFMaterials(renderer, gltfData, dir){
     }
 
     if (gltfMaterial.normalTexture) {
-      normal = linearTextures[gltfMaterial.normalTexture.index];
-      gl.deleteTexture(srgbTextures[gltfMaterial.normalTexture.index]);
+      if (linearTextures[gltfMaterial.normalTexture.index]){
+        normal = linearTextures[gltfMaterial.normalTexture.index];
+        gl.deleteTexture(srgbTextures[gltfMaterial.normalTexture.index]);
+      } else {
+        normal = defaultTexture;
+      }
     }
     if (gltfMaterial.occlusionTexture) {
-      aoMap = linearTextures[gltfMaterial.occlusionTexture.index];
-      gl.deleteTexture(srgbTextures[gltfMaterial.occlusionTexture.index]);
+      if (linearTextures[gltfMaterial.occlusionTexture.index]) {
+        aoMap = linearTextures[gltfMaterial.occlusionTexture.index];
+        gl.deleteTexture(srgbTextures[gltfMaterial.occlusionTexture.index]);
+      } else {
+        aoMap = defaultTexture;
+      }
     }
     if (gltfMaterial.emissiveTexture){
-      emissiveTexture = srgbTextures[gltfMaterial.emissiveTexture.index];
-      gl.deleteTexture(linearTextures[gltfMaterial.emissiveTexture.index]);
-      emissiveFactor = [1, 1, 1, 1];
+      if (srgbTextures[gltfMaterial.emissiveTexture.index]){
+        emissiveTexture = srgbTextures[gltfMaterial.emissiveTexture.index];
+        gl.deleteTexture(linearTextures[gltfMaterial.emissiveTexture.index]);
+        emissiveFactor = [1, 1, 1, 1];
+      } else {
+        emissiveTexture = defaultTexture;
+      }
     }
     if (gltfMaterial.emissiveFactor){
       emissiveFactor = [...gltfMaterial.emissiveFactor, 1];
@@ -1311,4 +1295,111 @@ async function loadAndParseGLTF(renderer, dir, filename) {
     console.error(error);
   }
   return [];
+}
+
+//https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
+async function loadAndParseGLB(renderer, url) {
+  let meshesAndMaterials = [];
+  try {
+    const glbArrayBuffer = await fetchGLB(url);
+    const header = parseGLBHeader(glbArrayBuffer);
+    const chunks = parseGLBChunks(glbArrayBuffer);
+    
+    const jsonChunk = chunks.find(chunk => chunk.chunkType === 0x4E4F534A); // 'JSON' in ASCII
+    if (!jsonChunk) {
+      throw new Error("JSON chunk not found");
+    }
+
+    const binChunk = chunks.find(chunk => chunk.chunkType === 0x4E4942); // 'BIN' in ASCII
+    
+    const gltfData = decodeJSONChunk(jsonChunk.chunkData);
+    console.log("GLTF Data:", gltfData);
+    const binaryBuffer = binChunk.chunkData;
+
+    // Get ArrayBuffer as subset of full ArrayBuffer
+    // Shouldn't really be necessary, but it makes gltf and glb loading more similar
+    const fullArrayBuffer = binaryBuffer.buffer;
+    const byteOffset = binaryBuffer.byteOffset;
+    const byteLength = binaryBuffer.byteLength;
+
+    const binaryData = new ArrayBuffer(byteLength);
+    const subsetUint8Array = new Uint8Array(binaryData);
+    subsetUint8Array.set(new Uint8Array(fullArrayBuffer, byteOffset, byteLength));
+
+    let materials = await parseGLTFMaterials(renderer, gltfData, "", binaryData);
+    for (const mesh of gltfData.meshes) {
+      let data = {mesh: {geometries:[{data:{
+          positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
+          normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
+          indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices)),
+        }}]},
+        material: materials[mesh.primitives[0].material]
+      };
+      if (mesh.primitives[0].attributes.TEXCOORD_0){
+        data.mesh.geometries[0].data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0));
+      }
+      if (mesh.primitives[0].attributes.JOINTS_0){
+        data.mesh.geometries[0].data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.JOINTS_0));
+        data.mesh.geometries[0].data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.WEIGHTS_0));
+      }
+      meshesAndMaterials.push(data);
+    }
+    //console.log(meshes);
+    let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
+    let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
+    let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
+    for (let skeleton of skins){
+      renderer.addSkeleton(skeleton);
+    }
+    setSkins(skins, nodes);
+    console.log(animations);
+    return rootNodes;
+  } catch (error) {
+    console.error(error);
+  }
+  return [];
+}
+
+async function fetchGLB(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.arrayBuffer();
+}
+
+function parseGLBHeader(glbArrayBuffer) {
+  const dataView = new DataView(glbArrayBuffer);
+  const magic = dataView.getUint32(0, true);
+  const version = dataView.getUint32(4, true);
+  const length = dataView.getUint32(8, true);
+
+  if (magic !== 0x46546C67) {
+    throw new Error("Invalid GLB format");
+  }
+
+  return { version, length };
+}
+
+function parseGLBChunks(glbArrayBuffer) {
+  const chunks = [];
+  let offset = 12; // Skip the header
+
+  while (offset < glbArrayBuffer.byteLength) {
+    const dataView = new DataView(glbArrayBuffer, offset);
+    const chunkLength = dataView.getUint32(0, true);
+    const chunkType = dataView.getUint32(4, true);
+    const chunkData = new Uint8Array(glbArrayBuffer, offset + 8, chunkLength);
+
+    chunks.push({ chunkLength, chunkType, chunkData });
+    offset += chunkLength + 8;
+  }
+
+  return chunks;
+}
+
+function decodeJSONChunk(chunkData) {
+  const textDecoder = new TextDecoder("utf-8");
+  const jsonText = textDecoder.decode(chunkData);
+  return JSON.parse(jsonText);
 }
