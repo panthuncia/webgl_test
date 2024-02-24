@@ -239,6 +239,20 @@ function getBarycentricCoordinates(length){
   return coords;
 }
 
+function createRenderableObject(gl, data, material, name){
+  let meshes = [];
+  for (const geometry of data.geometries) {
+    let tanbit = null;
+    if (geometry.data.texcoords){
+      tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+    }
+    let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
+    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit == null? null : tanbit.tangents, tanbit == null? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
+  }
+  let renderable = new RenderableObject(meshes, material, name);
+  return renderable;
+}
+
 //Calculate tangents, bitangents (for tangent-space operations such as normal mapping & parallax), barycentric coordinates (for wireframe), and pad arrays if necessary
 function prepareObjectData(gl, data){
   meshes = [];
@@ -249,6 +263,7 @@ function prepareObjectData(gl, data){
   }
   return {meshes}
 }
+
 
 //create a renderable object from data
 function createRenderable(gl, name, data, material) {
@@ -914,20 +929,20 @@ function getAccessorData(gltfData, accessorIndex) {
   return { accessor, bufferView };
 }
 
-function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
+function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
   const nodes = [];
   // create SceneNode instances for each GLTF node
   for(let gltfNode of gltfData.nodes) {
     let node = null;
     if (gltfNode.mesh != undefined){
       let data = meshesAndMaterials[gltfNode.mesh];
-      node = renderer.createRenderableObject(data.mesh, data.material, gltfNode.name);
+      node = scene.createRenderableObject(gl, data.mesh, data.material, gltfNode.name);
       if(gltfNode.skin != undefined){
         console.log("found skinned mesh");
         node.skinInstance = gltfNode.skin; //hack for setting skins later
       }
     } else {
-      node = renderer.createNode(gltfData.name);
+      node = scene.createNode(gltfData.name);
       node.originalIndex = nodes.length;
     }
     if (gltfNode.matrix != undefined){
@@ -956,6 +971,7 @@ function parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials) {
         node.transform.setLocalRotationFromQuaternion(gltfNode.rotation);
       }
     }
+    node.templateMarker = true;
     nodes.push(node);
   };
 
@@ -1023,8 +1039,7 @@ async function getGLTFImagesFromBinary(gltfData, binaryData){
   return images;
 }
 
-async function parseGLTFMaterials(renderer, gltfData, dir, binaryData = null){
-  const gl = renderer.gl;
+async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
   let defaultTexture = createDefaultTexture(gl);
   let images = null;
   if (binaryData != null){
@@ -1141,7 +1156,7 @@ async function parseGLTFMaterials(renderer, gltfData, dir, binaryData = null){
   return materials;
 }
 
-function parseGLTFSkins(gltfData, nodes, binaryData, animations, renderer) {
+function parseGLTFSkins(gltfData, nodes, binaryData, animations) {
   let skins = [];
   if (gltfData.skins == undefined){
     return skins;
@@ -1166,7 +1181,7 @@ function parseGLTFSkins(gltfData, nodes, binaryData, animations, renderer) {
   return skins;
 }
 
-function setSkins(skins, nodes, renderer){
+function setSkins(skins, nodes){
   for (let node of nodes){
     if (node.skinInstance != undefined){
       node.setSkin(skins[node.skinInstance]);
@@ -1238,8 +1253,9 @@ function parseGLTFAnimations(gltfData, binaryData, nodes) {
   return animations;
 }
 
-async function loadAndParseGLTF(renderer, dir, filename) {
+async function loadAndParseGLTF(gl, dir, filename) {
   let meshesAndMaterials = [];
+  let scene = new Scene();
   try {
     // Fetch the GLTF JSON file
     const url = dir+"/"+filename;
@@ -1261,7 +1277,7 @@ async function loadAndParseGLTF(renderer, dir, filename) {
       }
     }));
 
-    let materials = await parseGLTFMaterials(renderer, gltfData, dir);
+    let materials = await parseGLTFMaterials(gl, gltfData, dir);
 
     const binaryData = binBuffers[0]; // One .bin file for now
     for (const mesh of gltfData.meshes) {
@@ -1282,19 +1298,18 @@ async function loadAndParseGLTF(renderer, dir, filename) {
       meshesAndMaterials.push(data);
     }
     //console.log(meshes);
-    let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
+    let { nodes, rootNodes} = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
     let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
     let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
     for (let skeleton of skins){
-      renderer.addSkeleton(skeleton);
+      scene.addSkeleton(skeleton);
     }
     setSkins(skins, nodes);
     console.log(animations);
-    return rootNodes;
   } catch (error) {
     console.error(error);
   }
-  return [];
+  return scene;
 }
 
 function arrayBufferToBase64(buffer) {
@@ -1335,13 +1350,21 @@ function setDownload(dataString){
 });
 }
 
+async function loadAndParseGLB(gl, url){
+  const glbArrayBuffer = await fetchGLB(url);
+  return parseGLB(gl, glbArrayBuffer)
+}
+
+async function parseGLBFromString(gl, string){
+  const glbArrayBuffer = Base64ToArrayBuffer(string);
+  return parseGLB(gl, glbArrayBuffer);
+}
+
 //https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
-async function loadAndParseGLB(renderer, url) {
+async function parseGLB(gl, glbArrayBuffer) {
   let meshesAndMaterials = [];
+  let scene = new Scene();
   try {
-    const glbArrayBuffer = Base64ToArrayBuffer(dragonModel.data)//await fetchGLB(url);
-    //let dataString = arrayBufferToBase64(glbArrayBuffer);
-    //setDownload(dataString);
     const header = parseGLBHeader(glbArrayBuffer);
     const chunks = parseGLBChunks(glbArrayBuffer);
     
@@ -1366,7 +1389,7 @@ async function loadAndParseGLB(renderer, url) {
     const subsetUint8Array = new Uint8Array(binaryData);
     subsetUint8Array.set(new Uint8Array(fullArrayBuffer, byteOffset, byteLength));
 
-    let materials = await parseGLTFMaterials(renderer, gltfData, "", binaryData);
+    let materials = await parseGLTFMaterials(gl, gltfData, "", binaryData);
     for (const mesh of gltfData.meshes) {
       let data = {mesh: {geometries:[{data:{
           positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
@@ -1385,19 +1408,18 @@ async function loadAndParseGLB(renderer, url) {
       meshesAndMaterials.push(data);
     }
     //console.log(meshes);
-    let { nodes, rootNodes} = parseGLTFNodeHierarchy(renderer, gltfData, meshesAndMaterials);
+    let { nodes, rootNodes} = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
     let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
     let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
     for (let skeleton of skins){
-      renderer.addSkeleton(skeleton);
+      scene.addSkeleton(skeleton);
     }
     setSkins(skins, nodes);
     console.log(animations);
-    return rootNodes;
   } catch (error) {
     console.error(error);
   }
-  return [];
+  return scene;
 }
 
 async function fetchGLB(url) {

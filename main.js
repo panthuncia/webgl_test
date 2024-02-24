@@ -23,17 +23,34 @@ async function main() {
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
-  let nodes = await loadAndParseGLB(renderer, "objects/gltf/dragon.glb");
-  console.log(nodes);
-  nodes[0].transform.setLocalPosition([0, 0, 0]);
+  let tiger = await loadAndParseGLB(renderer.gl, "objects/gltf/tiger2.glb");
+  tiger.sceneRoot.transform.setLocalScale([0.3, 0.3, 0.3]);
+  let scene = await parseGLBFromString(renderer.gl, dragonModel.data);
+  scene.sceneRoot.transform.setLocalScale([20, 20, 20]);
+  console.log(scene);
+  //renderer.currentScene.appendScene(scene);
+  scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
+  renderer.currentScene.appendScene(tiger);
+  tiger.sceneRoot.transform.setLocalPosition([5, 0, 0]);
+  renderer.currentScene.appendScene(tiger);
+  // renderer.currentScene = scene;
+  // let lookAt = vec3.fromValues(0, 0, 0);
+  // let up = vec3.fromValues(0, 1, 0);
+  // let fov = (80 * Math.PI) / 180; // in radians
+  // let aspect = renderer.gl.canvas.clientWidth / renderer.gl.canvas.clientHeight;
+  // let zNear = 0.1;
+  // let zFar = 1000.0;
+  // renderer.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
+
+  //renderer.appendSceneToCurrentScene(scene);
+  //nodes[0].transform.setLocalPosition([0, 0, 0]);
   // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
   // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
   //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
   //nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
   //nodes[0].transform.setLocalScale([5, 5, 5]);
-  //nodes[0].transform.setLocalScale([40, 40, 40]);
-  nodes[0].transform.setLocalScale([100, 100, 100]);
+  //nodes[0].transform.setLocalScale([100, 100, 100]);
   //nodes[0].transform.setLocalScale([400, 400, 400]);
   //renderer.removeObjectByName("Plane.035__0");
 
@@ -53,16 +70,7 @@ async function main() {
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  //renderer.addObject(rock);
-
-  let aTrans = new Transform;
-  aTrans.setLocalPosition([10, 0, 0]);
-  aTrans.setLocalRotationFromEuler([0, Math.PI/4, 0]);
-  let bTrans = new Transform;
-  bTrans.setLocalPosition([0, 5, 0]);
-  let aMat = aTrans.getLocalModelMatrix();
-  bTrans.computeModelMatrixFromParent(aMat);
-
+  //renderer.currentScene.addObject(rock);
 
   let chaikin_iterations = 0;
   lines = {};
@@ -80,7 +88,7 @@ async function main() {
 
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0]*255, light2.color[1]*255, light2.color[2]*255, 255], "light 2 object", true, 40.0);
   light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
-  renderer.addObject(light2Object);
+  //renderer.currentScene.addObject(light2Object);
   light2.addChild(light2Object);
   //light2.addChild(renderer.currentScene.camera);
 
@@ -90,7 +98,7 @@ async function main() {
   let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 100.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  renderer.addLight(light5);
+  renderer.addLightToCurrentScene(light5);
   //renderer.addLight(light6);
 
   //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
@@ -99,7 +107,7 @@ async function main() {
   let light2ScaleObject = new SceneNode();
   light2ScaleObject.transform.setLocalScale([3, 3, 3]);
   light2ScaleObject.transform.setLocalPosition([0, 10, 0]);
-  renderer.addNode(light2ScaleObject);
+  renderer.currentScene.addNode(light2ScaleObject);
   light2ScaleObject.addChild(light2);
 
 

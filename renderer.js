@@ -19,37 +19,14 @@ class WebGLRenderer {
     // gl.cullFace(gl.BACK);
     // gl.frontFace(gl.CCW);
 
+    this.currentScene = new Scene();
     let lookAt = vec3.fromValues(0, 0, 0);
     let up = vec3.fromValues(0, 1, 0);
     let fov = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
     let zFar = 1000.0;
-    let camera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
-    // Scene setup
-    this.currentScene = {
-      nextNodeID: 0,
-      shadowScene: {},
-      lights: {},
-      lightsByName: {},
-      numLights: 0,
-      objects: {},
-      objectsByName: {},
-      skeletons: [],
-      animatedSkeletons: [],
-      //skinning and transparency need to be drawn in batches
-      skinnedOpaqueObjects: {},
-      skinnedTransparentObjects: {},
-      unskinnedOpaqueObjects: {},
-      unskinnedTransparentObjects: {},
-      nodes: {},
-      nodesByName:{},
-      numObjects: 0,
-      sceneRoot: new SceneNode(),
-      camera: camera,
-    };
-    //Should really make a Scene type
-    this.addNode(this.currentScene.camera);
+    this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
@@ -60,7 +37,8 @@ class WebGLRenderer {
     this.SHADOW_CASCADE_DISTANCE = 100;
 
     this.NUM_SHADOW_CASCADES = 4;
-    this.currentScene.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
+    this.shadowScene = {};
+    this.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
 
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
@@ -115,153 +93,6 @@ class WebGLRenderer {
     
     //time, for animations
     this.lastTime = new Date().getTime() / 1000;
-  }
-  
-  // Add a renderable object to the current scene
-  addObject(object) {
-    this.currentScene.numObjects++;
-    object.localID = this.currentScene.nextNodeID;
-    this.currentScene.sceneRoot.addChild(object);
-    this.currentScene.objects[this.currentScene.nextNodeID] = object;
-    this.currentScene.nextNodeID++;
-    if (object.name != null || object.name === ""){
-      if(this.currentScene.objectsByName[object.name] != undefined){
-        console.warn("Renderable object added with identical name to existing object. This will make the old object inaccessable by name.");
-      }
-      this.currentScene.objectsByName[object.name] = object;
-    }
-    if (object.hasSkinned){
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        this.currentScene.skinnedOpaqueObjects[object.localID] = object;
-      } else {
-        this.currentScene.skinnedTransparentObjects[object.localID] = object;
-      }
-    }
-    if (object.hasUnskinned){
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        this.currentScene.unskinnedOpaqueObjects[object.localID] = object;
-      } else {
-        this.currentScene.unskinnedTransparentObjects[object.localID] = object;
-      }
-    }
-    return object.localID;
-  }
-
-  //Like addNode, if node ids need to be pre-assigned
-  createNode(name = null){
-    let node = new SceneNode(name);
-    this.addNode(node);
-    return node;
-  }
-  createRenderableFromData(pointsArray, normalsArray, texcoords, indices = [], color = [128, 128, 128, 255], name = null, skipLighting = false, ambientStrength = 0.01){
-    let renderable = this.createObjectFromData(pointsArray, normalsArray, texcoords, indices, color, name, skipLighting, ambientStrength);
-    this.addObject(renderable);
-    return renderable;
-  }
-  createRenderableObject(data, material, name){
-    let meshes = [];
-    for (const geometry of data.geometries) {
-      let tanbit = null;
-      if (geometry.data.texcoords){
-        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
-      }
-      let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-      meshes.push(new Mesh(this.gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit == null? null : tanbit.tangents, tanbit == null? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
-    }
-    let renderable = new RenderableObject(meshes, material, name);
-    this.addObject(renderable);
-    return renderable;
-  }
-  // Add a plain node to the current scene (useful for offset transforms)
-  addNode(node) {
-    node.localID = this.currentScene.nextNodeID;
-    this.currentScene.sceneRoot.addChild(node);
-    this.currentScene.nodes[this.currentScene.nextNodeID] = node;
-    this.currentScene.nextNodeID++;
-    if (node.name != null || node.name === ""){
-      if(this.currentScene.nodesByName[node.name] != undefined){
-        console.warn("Node added with identical name to existing node. This will make the old node inaccessible by name.");
-      }
-      this.currentScene.nodesByName[node.name] = node;
-    }
-    return node.localID;
-  }
-
-  // Remove a renderable object from the current scene
-  removeObject(objectID) {
-    this.currentScene.numObjects--;
-    let object = this.currentScene.objects[objectID];
-    if (object.parent != null){
-      object.parent.removeChild(objectID);
-    }
-    if (object.name != null){
-      delete this.currentScene.objectsByName[object.name];
-    }
-    if (object.hasSkinned){
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        delete this.currentScene.skinnedOpaqueObjects[object.localID];
-      } else {
-        delete this.currentScene.skinnedTransparentObjects[object.localID];
-      }
-    }
-    if (object.hasUnskinned){
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE){
-        delete this.currentScene.unskinnedOpaqueObjects[object.localID];
-      } else {
-        delete this.currentScene.unskinnedTransparentObjects[object.localID];
-      }
-    }
-    delete this.currentScene.objects[objectID];
-  }
-
-  removeObjectByName(name){
-    this.removeObject(this.currentScene.objectsByName[name].localID);
-  }
-
-  removeNode(nodeID) {
-    let node = this.currentScene.nodes[nodeID];
-    if (node.parent != null){
-      node.parent.removeChild(nodeID);
-    }
-    if (node.name != null){
-      delete this.currentScene.nodesByName[node.name];
-    }
-    delete this.currentScene.nodes[nodeID];
-  }
-
-  // Get an SceneNode of any kind by ID
-  getEntityById(objectID){
-    let object = this.currentScene.objects[objectID];
-    if (object === undefined){
-      object = this.currentScene.lights[objectID];
-    } if (object === undefined) {
-      object = this.currentScene.nodes[objectID];
-    }
-    return  object;
-  }
-
-  // Add a light to the current scene
-  addLight(light) {
-    this.currentScene.numLights++;
-    light.localID = this.currentScene.nextNodeID;
-    this.currentScene.sceneRoot.addChild(light);
-    this.currentScene.lights[this.currentScene.nextNodeID] = light;
-    this.currentScene.nextNodeID++;
-    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
-    this.initLightVectors();
-    
-    if (light.type == LightType.DIRECTIONAL){
-      this.updateCascades();
-    }
-  }
-
-  //adds a skeleton to the scene, so we can update it properly in our update() step
-  addSkeleton(skeleton){
-    this.currentScene.skeletons.push(skeleton);
-    if (skeleton.animations.length>0){
-      skeleton.setAnimation(2);
-      this.currentScene.animatedSkeletons.push(skeleton);
-    }
   }
 
   //Get a variant of the main shaders with a given variant ID
@@ -394,7 +225,7 @@ class WebGLRenderer {
     }
 
     //set constant cascade splits. TODO: Move these to a PerProgram buffer?
-    dataViewSetFloatArray(this.buffers.lightDataView, this.currentScene.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
+    dataViewSetFloatArray(this.buffers.lightDataView, this.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
     console.log("created UBOs");
   }
 
@@ -470,6 +301,20 @@ class WebGLRenderer {
     }
   }
 
+  addLightToCurrentScene(light){
+    this.currentScene.addLight(light);
+    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
+    this.initLightVectors();
+    if (light.type == LightType.DIRECTIONAL){
+      this.updateCascades();
+    }
+  }
+  appendSceneToCurrentScene(scene){
+    this.currentScene.appendScene(scene);
+    this.buffers.lightDataView.setInt32(this.buffers.uniformLocations.lightUniformLocations.u_numLights, this.currentScene.numLights, true);
+    this.initLightVectors();
+    this.updateCascades();
+  }
   // Update the scene graph from root
   updateScene() {
     //update animations
@@ -480,10 +325,12 @@ class WebGLRenderer {
       for (let node of skeleton.nodes){
         node.animationController.update(elapsed);
       }
-      skeleton.updateTransforms();
     }
     //update scene tree
     this.currentScene.sceneRoot.forceUpdate();
+    for(let skeleton of this.currentScene.animatedSkeletons){
+      skeleton.updateTransforms();
+    }
   }
 
   drawSkeletons(){
@@ -570,15 +417,15 @@ class WebGLRenderer {
     //bind shadow maps
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCascades);
     gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowMaps);
     gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
 
     gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCubemaps);
     gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
     let textureUnitAfterShadowMaps = 3;
@@ -619,7 +466,7 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCascades, 1);
+    // drawFullscreenQuad(gl, this.shadowScene.shadowCascades, 1);
     // this.updateCamera();
     // return;
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
@@ -778,7 +625,7 @@ class WebGLRenderer {
     for (let key in this.currentScene.lights) {
       let light = this.currentScene.lights[key];
       if (light.type == LightType.DIRECTIONAL) {
-        light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, light, this.currentScene.camera, this.currentScene.shadowScene.cascadeSplits);
+        light.cascades = setupCascades(this.NUM_SHADOW_CASCADES, light, this.currentScene.camera, this.shadowScene.cascadeSplits);
         for (let cascade of light.cascades){
           let lightSpaceMatrix = mat4.create();
           mat4.multiply(lightSpaceMatrix, cascade.orthoMatrix, cascade.viewMatrix);
