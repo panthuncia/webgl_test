@@ -31,6 +31,7 @@ async function main() {
   //renderer.currentScene.appendScene(scene);
   scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
   renderer.currentScene.appendScene(tiger);
+  tiger.sceneRoot.transform.setLocalPosition([5, 0, 0]);
   renderer.currentScene.appendScene(tiger);
   // renderer.currentScene = scene;
   // let lookAt = vec3.fromValues(0, 0, 0);

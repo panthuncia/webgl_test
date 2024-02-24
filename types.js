@@ -113,6 +113,8 @@ class Transform {
     transform.setLocalPosition(vec3.fromValues(this.pos[0], this.pos[1], this.pos[2]));
     transform.setLocalScale(vec3.fromValues(this.scale[0], this.scale[1], this.scale[2]));
     transform.setLocalRotationFromQuaternion(quat.fromValues(this.rot[0], this.rot[1], this.rot[2], this.rot[3]));
+    transform.modelMatrix = mat4.fromValues(...this.modelMatrix);
+    transform.isDirty = true;
     return transform;
   }
   getLocalModelMatrix() {
@@ -939,7 +941,9 @@ class Scene {
     let newRootNode = new SceneNode();
     for (let key in scene.sceneRoot.children){
       let child = scene.sceneRoot.children[key];
-      newRootNode.addChild(child);
+      let dummyNode = new SceneNode();
+      dummyNode.localID = child.localID;
+      newRootNode.addChild(dummyNode);
     }
     newRootNode.transform = scene.sceneRoot.transform.copy();
     let newRootID = this.addNode(newRootNode);
@@ -964,7 +968,9 @@ class Scene {
       let newObject = new RenderableObject(object.meshes, object.material, object.name);
       for (let key in object.children){
         let child = object.children[key];
-        newObject.addChild(child);
+        let dummyNode = new SceneNode();
+        dummyNode.localID = child.localID;
+        newObject.addChild(dummyNode);
       }
       newObject.transform = object.transform.copy();
       // if(object.hasSkinned){
@@ -980,7 +986,9 @@ class Scene {
       let newNode = new SceneNode();
       for (let key in node.children){
         let child = node.children[key];
-        newNode.addChild(child);
+        let dummyNode = new SceneNode();
+        dummyNode.localID = child.localID;
+        newNode.addChild(dummyNode);
       }
       newNode.transform = node.transform.copy();
       let newID = this.addNode(newNode);
