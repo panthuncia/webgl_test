@@ -108,6 +108,13 @@ class Transform {
     this.isDirty = false;
     this.modelMatrix = mat4.create();
   }
+  copy()  {
+    let transform = new Transform();
+    transform.setLocalPosition(vec3.fromValues(this.pos[0], this.pos[1], this.pos[2]));
+    transform.setLocalScale(vec3.fromValues(this.scale[0], this.scale[1], this.scale[2]));
+    transform.setLocalRotationFromQuaternion(quat.fromValues(this.rot[0], this.rot[1], this.rot[2], this.rot[3]));
+    return transform;
+  }
   getLocalModelMatrix() {
     let matRotation = mat4.create();
     mat4.fromQuat(matRotation, this.rot);
@@ -914,7 +921,7 @@ class Scene {
   addSkeleton(skeleton) {
     this.skeletons.push(skeleton);
     if (skeleton.animations.length > 0) {
-      skeleton.setAnimation(2);
+      skeleton.setAnimation(skeleton.animations.length-1);
       this.animatedSkeletons.push(skeleton);
     }
   }
@@ -923,21 +930,6 @@ class Scene {
     this.addObject(object);
     return object;
   }
-  // this.lights= {};
-  //     this.lightsByName= {};
-  //     this.numLights= 0;
-  //     this.objects= {};
-  //     this.objectsByName= {};
-  //     this.skeletons= [];
-  //     this.animatedSkeletons= [];
-  //     //skinning and transparency need to be drawn in batches
-  //     this.skinnedOpaqueObjects= {};
-  //     this.skinnedTransparentObjects= {};
-  //     this.unskinnedOpaqueObjects= {};
-  //     this.unskinnedTransparentObjects= {};
-  //     this.nodes= {};
-  //     this.nodesByName={};
-  //     this.numObjects= 0;
 
   // Combine two scenes, remapping child IDs
   appendScene(scene) {
@@ -949,7 +941,7 @@ class Scene {
       let child = scene.sceneRoot.children[key];
       newRootNode.addChild(child);
     }
-    newRootNode.transform = scene.sceneRoot.transform;
+    newRootNode.transform = scene.sceneRoot.transform.copy();
     let newRootID = this.addNode(newRootNode);
     idMap[oldRootID] = newRootID;
 
@@ -961,6 +953,7 @@ class Scene {
       let oldID = light.localID;
       let newLight = new Light();
       Object.assign(newLight, light);
+      newLight.transform = light.transform.copy();
       let newID = this.addLight(newLight);
       idMap[oldID] = newID;
       newEntities.push(newLight);
@@ -973,7 +966,7 @@ class Scene {
         let child = object.children[key];
         newObject.addChild(child);
       }
-      newObject.transform = object.transform;
+      newObject.transform = object.transform.copy();
       // if(object.hasSkinned){
       //   newObject.setSkin(object.skeleton)
       // }
@@ -989,7 +982,7 @@ class Scene {
         let child = node.children[key];
         newNode.addChild(child);
       }
-      newNode.transform = node.transform;
+      newNode.transform = node.transform.copy();
       let newID = this.addNode(newNode);
       idMap[oldID] = newID;
       newEntities.push(newNode);
@@ -1010,7 +1003,6 @@ class Scene {
       }
       //remap skeleton & users to their corrected ids
       let idsCopy = [...skeleton.userIDs];
-      skeleton.userIDs = [];
       for (let oldID of idsCopy){
         this.getEntityById(idMap[oldID]).setSkin(newSkeleton);
       }
@@ -1018,10 +1010,9 @@ class Scene {
     }
 
     // Rebuild parent-child mapping
-    let node = newRootNode;
     let oldRootChildren = {}
-    Object.assign(oldRootChildren, node.children);
-    node.children = {};
+    Object.assign(oldRootChildren, newRootNode.children);
+    newRootNode.children = {};
     for (let key in oldRootChildren) {
       if (key in idMap) {
         newRootNode.addChild(this.getEntityById(idMap[key]));

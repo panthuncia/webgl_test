@@ -23,11 +23,15 @@ async function main() {
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
-  //let nodes = await loadAndParseGLB(renderer, "objects/gltf/dragon.glb");
+  let tiger = await loadAndParseGLB(renderer.gl, "objects/gltf/tiger2.glb");
+  tiger.sceneRoot.transform.setLocalScale([0.3, 0.3, 0.3]);
   let scene = await parseGLBFromString(renderer.gl, dragonModel.data);
   scene.sceneRoot.transform.setLocalScale([20, 20, 20]);
   console.log(scene);
-  renderer.currentScene.appendScene(scene);
+  //renderer.currentScene.appendScene(scene);
+  scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
+  renderer.currentScene.appendScene(tiger);
+  renderer.currentScene.appendScene(tiger);
   // renderer.currentScene = scene;
   // let lookAt = vec3.fromValues(0, 0, 0);
   // let up = vec3.fromValues(0, 1, 0);
@@ -65,16 +69,7 @@ async function main() {
   let rock = await (renderer.loadModel(await (loadJson("objects/descriptions/rock_sphere.json"))));
   rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
-  //renderer.addObject(rock);
-
-  let aTrans = new Transform;
-  aTrans.setLocalPosition([10, 0, 0]);
-  aTrans.setLocalRotationFromEuler([0, Math.PI/4, 0]);
-  let bTrans = new Transform;
-  bTrans.setLocalPosition([0, 5, 0]);
-  let aMat = aTrans.getLocalModelMatrix();
-  bTrans.computeModelMatrixFromParent(aMat);
-
+  //renderer.currentScene.addObject(rock);
 
   let chaikin_iterations = 0;
   lines = {};
