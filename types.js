@@ -351,8 +351,8 @@ class Skeleton {
   updateTransforms() {
     for (let i = 0; i < this.nodes.length; i++) {
       if (this.nodes[i].transform.isDirty){
-        //console.warn("Skeleton node wasn't updated!");
-        this.nodes[i].update();
+        console.warn("Skeleton node wasn't updated!");
+        //this.nodes[i].update();
       }
       this.boneTransforms.set(this.nodes[i].transform.modelMatrix, i * 16);
     }
@@ -793,9 +793,9 @@ class Scene {
   addObject(object) {
     this.numObjects++;
     object.localID = this.nextNodeID;
-    if (!object.parent) {
+    //if (!object.parent) {
       this.sceneRoot.addChild(object);
-    }
+    //}
     this.objects[this.nextNodeID] = object;
     this.nextNodeID++;
     if (object.name != null || object.name === "") {
@@ -831,9 +831,9 @@ class Scene {
   // Add a plain node to the current scene (useful for offset transforms)
   addNode(node) {
     node.localID = this.nextNodeID;
-    if (!node.parent) {
+    //if (!node.parent) {
       this.sceneRoot.addChild(node);
-    }
+    //}
     this.nodes[this.nextNodeID] = node;
     this.nextNodeID++;
     if (node.name != null || node.name === "") {
@@ -903,9 +903,9 @@ class Scene {
   addLight(light) {
     this.numLights++;
     light.localID = this.nextNodeID;
-    if (!light.parent) {
+    //if (!light.parent) {
       this.sceneRoot.addChild(light);
-    }
+    //}
     this.lights[this.nextNodeID] = light;
     this.nextNodeID++;
   }
@@ -969,6 +969,10 @@ class Scene {
       let object = scene.objects[key];
       let oldID = object.localID;
       let newObject = new RenderableObject(object.meshes, object.material, object.name);
+      for (let key in object.children){
+        let child = object.children[key];
+        newObject.addChild(child);
+      }
       newObject.transform = object.transform;
       // if(object.hasSkinned){
       //   newObject.setSkin(object.skeleton)
@@ -1015,17 +1019,24 @@ class Scene {
 
     // Rebuild parent-child mapping
     let node = newRootNode;
-    for (let key in node.children) {
+    let oldRootChildren = {}
+    Object.assign(oldRootChildren, node.children);
+    node.children = {};
+    for (let key in oldRootChildren) {
       if (key in idMap) {
         newRootNode.addChild(this.getEntityById(idMap[key]));
-        delete node.children[key];
       }
     }
     for (let entity of newEntities) { 
-      for (let key in entity.children) {
+      let oldChildren = {};
+      Object.assign(oldChildren, entity.children);
+      entity.children = {};
+      for (let key in oldChildren) {
+        if(idMap[key] == 36){
+          console.log("help");
+        }
         if (key in idMap) {
           entity.addChild(this.getEntityById(idMap[key]));
-          delete entity.children[key];
         } else {
           console.error("node missing from id map!");
         }

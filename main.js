@@ -25,7 +25,7 @@ async function main() {
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
   //let nodes = await loadAndParseGLB(renderer, "objects/gltf/dragon.glb");
   let scene = await parseGLBFromString(renderer.gl, dragonModel.data);
-  scene.sceneRoot.transform.setLocalScale([40, 40, 40]);
+  scene.sceneRoot.transform.setLocalScale([20, 20, 20]);
   console.log(scene);
   renderer.currentScene.appendScene(scene);
   // renderer.currentScene = scene;

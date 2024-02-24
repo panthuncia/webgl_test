@@ -971,6 +971,7 @@ function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
         node.transform.setLocalRotationFromQuaternion(gltfNode.rotation);
       }
     }
+    node.templateMarker = true;
     nodes.push(node);
   };
 
