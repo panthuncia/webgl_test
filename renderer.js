@@ -417,15 +417,15 @@ class WebGLRenderer {
     //bind shadow maps
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCascades);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCascades);
     gl.uniform1i(programInfo.uniformLocations.shadowCascades, 0);
 
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowMaps);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowMaps);
     gl.uniform1i(programInfo.uniformLocations.shadowMaps, 1);
 
     gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, currentScene.shadowScene.shadowCubemaps);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCubemaps);
     gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
     let textureUnitAfterShadowMaps = 3;
@@ -466,7 +466,7 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, currentScene.shadowScene.shadowCascades, 1);
+    // drawFullscreenQuad(gl, this.shadowScene.shadowCascades, 1);
     // this.updateCamera();
     // return;
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
