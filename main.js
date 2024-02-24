@@ -24,14 +24,17 @@ async function main() {
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
   let tiger = await loadAndParseGLB(renderer.gl, "objects/gltf/tiger2.glb");
-  tiger.sceneRoot.transform.setLocalScale([0.3, 0.3, 0.3]);
+  let car = await loadAndParseGLB(renderer.gl, "objects/gltf/car2.glb");
+  car.sceneRoot.transform.setLocalPosition([0, 10, 0]);
+
+  tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);
   let scene = await parseGLBFromString(renderer.gl, dragonModel.data);
-  scene.sceneRoot.transform.setLocalScale([20, 20, 20]);
+  scene.sceneRoot.transform.setLocalScale([10, 10, 10]);
   console.log(scene);
-  //renderer.currentScene.appendScene(scene);
+  renderer.currentScene.appendScene(car);
   scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
-  renderer.currentScene.appendScene(tiger);
-  tiger.sceneRoot.transform.setLocalPosition([5, 0, 0]);
+  //renderer.currentScene.appendScene(scene);
+  tiger.sceneRoot.transform.setLocalPosition([0, 10, 0]);
   renderer.currentScene.appendScene(tiger);
   // renderer.currentScene = scene;
   // let lookAt = vec3.fromValues(0, 0, 0);
@@ -54,8 +57,8 @@ async function main() {
   //nodes[0].transform.setLocalScale([400, 400, 400]);
   //renderer.removeObjectByName("Plane.035__0");
 
-  //let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
-  //renderer.addObject(terrain)
+  let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
+  renderer.currentScene.addObject(terrain)
 
   // let tiger = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
   // tiger[0].transform.setLocalPosition([0, 0, 0]);
@@ -95,7 +98,7 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 100.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 20.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0,0,0], [0.5,0.5,0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   renderer.addLightToCurrentScene(light5);

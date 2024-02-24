@@ -923,7 +923,7 @@ class Scene {
   addSkeleton(skeleton) {
     this.skeletons.push(skeleton);
     if (skeleton.animations.length > 0) {
-      skeleton.setAnimation(skeleton.animations.length-1);
+      skeleton.setAnimation(0);
       this.animatedSkeletons.push(skeleton);
     }
   }

@@ -679,29 +679,52 @@
         fragmentColor = vec4(color, opacity);
     }
 </script>
-<script id="shadowVSSource" type="x-shader/x-vertex">#version 300 es
+<script id="shadowVSSource" type="x-shader/x-vertex">
     precision mediump float;
+    #define MAX_BONES 256
     in vec3 a_position;
+    in vec3 a_normal;
+    in vec2 a_texCoord;
+    in vec3 a_baryCoord;
+    //#if defined USE_NORMAL_MAP || defined USE_PARALLAX
+    in vec3 a_tangent;
+    in vec3 a_bitangent;
+    #ifdef SKINNED
+        in uvec4 a_jointIndices;
+        in vec4 a_jointWeights;
+    #endif
     //attribute vec2 a_texCoord;
 
     uniform mat4 u_modelViewMatrix;
     uniform mat4 u_projectionMatrix;
+    #ifdef SKINNED
+        uniform mat4 u_inverseBindMatrices[MAX_BONES];
+        uniform mat4 u_boneTransforms[MAX_BONES];
+    #endif
 
     //varying vec3 v_fragPos;
     //varying vec3 v_texCoord;
 
     void main() {
         // Transform the position into view space
-        vec3 v_fragPos = vec3(u_modelViewMatrix * vec4(a_position, 1.0));
+        vec4 pos = vec4(a_position, 1.0);
 
+        #ifdef SKINNED
+            mat4 skinMatrix = a_jointWeights.x*(u_boneTransforms[a_jointIndices.x]*u_inverseBindMatrices[a_jointIndices.x])+ 
+            a_jointWeights.y*(u_boneTransforms[a_jointIndices.y]*u_inverseBindMatrices[a_jointIndices.y])+ 
+            a_jointWeights.z*(u_boneTransforms[a_jointIndices.z]*u_inverseBindMatrices[a_jointIndices.z])+ 
+            a_jointWeights.w*(u_boneTransforms[a_jointIndices.w]*u_inverseBindMatrices[a_jointIndices.w]); 
+
+            pos =  skinMatrix * pos;
+        #endif
         //pass texcoord to fs
         //v_texCoord = a_texCoord;
 
         // Set the position
-        gl_Position = u_projectionMatrix * vec4(v_fragPos, 1.0);
+        gl_Position = u_projectionMatrix * u_modelViewMatrix * pos;
     }
 </script>
-<script id="shadowFSSource" type="x-shader/x-fragment">#version 300 es
+<script id="shadowFSSource" type="x-shader/x-fragment">
     precision highp float;
     layout(location = 0) out float fragmentdepth;
 
