@@ -1032,9 +1032,6 @@ class Scene {
       Object.assign(oldChildren, entity.children);
       entity.children = {};
       for (let key in oldChildren) {
-        if(idMap[key] == 36){
-          console.log("help");
-        }
         if (key in idMap) {
           entity.addChild(this.getEntityById(idMap[key]));
         } else {
