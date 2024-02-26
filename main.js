@@ -104,14 +104,14 @@ async function main() {
 
   addedActors = {};
   ws.onmessage = function (event) {
-    console.log("Message from server ", event.data);
+    //console.log("Message from server ", event.data);
     let message = JSON.parse(event.data);
 
-    console.log("got command!");
+    //console.log("got command!");
     if (!message.player_id) {
       return;
     }
-    console.log("Parsing command");
+    //console.log("Parsing command");
     if (addedActors[message.player_id] == undefined) {
       let actor = dragon;
       actor.sceneRoot.transform.setLocalPosition([message.location.x, message.location.y, message.location.z]);
