@@ -20,13 +20,15 @@ class WebGLRenderer {
     // gl.frontFace(gl.CCW);
 
     this.currentScene = new Scene();
-    let lookAt = vec3.fromValues(0, 0, 0);
+    let lookAt = vec3.fromValues(0, 0, -1);
     let up = vec3.fromValues(0, 1, 0);
     let fov = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
     let zNear = 0.1;
     let zFar = 1000.0;
     this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
+    this.velocity = {forward: 0, right: 0};
+    this.speed = 0.1;
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
@@ -574,12 +576,30 @@ class WebGLRenderer {
   }
   createCallbacks() {
     // Event listeners
+    document.addEventListener('keydown', (event) => {
+      switch (event.code) {
+        case 'KeyW': this.velocity.forward = 1; break;
+        case 'KeyS': this.velocity.forward = -1; break;
+        case 'KeyA': this.velocity.right = -1; break;
+        case 'KeyD': this.velocity.right = 1; break;
+      }
+    });
+    
+    document.addEventListener('keyup', (event) => {
+      switch (event.code) {
+        case 'KeyW':
+        case 'KeyS': this.velocity.forward = 0; break;
+        case 'KeyA':
+        case 'KeyD': this.velocity.right = 0; break;
+      }
+    });
+    
     this.canvas.onmousedown = (event) => {
       this.mouseDown = true;
       this.lastMouseX = event.clientX;
       this.lastMouseY = event.clientY;
     };
-
+    
     document.onmouseup = (event) => {
       this.mouseDown = false;
     };
@@ -594,15 +614,13 @@ class WebGLRenderer {
       var deltaX = newX - this.lastMouseX;
       var deltaY = newY - this.lastMouseY;
 
-      this.horizontalAngle += deltaX * 0.005; // sensitivity
+      this.horizontalAngle -= deltaX * 0.005; // sensitivity
       this.verticalAngle -= deltaY * 0.005; // sensitivity
-      //console.log(verticalAngle)
-      if (this.verticalAngle < 0.0000001) {
-        this.verticalAngle = 0.0000001;
-      }
-      if (this.verticalAngle > Math.PI) {
-        this.verticalAngle = Math.PI;
-      }
+      const upperBound = Math.PI / 2 - 0.01; // Slightly less than 90 degrees
+      const lowerBound = -Math.PI / 2 + 0.01; // Slightly more than -90 degrees
+
+      // Clamp the vertical angle within the bounds
+      this.verticalAngle = Math.max(lowerBound, Math.min(upperBound, this.verticalAngle));
 
       this.updateCamera();
 
@@ -637,17 +655,28 @@ class WebGLRenderer {
     dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices);
   }
   updateCamera() {
-    // Ensure the vertical angle is within limits
-    this.verticalAngle = Math.max(0, Math.min(Math.PI, this.verticalAngle));
+    //this.verticalAngle = Math.max(0, Math.min(Math.PI, this.verticalAngle));
+    let currentPos = this.currentScene.camera.transform.getGlobalPosition();
+    // Calculate forward vector
+    let forward = [Math.cos(this.verticalAngle) * Math.sin(this.horizontalAngle), Math.sin(this.verticalAngle), Math.cos(this.verticalAngle) * Math.cos(this.horizontalAngle)];
 
-    // Calculate camera position using spherical coordinates
-    var x = this.distanceFromOrigin * Math.sin(this.verticalAngle) * Math.cos(this.horizontalAngle);
-    var y = this.distanceFromOrigin * Math.cos(this.verticalAngle);
-    var z = this.distanceFromOrigin * Math.sin(this.verticalAngle) * Math.sin(this.horizontalAngle);
+    // Calculate right vector
+    var rightX = -Math.sin(this.horizontalAngle + Math.PI / 2);
+    var rightY = 0;
+    var rightZ = -Math.cos(this.horizontalAngle + Math.PI / 2);
 
-    const lookAt = this.currentScene.camera.lookAt;
+    // Update position based on velocity and direction
+    let x = currentPos[0]+(forward[0] * this.velocity.forward + rightX * this.velocity.right) * this.speed;
+    let y = currentPos[1]+(forward[1] * this.velocity.forward + rightY * this.velocity.right) * this.speed;
+    let z = currentPos[2]+(forward[2] * this.velocity.forward + rightZ * this.velocity.right) * this.speed;
 
-    this.currentScene.camera.transform.setLocalPosition([x+lookAt[0], y+lookAt[1], z+lookAt[2]]);
+    // Update lookAt based on new position
+    const lookAtX = x + forward[0];
+    const lookAtY = y + forward[1];
+    const lookAtZ = z + forward[2];
+
+    this.currentScene.camera.transform.setLocalPosition([x, y, z]);
+    this.currentScene.camera.lookAt = vec3.fromValues(lookAtX, lookAtY, lookAtZ);
     //update camera transforms
     this.currentScene.camera.update();
     

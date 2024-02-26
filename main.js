@@ -24,7 +24,7 @@ async function main() {
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
   let tiger = await loadAndParseGLB(renderer.gl, "objects/gltf/tiger2.glb");
-  let car = await loadAndParseGLB(renderer.gl, "objects/gltf/car2.glb");
+  let car = await loadAndParseGLB(renderer.gl, "objects/gltf/car.glb");
   car.sceneRoot.transform.setLocalPosition([0, 10, 0]);
 
   tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);

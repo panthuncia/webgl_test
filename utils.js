@@ -446,7 +446,7 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
     let camPos = camera.transform.getGlobalPosition();
     let center = vec3.fromValues(camPos[0], 0, camPos[2]); //getCascadeCenter(camera.position, calculateForwardVector(camera.position, camera.lookAt), size);
     let viewMatrix = createDirectionalLightViewMatrix(light.getLightDir(), center);
-    let orthoMatrix = getOrthographicProjectionMatrix(size, -200, 200);
+    let orthoMatrix = getOrthographicProjectionMatrix(size, -20, 100);
 
     cascades.push({ size, center, orthoMatrix, viewMatrix });
   }

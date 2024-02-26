@@ -683,12 +683,14 @@
     precision mediump float;
     #define MAX_BONES 256
     in vec3 a_position;
+
+    //TODO: USELESS ATTRIBUTES TO USE THE SAME VAO
     in vec3 a_normal;
     in vec2 a_texCoord;
     in vec3 a_baryCoord;
-    //#if defined USE_NORMAL_MAP || defined USE_PARALLAX
     in vec3 a_tangent;
     in vec3 a_bitangent;
+    //FIX IN JS BEFORE REMOVING
     #ifdef SKINNED
         in uvec4 a_jointIndices;
         in vec4 a_jointWeights;
