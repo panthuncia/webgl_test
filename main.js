@@ -36,26 +36,7 @@ async function main() {
   //renderer.currentScene.appendScene(scene);
   tiger.sceneRoot.transform.setLocalPosition([0, 10, 0]);
   renderer.currentScene.appendScene(tiger);
-  // renderer.currentScene = scene;
-  // let lookAt = vec3.fromValues(0, 0, 0);
-  // let up = vec3.fromValues(0, 1, 0);
-  // let fov = (80 * Math.PI) / 180; // in radians
-  // let aspect = renderer.gl.canvas.clientWidth / renderer.gl.canvas.clientHeight;
-  // let zNear = 0.1;
-  // let zFar = 1000.0;
-  // renderer.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
 
-  //renderer.appendSceneToCurrentScene(scene);
-  //nodes[0].transform.setLocalPosition([0, 0, 0]);
-  // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
-  //nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
-  //nodes[0].transform.setLocalScale([5, 5, 5]);
-  //nodes[0].transform.setLocalScale([100, 100, 100]);
-  //nodes[0].transform.setLocalScale([400, 400, 400]);
-  //renderer.removeObjectByName("Plane.035__0");
 
   let terrain = await renderer.loadModel(await (loadJson("objects/descriptions/ground.json")));
   renderer.currentScene.addObject(terrain)
@@ -113,8 +94,45 @@ async function main() {
   renderer.currentScene.addNode(light2ScaleObject);
   light2ScaleObject.addChild(light2);
 
+  let ws = new WebSocket('ws://localhost:3000');
+  
+  ws.onopen = function() {
+    console.log('WebSocket connection established');
+    // ws.send('Hello Server!');
+  };
 
+  ws.onmessage = function(event) {
+    console.log('Message from server ', event.data);
+    let message = JSON.parse(event.data);
+    if(message.command){
+      switch (message.command){
+        case "addActor":
+          let pos = message.initialPosition;
+          let actor = parseGLBFromString(renderer.gl, dragonModel.data).then((result) => {
+            result.sceneRoot.transform.setLocalPosition(pos);
+            result.sceneRoot.transform.setLocalScale([10, 10, 10]);
+            renderer.currentScene.appendScene(result);
+            console.log("added actor");
+          })
+          .catch((error) => {
+            console.error(error);
+          });;
+          break;
+      }
+    }
+    // update renderer with the received data
+  };
 
+  setInterval(() => {
+    const rot = renderer.currentScene.camera.transform.rot;
+    const pos = renderer.currentScene.camera.transform.getGlobalPosition();
+    const message = {
+        command: "updatePosition",
+        position: {x: pos[0], y: pos[1], z: pos[2]},
+        rotation: {x: rot[0], y: rot[1], z: rot[2], w: rot[3]},
+    };
+    ws.send(JSON.stringify(message));
+  }, 1000);
 
   document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'm') {
@@ -124,7 +142,6 @@ async function main() {
   
   await createDebugQuad(renderer.gl);
   async function drawScene() {
-    
     renderer.drawScene();
     requestAnimationFrame(drawScene);
   }
