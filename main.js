@@ -39,6 +39,8 @@ async function main() {
   let terrain = await renderer.loadModel(await loadJson("objects/descriptions/ground.json"));
   renderer.currentScene.addObject(terrain);
 
+  let dragon = await parseGLBFromString(renderer.gl, dragonModel.data);
+
   // let tiger = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
   // tiger[0].transform.setLocalPosition([0, 0, 0]);
   // tiger[0].transform.setLocalScale([0.5, 0.5, 0.5]);
@@ -110,21 +112,13 @@ async function main() {
       return;
     }
     console.log("Parsing command");
-    if (!message.player_id in addedActors) {
-      let actor = parseGLBFromString(renderer.gl, dragonModel.data)
-        .then((result) => {
-          if(message.player_id in addedActors){
-            return;
-          }
-          result.sceneRoot.transform.setLocalPosition([message.location.x, message.location.y, message.location.z]);
-          result.sceneRoot.transform.setLocalScale([10, 10, 10]);
-          renderer.currentScene.appendScene(result);
-          addedActors[message.player_id] = result;
-          console.log("added actor");
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+    if (addedActors[message.player_id] == undefined) {
+      let actor = dragon;
+      actor.sceneRoot.transform.setLocalPosition([message.location.x, message.location.y, message.location.z]);
+      actor.sceneRoot.transform.setLocalScale([10, 10, 10]);
+      let copy = renderer.currentScene.appendScene(actor);
+      addedActors[message.player_id] = copy;
+      console.log("added actor");
     }
     else {
       addedActors[message.player_id].transform.setLocalPosition([message.location.x, message.location.y, message.location.z]);
@@ -141,7 +135,7 @@ async function main() {
       rotation: { x: rot[0], y: rot[1], z: rot[2], w: rot[3] },
     };
     ws.send(JSON.stringify(message));
-  }, 1000);
+  }, 10);
 
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "m") {
