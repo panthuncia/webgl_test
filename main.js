@@ -37,6 +37,7 @@ async function main() {
   renderer.currentScene.appendScene(tiger);
 
   let terrain = await renderer.loadModel(await loadJson("objects/descriptions/ground.json"));
+  terrain.transform.setLocalPosition([0, -5, 0]);
   renderer.currentScene.addObject(terrain);
 
   let dragon = await parseGLBFromString(renderer.gl, dragonModel.data);
@@ -122,6 +123,7 @@ async function main() {
     }
     else {
       addedActors[message.player_id].transform.setLocalPosition([message.location.x, message.location.y, message.location.z]);
+      addedActors[message.player_id].transform.setLocalRotationFromQuaternion([message.rotation.x, message.rotation.y, message.rotation.z, message.rotation.w]);
     }
   };
   // update renderer with the received data

@@ -676,6 +676,7 @@ class WebGLRenderer {
     const lookAtZ = z + forward[2];
 
     this.currentScene.camera.transform.setLocalPosition([x, y, z]);
+    this.currentScene.camera.transform.setLocalRotationFromEuler([this.verticalAngle, 0, this.horizontalAngle]); //not actually used for anything yet
     this.currentScene.camera.lookAt = vec3.fromValues(lookAtX, lookAtY, lookAtZ);
     //update camera transforms
     this.currentScene.camera.update();
