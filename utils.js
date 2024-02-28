@@ -1150,17 +1150,17 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
           metallicRoughness = defaultTexture;
         }
       }
-      if (gltfMaterial.pbrMetallicRoughness.metallicFactor) {
+      if (gltfMaterial.pbrMetallicRoughness.metallicFactor != undefined) {
         metallicFactor = gltfMaterial.pbrMetallicRoughness.metallicFactor;
       } else {
         metallicFactor = 1.0;
       }
-      if (gltfMaterial.pbrMetallicRoughness.roughnessFactor) {
+      if (gltfMaterial.pbrMetallicRoughness.roughnessFactor != undefined) {
         roughnessFactor = gltfMaterial.pbrMetallicRoughness.roughnessFactor;
       } else {
         roughnessFactor = 1.0;
       }
-      if (gltfMaterial.pbrMetallicRoughness.baseColorFactor) {
+      if (gltfMaterial.pbrMetallicRoughness.baseColorFactor != undefined) {
         baseColorFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
       } else {
         baseColorFactor = [1, 1, 1, 1];
@@ -1192,7 +1192,7 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
         emissiveTexture = defaultTexture;
       }
     }
-    if (gltfMaterial.emissiveFactor) {
+    if (gltfMaterial.emissiveFactor != undefined) {
       emissiveFactor = [...gltfMaterial.emissiveFactor, 1];
     }
 
