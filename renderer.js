@@ -41,6 +41,8 @@ class WebGLRenderer {
     this.NUM_SHADOW_CASCADES = 4;
     this.shadowScene = {};
     this.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
+    //for debug drawing
+    this.showShadowBuffer = false;
 
     this.MAX_DIRECTIONAL_LIGHTS = 2;
     this.MAX_SPOT_LIGHTS = 5;
@@ -388,33 +390,21 @@ class WebGLRenderer {
   drawObject(object, skinned, wireframe){
     const gl = this.gl;
     const currentScene = this.currentScene;
-    //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
-    let currentShaderVariant = object.material.shaderVariant;
-    if(wireframe){
-      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
-    }
-    if (skinned == true){
-      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
-    }
-    if (!this.shaderProgramVariants[currentShaderVariant]) {
-      this.createProgramVariants([currentShaderVariant]);
-    }
-    const programInfo = this.shaderProgramVariants[currentShaderVariant];
-    gl.useProgram(programInfo.program);
+
+    let currentShaderVariant = object.meshes[0].material.shaderVariant;
+      if(wireframe){
+        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+      }
+      if (skinned == true){
+        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
+      }
+      if (!this.shaderProgramVariants[currentShaderVariant]) {
+        this.createProgramVariants([currentShaderVariant]);
+      }
+      let programInfo = this.shaderProgramVariants[currentShaderVariant];
+      gl.useProgram(programInfo.program);
 
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
-
-
-    this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, object.material.ambientStrength, true);
-    this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, object.material.specularStrength, true);
-    dataViewSetVec4(this.buffers.perMaterialDataView, object.material.emissiveFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_emissiveFactor);
-    this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, object.material.textureScale, true);
-    this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_metallicFactor, object.material.metallicFactor, true);
-    this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_roughnessFactor, object.material.roughnessFactor, true);
-    dataViewSetVec4(this.buffers.perMaterialDataView, object.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor)
-
-    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
 
     //bind shadow maps
 
@@ -446,11 +436,39 @@ class WebGLRenderer {
     }
 
     let textureUnit = textureUnitAfterShadowMaps;
-    object.bindTextures(gl, textureUnit, programInfo);
 
     let i = 0;
     for (const mesh of object.meshes) {
-      //vertices
+      
+      //compile shaders on first occurence of variant, shortens startup at cost of some stutter on object load
+      let currentShaderVariant = mesh.material.shaderVariant;
+      if(wireframe){
+        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+      }
+      if (skinned == true){
+        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
+      }
+      if (!this.shaderProgramVariants[currentShaderVariant]) {
+        this.createProgramVariants([currentShaderVariant]);
+      }
+      programInfo = this.shaderProgramVariants[currentShaderVariant];
+      gl.useProgram(programInfo.program);
+
+      mesh.bindTextures(gl, textureUnit, programInfo);
+
+      // Update material TODO: batch rendering
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, mesh.material.ambientStrength, true);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_specularStrength, mesh.material.specularStrength, true);
+      dataViewSetVec4(this.buffers.perMaterialDataView, mesh.material.emissiveFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_emissiveFactor);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, mesh.material.textureScale, true);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_metallicFactor, mesh.material.metallicFactor, true);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_roughnessFactor, mesh.material.roughnessFactor, true);
+      dataViewSetVec4(this.buffers.perMaterialDataView, mesh.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor)
+  
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
+      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
+
+      // Vertices
       gl.bindVertexArray(mesh.vao);
       mesh.draw(gl);
       gl.bindVertexArray(null);
@@ -468,9 +486,11 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
-    // drawFullscreenQuad(gl, this.shadowScene.shadowCascades, 1);
-    // this.updateCamera();
-    // return;
+    if (this.showShadowBuffer){
+      drawFullscreenQuad(gl, this.shadowScene.shadowCascades, 1);
+      this.updateCamera();
+      return;
+    }
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perFrameBufferData);
 
@@ -665,22 +685,33 @@ class WebGLRenderer {
     var rightY = 0;
     var rightZ = -Math.cos(this.horizontalAngle + Math.PI / 2);
 
-    // Update position based on velocity and direction
-    let x = currentPos[0]+(forward[0] * this.velocity.forward + rightX * this.velocity.right) * this.speed;
-    let y = currentPos[1]+(forward[1] * this.velocity.forward + rightY * this.velocity.right) * this.speed;
-    let z = currentPos[2]+(forward[2] * this.velocity.forward + rightZ * this.velocity.right) * this.speed;
+    let moveX = forward[0] * this.velocity.forward + rightX * this.velocity.right;
+    let moveY = forward[1] * this.velocity.forward + rightY * this.velocity.right;
+    let moveZ = forward[2] * this.velocity.forward + rightZ * this.velocity.right;
 
-    // Update lookAt based on new position
+    let magnitude = Math.sqrt(moveX * moveX + moveY * moveY + moveZ * moveZ);
+
+    // Normalize the movement vector
+    if (magnitude !== 0) {
+        moveX /= magnitude;
+        moveY /= magnitude;
+        moveZ /= magnitude;
+    }
+
+    let x = currentPos[0]+moveX * this.speed;
+    let y = currentPos[1]+moveY * this.speed;
+    let z = currentPos[2]+moveZ * this.speed;
+
     const lookAtX = x + forward[0];
     const lookAtY = y + forward[1];
     const lookAtZ = z + forward[2];
 
     this.currentScene.camera.transform.setLocalPosition([x, y, z]);
     this.currentScene.camera.lookAt = vec3.fromValues(lookAtX, lookAtY, lookAtZ);
-    //update camera transforms
+    // Update camera transforms
     this.currentScene.camera.update();
     
-    //Update data view
+    // Update data view
     dataViewSetVec4(this.buffers.perFrameDataView, this.currentScene.camera.transform.getGlobalPosition(), this.buffers.uniformLocations.perFrameUniformLocations.u_camPosWorldSpace);
 
     // Update shadow cascades after camera moves
@@ -766,22 +797,7 @@ class WebGLRenderer {
     }
     return updateRenderable(this.gl, object, objectData, shaderVariant, normalsArray, texcoords, texture, normal, aoMap, heightMap, metallic, roughness, opacity, textureScale = 1.0)
   }
-  setObjectMesh(object, pointsArray, normalsArray, texcoords,){
-    const gl = this.gl;
-    let data = {
-      geometries: [{data: {position: pointsArray, normal: normalsArray, texcoord: texcoords }}]
-    }
-    meshes = [];
-    for (const geometry of data.geometries) {
-      let tanbit = null;
-      if (geometry.data.texcoords){
-        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
-      }
-      let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-      meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords,tanbit == null? null :  tanbit.tangents,tanbit == null? null :  tanbit.bitangents));
-    }
-    object.setMeshes(meshes);
-  }
+
   // Load model from custom JSON format
   async loadModel(modelDescription, name = null) {
     const gl = this.gl;
@@ -889,20 +905,10 @@ class WebGLRenderer {
     console.log("Max fragment uniform blocks: " + this.gl.getParameter(this.gl.MAX_FRAGMENT_UNIFORM_BLOCKS));
     console.log("Max uniform block size: " + this.gl.getParameter(this.gl.MAX_UNIFORM_BLOCK_SIZE));
   }
-  // Broken
-  moveCameraForward(dist){
-    let dir = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
-    let move = vec3.create();
-    vec3.scale(move, dir, dist);
-    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
-    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
+  createSkySphere(){
+    this.skySphereObject = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [], "Sky Sphere", true, 40.0);
   }
-  moveCameraRight(dist){
-    let forward = calculateForwardVector(this.currentScene.camera.position, this.currentScene.camera.lookAt);
-    let move = vec3.create();
-    vec3.cross(move, forward, this.currentScene.camera.up);
-    vec3.scale(move, move, dist);
-    vec3.add(this.currentScene.camera.lookAt, this.currentScene.camera.lookAt, move);
-    //vec3.add(this.currentScene.camera.position, this.currentScene.camera.position, move);
+  drawSkySphere(){
+
   }
 }

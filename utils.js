@@ -221,62 +221,61 @@ async function getObj(filename) {
     });
 }
 
-function padArray(array, value, amount){
-  for(let i=0; i<amount; i++){
+function padArray(array, value, amount) {
+  for (let i = 0; i < amount; i++) {
     array.push(value);
   }
 }
 
 //create an array of barycentric coordinates
-function getBarycentricCoordinates(length){
+function getBarycentricCoordinates(length) {
   let choices = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   let coords = [];
-  for (let i=0; i<length/3; i++){
-    for(let num of choices){
+  for (let i = 0; i < length / 3; i++) {
+    for (let num of choices) {
       coords.push(num);
     }
   }
   return coords;
 }
 
-function createRenderableObject(gl, data, material, name){
+function createRenderableObject(gl, data, material, name) {
   let meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = null;
-    if (geometry.data.texcoords){
+    if (geometry.data.texcoords) {
       tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
     }
     let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit == null? null : tanbit.tangents, tanbit == null? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
+    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit == null ? null : tanbit.tangents, tanbit == null ? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
   }
-  let renderable = new RenderableObject(meshes, material, name);
+  let renderable = new RenderableObject(meshes, name);
   return renderable;
 }
 
 //Calculate tangents, bitangents (for tangent-space operations such as normal mapping & parallax), barycentric coordinates (for wireframe), and pad arrays if necessary
-function prepareObjectData(gl, data){
+function prepareObjectData(gl, data) {
   meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
     let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
-    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
+    meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
   }
-  return {meshes}
+  return { meshes };
 }
 
-
 //create a renderable object from data
-function createRenderable(gl, name, data, material) {
+function createRenderable(gl, name, data) {
   newData = prepareObjectData(gl, data);
-  return new RenderableObject(newData.meshes, material, name);
+  return new RenderableObject(newData.meshes, name);
 }
 
 //update the data associated with a renderable object
-function updateRenderable(gl, renderable, data, texture = null, normal = null, aoMap = null, heightMap = null, metallic = null, roughness = null, opacity = null, textureScale = 1.0) {
-  newData = prepareObjectData(gl, data);
-  let material = new Material(texture, normal, false, aoMap, heightMap, metallic, roughness, false, opacity, 1.0);
-  renderable.setData(newData.meshes, material);
-}
+// function updateRenderable(gl, renderable, data, texture = null, normal = null, aoMap = null, heightMap = null, metallic = null, roughness = null, opacity = null, textureScale = 1.0) {
+//   newData = prepareObjectData(gl, data);
+//   let material = new Material(texture, normal, false, aoMap, heightMap, metallic, roughness, false, opacity, 1.0);
+//   renderable.setData(newData.meshes, material);
+// }
 
 async function loadTexture(url) {
   //Web environments suck I want to use C++/Vulkan
@@ -500,8 +499,8 @@ function dataViewSetMatrix(dataView, matrix, baseOffset) {
 // Helper method for data view
 function dataViewSetMatrixArray(dataView, matrices, baseOffset) {
   for (let i = 0; i < matrices.length; i++) {
-    currentMatrixOffset = i*64;
-    let matrix = matrices[i]
+    currentMatrixOffset = i * 64;
+    let matrix = matrices[i];
     for (let j = 0; j < 16; j++) {
       let offset = baseOffset + currentMatrixOffset + j * 4;
       dataView.setFloat32(offset, matrix[j], true);
@@ -532,12 +531,12 @@ function dataViewSetVec4(dataView, floatArray, baseOffset) {
 // Calculate u, v texcoord of a given position on a sphere
 function calculateUV(a) {
   let theta = Math.atan2(a[1], a[0]);
-  const phi = Math.acos(a[2]/Math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2]))
-  if (theta<0){
-    theta +=2*Math.PI;
+  const phi = Math.acos(a[2] / Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]));
+  if (theta < 0) {
+    theta += 2 * Math.PI;
   }
-  const u = theta/ (2*Math.PI);
-  const v = phi/Math.PI;
+  const u = theta / (2 * Math.PI);
+  const v = phi / Math.PI;
   return [u, v];
 }
 
@@ -547,10 +546,10 @@ function calculateFaceNormal(vertices) {
   let normal = vec3.create();
 
   for (let i = 0; i < 3; i++) {
-      const currentVertex = vertices[i];
-      const nextVertex = vertices[(i + 1) % 3];
+    const currentVertex = vertices[i];
+    const nextVertex = vertices[(i + 1) % 3];
 
-      vec3.add(normal, normal, vec3.cross(vec3.create(), currentVertex, nextVertex));
+    vec3.add(normal, normal, vec3.cross(vec3.create(), currentVertex, nextVertex));
   }
 
   vec3.normalize(normal, normal);
@@ -558,12 +557,11 @@ function calculateFaceNormal(vertices) {
 }
 
 function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMethod) {
-
   pointsArray.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
-  
+
   normal = calculateFaceNormal([a, b, c]);
 
-  if (newellMethod){
+  if (newellMethod) {
     normalsArray.push(normal[0], normal[1], normal[2]);
     normalsArray.push(normal[0], normal[1], normal[2]);
     normalsArray.push(normal[0], normal[1], normal[2]);
@@ -579,82 +577,78 @@ function triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMeth
   texCoordsArray.push(aUV[0], aUV[1], bUV[0], bUV[1], cUV[0], cUV[1]);
 }
 
-function dot( u, v )
-{
-    if ( u.length != v.length ) {
-        throw "dot(): vectors are not the same dimension";
-    }
+function dot(u, v) {
+  if (u.length != v.length) {
+    throw "dot(): vectors are not the same dimension";
+  }
 
-    var sum = 0.0;
-    for ( var i = 0; i < u.length; ++i ) {
-        sum += u[i] * v[i];
-    }
+  var sum = 0.0;
+  for (var i = 0; i < u.length; ++i) {
+    sum += u[i] * v[i];
+  }
 
-    return sum;
+  return sum;
 }
 
-function length( u )
-{
-    return Math.sqrt( dot(u, u) );
+function length(u) {
+  return Math.sqrt(dot(u, u));
 }
 
-function normalize( u, excludeLastComponent )
-{
-    if ( excludeLastComponent ) {
-        var last = u.pop();
-    }
+function normalize(u, excludeLastComponent) {
+  if (excludeLastComponent) {
+    var last = u.pop();
+  }
 
-    var len = length( u );
+  var len = length(u);
 
-    if ( !isFinite(len) ) {
-        throw "normalize: vector " + u + " has zero length";
-    }
+  if (!isFinite(len)) {
+    throw "normalize: vector " + u + " has zero length";
+  }
 
-    for ( var i = 0; i < u.length; ++i ) {
-        u[i] /= len;
-    }
+  for (var i = 0; i < u.length; ++i) {
+    u[i] /= len;
+  }
 
-    if ( excludeLastComponent ) {
-        u.push( last );
-    }
+  if (excludeLastComponent) {
+    u.push(last);
+  }
 
-    return u;
+  return u;
 }
 
-function mix( u, v, s )
-{
-    if ( typeof s !== "number" ) {
-        throw "mix: the last paramter " + s + " must be a number";
-    }
+function mix(u, v, s) {
+  if (typeof s !== "number") {
+    throw "mix: the last paramter " + s + " must be a number";
+  }
 
-    if ( u.length != v.length ) {
-        throw "vector dimension mismatch";
-    }
+  if (u.length != v.length) {
+    throw "vector dimension mismatch";
+  }
 
-    var result = [];
-    for ( var i = 0; i < u.length; ++i ) {
-        result.push( (1.0 - s) * u[i] + s * v[i] );
-    }
+  var result = [];
+  for (var i = 0; i < u.length; ++i) {
+    result.push((1.0 - s) * u[i] + s * v[i]);
+  }
 
-    return result;
+  return result;
 }
 
 function divideTriangle(a, b, c, count, pointsArray, normalsArray, texCoordsArray, newellMethod) {
   if (count > 0) {
-      var ab = mix(a, b, 0.5);
-      var ac = mix(a, c, 0.5);
-      var bc = mix(b, c, 0.5);
+    var ab = mix(a, b, 0.5);
+    var ac = mix(a, c, 0.5);
+    var bc = mix(b, c, 0.5);
 
-      ab = normalize(ab, true);
-      ac = normalize(ac, true);
-      bc = normalize(bc, true);
+    ab = normalize(ab, true);
+    ac = normalize(ac, true);
+    bc = normalize(bc, true);
 
-      divideTriangle(a, ab, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
-      divideTriangle(ab, b, bc, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
-      divideTriangle(ac, bc, c, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
-      divideTriangle(ab, bc, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+    divideTriangle(a, ab, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+    divideTriangle(ab, b, bc, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+    divideTriangle(ac, bc, c, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
+    divideTriangle(ab, bc, ac, count - 1, pointsArray, normalsArray, texCoordsArray, newellMethod);
   } else {
-      triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMethod);
+    triangle(a, b, c, pointsArray, normalsArray, texCoordsArray, newellMethod);
   }
 }
 
@@ -667,7 +661,7 @@ function tetrahedron(a, b, c, d, n, newellMethod) {
   divideTriangle(a, d, b, n, pointsArray, normalsArray, texCoordArray, newellMethod);
   divideTriangle(a, c, d, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  return {pointsArray, normalsArray, texCoordArray};
+  return { pointsArray, normalsArray, texCoordArray };
 }
 
 // Generate subdivision surface from cube vertices
@@ -692,9 +686,9 @@ function cube(a, b, c, d, e, f, g, h, n, newellMethod) {
   divideTriangle(b, g, c, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
   divideTriangle(d, h, e, n, pointsArray, normalsArray, texCoordArray, newellMethod);
-  divideTriangle(a, d, e, n, pointsArray, normalsArray, texCoordArray, newellMethod); 
+  divideTriangle(a, d, e, n, pointsArray, normalsArray, texCoordArray, newellMethod);
 
-  return {pointsArray, normalsArray, texCoordArray};
+  return { pointsArray, normalsArray, texCoordArray };
 }
 
 // Linear interpolation on a transform object
@@ -719,43 +713,42 @@ function positionFromMatrix(matrix) {
   return position;
 }
 
-function lerpVec3(posA, posB, t){
+function lerpVec3(posA, posB, t) {
   let newPos = vec3.create();
   vec3.lerp(newPos, posA, posB, t);
   return newPos;
 }
 
-function lerpRotation(quatA, quatB, t){
+function lerpRotation(quatA, quatB, t) {
   let newRot = quat.create();
   quat.slerp(newRot, quatA, quatB, t);
   return newRot;
 }
 // Create line arrays from array of positions
-function linesFromPositions(positions){
+function linesFromPositions(positions) {
   let lines = [];
-  for(let i=0; i<positions.length-1; i++){
-    lines.push(positions[i][0], positions[i][1], positions[i][2], positions[i+1][0], positions[i+1][1], positions[i+1][2]);
+  for (let i = 0; i < positions.length - 1; i++) {
+    lines.push(positions[i][0], positions[i][1], positions[i][2], positions[i + 1][0], positions[i + 1][1], positions[i + 1][2]);
   }
   return lines;
 }
 
 // Perform chaikin subdivision
 function chaikin(vertices, iterations) {
-
   if (iterations === 0) {
-      return vertices;
+    return vertices;
   }
 
   var newVertices = [];
 
-  for(var i = 0; i < vertices.length - 1; i++) {
-      var v0 = vertices[i];
-      var v1 = vertices[i + 1];
+  for (var i = 0; i < vertices.length - 1; i++) {
+    var v0 = vertices[i];
+    var v1 = vertices[i + 1];
 
-      var p0 = mix(v0, v1, 0.25);
-      var p1 = mix(v0, v1, 0.75);
+    var p0 = mix(v0, v1, 0.25);
+    var p1 = mix(v0, v1, 0.75);
 
-      newVertices.push(p0, p1);
+    newVertices.push(p0, p1);
   }
   return chaikin(newVertices, iterations - 1);
 }
@@ -769,57 +762,58 @@ function generateStrongColor() {
   const strongComponentIndex = Math.floor(Math.random() * 3);
   const strongComponentIndex2 = Math.floor(Math.random() * 2);
 
-
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
   switch (strongComponentIndex) {
     case 0:
-      switch( strongComponentIndex2){
+      switch (strongComponentIndex2) {
         case 0:
-        r = 200 + Math.floor(Math.random() * 56);
-        g = Math.floor(Math.random() * 100);
-        b = Math.floor(Math.random() * 10);
+          r = 200 + Math.floor(Math.random() * 56);
+          g = Math.floor(Math.random() * 100);
+          b = Math.floor(Math.random() * 10);
+          break;
+        case 1:
+        case 0:
+          r = 200 + Math.floor(Math.random() * 56);
+          g = Math.floor(Math.random() * 10);
+          b = Math.floor(Math.random() * 100);
+          break;
+      }
       break;
-      case 1:
-        case 0:
-        r = 200 + Math.floor(Math.random() * 56);
-        g = Math.floor(Math.random() * 10);
-        b = Math.floor(Math.random() * 100);
-        break;
-    }
-    break;
     case 1:
-      switch( strongComponentIndex2){
+      switch (strongComponentIndex2) {
         case 0:
-        r = Math.floor(Math.random() * 100);
-        g = 200 + Math.floor(Math.random() * 56);
-        b = Math.floor(Math.random() * 10);
+          r = Math.floor(Math.random() * 100);
+          g = 200 + Math.floor(Math.random() * 56);
+          b = Math.floor(Math.random() * 10);
+          break;
+        case 1:
+        case 0:
+          r = Math.floor(Math.random() * 10);
+          g = 200 + Math.floor(Math.random() * 56);
+          b = Math.floor(Math.random() * 100);
+          break;
+      }
       break;
-      case 1:
-        case 0:
-        r = Math.floor(Math.random() * 10);
-        g = 200 + Math.floor(Math.random() * 56);
-        b = Math.floor(Math.random() * 100);
-        break;
-    }
-    break;
     case 2:
-      switch( strongComponentIndex2){
+      switch (strongComponentIndex2) {
         case 0:
-        r = Math.floor(Math.random() * 100);
-        g = Math.floor(Math.random() * 10);
-        b = 200 + Math.floor(Math.random() * 56);
+          r = Math.floor(Math.random() * 100);
+          g = Math.floor(Math.random() * 10);
+          b = 200 + Math.floor(Math.random() * 56);
+          break;
+        case 1:
+        case 0:
+          r = Math.floor(Math.random() * 10);
+          g = Math.floor(Math.random() * 100);
+          b = 200 + Math.floor(Math.random() * 56);
+          break;
+      }
       break;
-      case 1:
-        case 0:
-        r = Math.floor(Math.random() * 10);
-        g = Math.floor(Math.random() * 100);
-        b = 200 + Math.floor(Math.random() * 56);
-        break;
-    }
-    break;
   }
 
-  return {r, g, b};
+  return { r, g, b };
 }
 
 function extractDataFromBuffer(binaryData, accessorData) {
@@ -830,11 +824,11 @@ function extractDataFromBuffer(binaryData, accessorData) {
   const byteStride = bufferView.byteStride ? bufferView.byteStride : numComponents * bytesPerComponent(accessor.componentType);
 
   let effectiveByteOffset = bufferView.byteOffset;
-  if (effectiveByteOffset == undefined){
+  if (effectiveByteOffset == undefined) {
     effectiveByteOffset = 0;
   }
-  if (accessor.byteOffset != undefined){ 
-   effectiveByteOffset += accessor.byteOffset;
+  if (accessor.byteOffset != undefined) {
+    effectiveByteOffset += accessor.byteOffset;
   }
 
   let typedArray;
@@ -862,64 +856,106 @@ function extractDataFromBuffer(binaryData, accessorData) {
 
 function bytesPerComponent(componentType) {
   switch (componentType) {
-    case 5120: return 1; // BYTE
-    case 5121: return 1; // UNSIGNED_BYTE
-    case 5122: return 2; // SHORT
-    case 5123: return 2; // UNSIGNED_SHORT
-    case 5125: return 4; // UNSIGNED_INT
-    case 5126: return 4; // FLOAT
-    default: throw new Error("Unsupported component type");
+    case 5120:
+      return 1; // BYTE
+    case 5121:
+      return 1; // UNSIGNED_BYTE
+    case 5122:
+      return 2; // SHORT
+    case 5123:
+      return 2; // UNSIGNED_SHORT
+    case 5125:
+      return 4; // UNSIGNED_INT
+    case 5126:
+      return 4; // FLOAT
+    default:
+      throw new Error("Unsupported component type");
   }
 }
 
 function createTypedArray(componentType, buffer, byteOffset, length) {
   switch (componentType) {
-    case 5120: return new Int8Array(buffer, byteOffset, length);
-    case 5121: return new Uint8Array(buffer, byteOffset, length);
-    case 5122: return new Int16Array(buffer, byteOffset, length);
-    case 5123: return new Uint16Array(buffer, byteOffset, length);
-    case 5125: return new Uint32Array(buffer, byteOffset, length);
-    case 5126: return new Float32Array(buffer, byteOffset, length);
-    default: throw new Error("Unsupported component type");
+    case 5120:
+      return new Int8Array(buffer, byteOffset, length);
+    case 5121:
+      return new Uint8Array(buffer, byteOffset, length);
+    case 5122:
+      return new Int16Array(buffer, byteOffset, length);
+    case 5123:
+      return new Uint16Array(buffer, byteOffset, length);
+    case 5125:
+      return new Uint32Array(buffer, byteOffset, length);
+    case 5126:
+      return new Float32Array(buffer, byteOffset, length);
+    default:
+      throw new Error("Unsupported component type");
   }
 }
 
 function readComponent(buffer, componentType, byteOffset) {
   const dataView = new DataView(buffer);
   switch (componentType) {
-    case 5120: return dataView.getInt8(byteOffset);
-    case 5121: return dataView.getUint8(byteOffset);
-    case 5122: return dataView.getInt16(byteOffset, true);
-    case 5123: return dataView.getUint16(byteOffset, true);
-    case 5125: return dataView.getUint32(byteOffset, true);
-    case 5126: return dataView.getFloat32(byteOffset, true);
-    default: throw new Error("Unsupported component type");
+    case 5120:
+      return dataView.getInt8(byteOffset);
+    case 5121:
+      return dataView.getUint8(byteOffset);
+    case 5122:
+      return dataView.getInt16(byteOffset, true);
+    case 5123:
+      return dataView.getUint16(byteOffset, true);
+    case 5125:
+      return dataView.getUint32(byteOffset, true);
+    case 5126:
+      return dataView.getFloat32(byteOffset, true);
+    default:
+      throw new Error("Unsupported component type");
   }
 }
 
 function writeComponent(dataView, componentType, index, value) {
   const byteOffset = index * bytesPerComponent(componentType);
   switch (componentType) {
-    case 5120: dataView.setInt8(byteOffset, value); break;
-    case 5121: dataView.setUint8(byteOffset, value); break;
-    case 5122: dataView.setInt16(byteOffset, value, true); break;
-    case 5123: dataView.setUint16(byteOffset, value, true); break;
-    case 5125: dataView.setUint32(byteOffset, value, true); break;
-    case 5126: dataView.setFloat32(byteOffset, value, true); break;
-    default: throw new Error("Unsupported component type");
+    case 5120:
+      dataView.setInt8(byteOffset, value);
+      break;
+    case 5121:
+      dataView.setUint8(byteOffset, value);
+      break;
+    case 5122:
+      dataView.setInt16(byteOffset, value, true);
+      break;
+    case 5123:
+      dataView.setUint16(byteOffset, value, true);
+      break;
+    case 5125:
+      dataView.setUint32(byteOffset, value, true);
+      break;
+    case 5126:
+      dataView.setFloat32(byteOffset, value, true);
+      break;
+    default:
+      throw new Error("Unsupported component type");
   }
 }
 
 function numComponentsForType(type) {
   switch (type) {
-    case "SCALAR": return 1;
-    case "VEC2": return 2;
-    case "VEC3": return 3;
-    case "VEC4": return 4;
-    case "MAT2": return 4;
-    case "MAT3": return 9;
-    case "MAT4": return 16;
-    default: throw new Error("Unsupported type");
+    case "SCALAR":
+      return 1;
+    case "VEC2":
+      return 2;
+    case "VEC3":
+      return 3;
+    case "VEC4":
+      return 4;
+    case "MAT2":
+      return 4;
+    case "MAT3":
+      return 9;
+    case "MAT4":
+      return 16;
+    default:
+      throw new Error("Unsupported type");
   }
 }
 
@@ -932,12 +968,12 @@ function getAccessorData(gltfData, accessorIndex) {
 function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
   const nodes = [];
   // create SceneNode instances for each GLTF node
-  for(let gltfNode of gltfData.nodes) {
+  for (let gltfNode of gltfData.nodes) {
     let node = null;
-    if (gltfNode.mesh != undefined){
+    if (gltfNode.mesh != undefined) {
       let data = meshesAndMaterials[gltfNode.mesh];
-      node = scene.createRenderableObject(gl, data.mesh, data.material, gltfNode.name);
-      if(gltfNode.skin != undefined){
+      node = scene.createRenderableObject(gl, data.mesh, gltfNode.name);
+      if (gltfNode.skin != undefined) {
         console.log("found skinned mesh");
         node.skinInstance = gltfNode.skin; //hack for setting skins later
       }
@@ -945,7 +981,7 @@ function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
       node = scene.createNode(gltfData.name);
       node.originalIndex = nodes.length;
     }
-    if (gltfNode.matrix != undefined){
+    if (gltfNode.matrix != undefined) {
       const position = vec3.create();
       const rotation = quat.create();
       const scale = vec3.create();
@@ -956,24 +992,24 @@ function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
       mat4.getRotation(rotation, matrix);
 
       quat.normalize(rotation, rotation);
-      
+
       node.transform.setLocalPosition(position);
       node.transform.setLocalScale(scale);
       node.transform.setLocalRotationFromQuaternion(rotation);
-    } else{
-      if (gltfNode.translation != undefined){
+    } else {
+      if (gltfNode.translation != undefined) {
         node.transform.setLocalPosition(gltfNode.translation);
       }
-      if (gltfNode.scale != undefined){
+      if (gltfNode.scale != undefined) {
         node.transform.setLocalScale(gltfNode.scale);
       }
-      if (gltfNode.rotation != undefined){
+      if (gltfNode.rotation != undefined) {
         node.transform.setLocalRotationFromQuaternion(gltfNode.rotation);
       }
     }
     node.templateMarker = true;
     nodes.push(node);
-  };
+  }
 
   // establish parent-child relationships
   gltfData.nodes.forEach((gltfNode, index) => {
@@ -987,11 +1023,11 @@ function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
   });
 
   //find and return nodes with no parents
-  const rootNodes = nodes.filter(node => node.parent.localID == -1);
-  return {nodes, rootNodes};
+  const rootNodes = nodes.filter((node) => node.parent.localID == -1);
+  return { nodes, rootNodes };
 }
 
-function createDefaultTexture(gl){
+function createDefaultTexture(gl) {
   let texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -1006,46 +1042,51 @@ function createDefaultTexture(gl){
 }
 
 // Load external images
-async function getGLTFImages(gltfData, dir){
+async function getGLTFImages(gltfData, dir) {
   let images = [];
-  for(gltfImage of gltfData.images) {
-    const image = await loadTexture(dir+"/"+gltfImage.uri);
+  if (!gltfData.images) {
+    return images;
+  }
+  for (gltfImage of gltfData.images) {
+    const image = await loadTexture(dir + "/" + gltfImage.uri);
     images.push(image);
   }
   return images;
 }
 
 //Load images stored in binary format
-async function getGLTFImagesFromBinary(gltfData, binaryData){
+async function getGLTFImagesFromBinary(gltfData, binaryData) {
   let images = [];
+  if (!gltfData.images) {
+    return images;
+  }
   for (const gltfImage of gltfData.images) {
     let imageBuffer;
 
     if (gltfImage.uri) {
-        if (gltfImage.uri.startsWith('data:')) {
-            imageBuffer = decodeDataUri(gltfImage.uri);
-            const image = await createImageBitmap(new Blob([imageBuffer]));
-            images.push(image);
-        } else {
-            console.error("External URIs unsupported in glb files");
-        }
-    } else if (gltfImage.bufferView !== undefined) {
-        const bufferView = gltfData.bufferViews[gltfImage.bufferView];
-        const blob = new Blob([new Uint8Array(binaryData, bufferView.byteOffset, bufferView.byteLength)], { type: gltfImage.mimeType });
-        const image = await createImageBitmap(blob);
+      if (gltfImage.uri.startsWith("data:")) {
+        imageBuffer = decodeDataUri(gltfImage.uri);
+        const image = await createImageBitmap(new Blob([imageBuffer]));
         images.push(image);
+      } else {
+        console.error("External URIs unsupported in glb files");
+      }
+    } else if (gltfImage.bufferView !== undefined) {
+      const bufferView = gltfData.bufferViews[gltfImage.bufferView];
+      const blob = new Blob([new Uint8Array(binaryData, bufferView.byteOffset, bufferView.byteLength)], { type: gltfImage.mimeType });
+      const image = await createImageBitmap(blob);
+      images.push(image);
     }
   }
   return images;
 }
 
-async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
+async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
   let defaultTexture = createDefaultTexture(gl);
   let images = null;
-  if (binaryData != null){
+  if (binaryData != null) {
     images = await getGLTFImagesFromBinary(gltfData, binaryData);
-  }
-  else{
+  } else {
     images = await getGLTFImages(gltfData, dir);
   }
   let linearTextures = [];
@@ -1054,33 +1095,45 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
 
   // Create linear and sRGB texture for each, because glTF doesn't specify usage in the texture definition :/
   // we will just delete the unused one.
-  gltfData.textures.forEach((gltfTexture, index) => {
-    if (images[gltfTexture.source]){
-      const linearTexture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, linearTexture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
-      linearTextures[index] = linearTexture;
-      const srgbTexture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, srgbTexture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
-      srgbTextures[index] = srgbTexture;
-    } else {
-      console.warn("Missing texture!");
-    }
-  })
-  gltfData.materials.forEach((gltfMaterial, index) => {
-    let texture = null, normal = null, aoMap = null, heightMap = null, metallicRoughness = null, opacity = null, emissiveTexture = null;
 
-    let metallicFactor = null, roughnessFactor = null, baseColorFactor = null, emissiveFactor = [0, 0, 0, 1];
+  if (gltfData.textures) {
+    gltfData.textures.forEach((gltfTexture, index) => {
+      if (images[gltfTexture.source]) {
+        const linearTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, linearTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+        linearTextures[index] = linearTexture;
+        const srgbTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, srgbTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.SRGB8_ALPHA8, gl.RGBA, gl.UNSIGNED_BYTE, images[gltfTexture.source]);
+        srgbTextures[index] = srgbTexture;
+      } else {
+        console.warn("Missing texture!");
+      }
+    });
+  }
+  gltfData.materials.forEach((gltfMaterial, index) => {
+    let texture = null,
+      normal = null,
+      aoMap = null,
+      heightMap = null,
+      metallicRoughness = null,
+      opacity = null,
+      emissiveTexture = null;
+
+    let metallicFactor = null,
+      roughnessFactor = null,
+      baseColorFactor = null,
+      emissiveFactor = [0, 0, 0, 1];
     if (gltfMaterial.pbrMetallicRoughness) {
       if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
-        if (srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]){
+        if (srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]) {
           texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
           gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
         } else {
@@ -1090,24 +1143,24 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
         texture = defaultTexture;
       }
       if (gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture) {
-        if (linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]){
+        if (linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]) {
           metallicRoughness = linearTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index];
           gl.deleteTexture(srgbTextures[gltfMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index]);
         } else {
           metallicRoughness = defaultTexture;
         }
       }
-      if (gltfMaterial.pbrMetallicRoughness.metallicFactor){
+      if (gltfMaterial.pbrMetallicRoughness.metallicFactor) {
         metallicFactor = gltfMaterial.pbrMetallicRoughness.metallicFactor;
       } else {
         metallicFactor = 1.0;
       }
-      if (gltfMaterial.pbrMetallicRoughness.roughnessFactor){
+      if (gltfMaterial.pbrMetallicRoughness.roughnessFactor) {
         roughnessFactor = gltfMaterial.pbrMetallicRoughness.roughnessFactor;
       } else {
         roughnessFactor = 1.0;
       }
-      if (gltfMaterial.pbrMetallicRoughness.baseColorFactor){
+      if (gltfMaterial.pbrMetallicRoughness.baseColorFactor) {
         baseColorFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
       } else {
         baseColorFactor = [1, 1, 1, 1];
@@ -1115,7 +1168,7 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
     }
 
     if (gltfMaterial.normalTexture) {
-      if (linearTextures[gltfMaterial.normalTexture.index]){
+      if (linearTextures[gltfMaterial.normalTexture.index]) {
         normal = linearTextures[gltfMaterial.normalTexture.index];
         gl.deleteTexture(srgbTextures[gltfMaterial.normalTexture.index]);
       } else {
@@ -1130,8 +1183,8 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
         aoMap = defaultTexture;
       }
     }
-    if (gltfMaterial.emissiveTexture){
-      if (srgbTextures[gltfMaterial.emissiveTexture.index]){
+    if (gltfMaterial.emissiveTexture) {
+      if (srgbTextures[gltfMaterial.emissiveTexture.index]) {
         emissiveTexture = srgbTextures[gltfMaterial.emissiveTexture.index];
         gl.deleteTexture(linearTextures[gltfMaterial.emissiveTexture.index]);
         emissiveFactor = [1, 1, 1, 1];
@@ -1139,14 +1192,14 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
         emissiveTexture = defaultTexture;
       }
     }
-    if (gltfMaterial.emissiveFactor){
+    if (gltfMaterial.emissiveFactor) {
       emissiveFactor = [...gltfMaterial.emissiveFactor, 1];
     }
 
     let blendMode = BLEND_MODE.BLEND_MODE_BLEND;
-    if (gltfMaterial.alphaMode == "OPAQUE" || gltfMaterial.alphaMode == undefined){
+    if (gltfMaterial.alphaMode == "OPAQUE" || gltfMaterial.alphaMode == undefined) {
       blendMode = BLEND_MODE.BLEND_MODE_OPAQUE;
-    } else if (gltfMaterial.alphaMode == "MASK"){
+    } else if (gltfMaterial.alphaMode == "MASK") {
       blendMode = BLEND_MODE.BLEND_MODE_MASK;
     }
 
@@ -1158,20 +1211,20 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null){
 
 function parseGLTFSkins(gltfData, nodes, binaryData, animations) {
   let skins = [];
-  if (gltfData.skins == undefined){
+  if (gltfData.skins == undefined) {
     return skins;
   }
-  for (let skin of gltfData.skins){
+  for (let skin of gltfData.skins) {
     const inverseBindMatrices = extractDataFromBuffer(binaryData, getAccessorData(gltfData, skin.inverseBindMatrices));
     let joints = [];
-    for (let joint of skin.joints){
+    for (let joint of skin.joints) {
       joints.push(nodes[joint]);
     }
     let skeleton = new Skeleton(joints, inverseBindMatrices);
     //register animations that reference joints in this skeleton
-    for (let joint of skin.joints){
-      for (let animation of animations){
-        if(nodes[joint].localID in animation.nodesMap && ! (animation.name in skeleton.animationsByName)){
+    for (let joint of skin.joints) {
+      for (let animation of animations) {
+        if (nodes[joint].localID in animation.nodesMap && !(animation.name in skeleton.animationsByName)) {
           skeleton.addAnimation(animation);
         }
       }
@@ -1181,9 +1234,9 @@ function parseGLTFSkins(gltfData, nodes, binaryData, animations) {
   return skins;
 }
 
-function setSkins(skins, nodes){
-  for (let node of nodes){
-    if (node.skinInstance != undefined){
+function setSkins(skins, nodes) {
+  for (let node of nodes) {
+    if (node.skinInstance != undefined) {
       node.setSkin(skins[node.skinInstance]);
     }
   }
@@ -1202,7 +1255,7 @@ function numComponentsForPath(path) {
 }
 
 function parseGLTFAnimationToClips(gltfAnimation, gltfData, binaryData, nodes) {
-  const animation = new Animation(gltfAnimation.name);// new AnimationClip();
+  const animation = new Animation(gltfAnimation.name); // new AnimationClip();
 
   for (const channel of gltfAnimation.channels) {
     const sampler = gltfAnimation.samplers[channel.sampler];
@@ -1214,14 +1267,14 @@ function parseGLTFAnimationToClips(gltfAnimation, gltfData, binaryData, nodes) {
 
     const path = channel.target.path; // "translation", "rotation", or "scale"
     const node = nodes[channel.target.node].localID;
-    if (animation.nodesMap[node] == undefined){
+    if (animation.nodesMap[node] == undefined) {
       animation.nodesMap[node] = new AnimationClip();
     }
 
     for (let i = 0; i < inputs.length; i++) {
       const time = inputs[i];
       const value = outputs.slice(i * numComponentsForPath(path), (i + 1) * numComponentsForPath(path));
-      
+
       switch (path) {
         case "translation":
           animation.nodesMap[node].addPositionKeyframe(time, vec3.fromValues(value[0], value[1], value[2]));
@@ -1258,7 +1311,7 @@ async function loadAndParseGLTF(gl, dir, filename) {
   let scene = new Scene();
   try {
     // Fetch the GLTF JSON file
-    const url = dir+"/"+filename;
+    const url = dir + "/" + filename;
     const gltfResponse = await fetch(url);
     if (!gltfResponse.ok) {
       throw new Error(`HTTP error! status: ${gltfResponse.status}`);
@@ -1266,42 +1319,54 @@ async function loadAndParseGLTF(gl, dir, filename) {
     const gltfData = await gltfResponse.json();
 
     // Load external BIN files specified in the GLTF
-    const binBuffers = await Promise.all(gltfData.buffers.map(async (buffer) => {
-      if (buffer.uri) {
-        const binUrl = dir+"/"+buffer.uri;
-        const binResponse = await fetch(binUrl);
-        if (!binResponse.ok) {
-          throw new Error(`HTTP error! status: ${binResponse.status}`);
+    const binBuffers = await Promise.all(
+      gltfData.buffers.map(async (buffer) => {
+        if (buffer.uri) {
+          const binUrl = dir + "/" + buffer.uri;
+          const binResponse = await fetch(binUrl);
+          if (!binResponse.ok) {
+            throw new Error(`HTTP error! status: ${binResponse.status}`);
+          }
+          return binResponse.arrayBuffer();
         }
-        return binResponse.arrayBuffer();
-      }
-    }));
+      })
+    );
 
     let materials = await parseGLTFMaterials(gl, gltfData, dir);
 
     const binaryData = binBuffers[0]; // One .bin file for now
     for (const mesh of gltfData.meshes) {
-      let data = {mesh: {geometries:[{data:{
-          positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
-          normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
-          indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices)),
-        }}]},
-        material: materials[mesh.primitives[0].material]
-      };
-      if (mesh.primitives[0].attributes.TEXCOORD_0){
-        data.mesh.geometries[0].data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0));
+      let data = {
+        mesh: {
+          geometries: [],
+        }
       }
-      if (mesh.primitives[0].attributes.JOINTS_0){
-        data.mesh.geometries[0].data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.JOINTS_0));
-        data.mesh.geometries[0].data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.WEIGHTS_0));
+      for(let primitive of mesh.primitives){
+        let primitiveData = {
+          data: {
+            positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.POSITION)),
+            normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.NORMAL)),
+            indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.indices)),
+            material: materials[primitive.material],
+          },
+        }
+        if (primitive.attributes.TEXCOORD_0) {
+          primitiveData.data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.TEXCOORD_0));
+        }
+        if (primitive.attributes.JOINTS_0) {
+          primitiveData.data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.JOINTS_0));
+          primitiveData.data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.WEIGHTS_0));
+        }
+        data.mesh.geometries.push(primitiveData);
       }
+
       meshesAndMaterials.push(data);
     }
     //console.log(meshes);
-    let { nodes, rootNodes} = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
+    let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
     let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
     let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
-    for (let skeleton of skins){
+    for (let skeleton of skins) {
       scene.addSkeleton(skeleton);
     }
     setSkins(skins, nodes);
@@ -1313,11 +1378,11 @@ async function loadAndParseGLTF(gl, dir, filename) {
 }
 
 function arrayBufferToBase64(buffer) {
-  let binary = '';
+  let binary = "";
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i]);
   }
   let string = window.btoa(binary);
   return string;
@@ -1328,34 +1393,35 @@ function Base64ToArrayBuffer(str) {
   let len = binaryString.length;
   let bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    bytes[i] = binaryString.charCodeAt(i);
   }
 
   let arrayBuffer = bytes.buffer;
   return arrayBuffer;
 }
 
-function setDownload(dataString){
-  document.getElementById('downloadBtn').addEventListener('click', () => {
+function setDownload(dataString) {
+  document.getElementById("downloadBtn").addEventListener("click", () => {
     const myObj = {
       data: dataString,
-    }
+    };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObj));
-    const downloadAnchorNode = document.createElement('a');
+    const downloadAnchorNode = document.createElement("a");
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", "myData.json");
     document.body.appendChild(downloadAnchorNode); // Required for Firefox
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-});
+  });
 }
 
-async function loadAndParseGLB(gl, url){
+async function loadAndParseGLB(gl, url) {
   const glbArrayBuffer = await fetchGLB(url);
-  return parseGLB(gl, glbArrayBuffer)
+  setDownload(arrayBufferToBase64(glbArrayBuffer));
+  return parseGLB(gl, glbArrayBuffer);
 }
 
-async function parseGLBFromString(gl, string){
+async function parseGLBFromString(gl, string) {
   const glbArrayBuffer = Base64ToArrayBuffer(string);
   return parseGLB(gl, glbArrayBuffer);
 }
@@ -1367,14 +1433,14 @@ async function parseGLB(gl, glbArrayBuffer) {
   try {
     const header = parseGLBHeader(glbArrayBuffer);
     const chunks = parseGLBChunks(glbArrayBuffer);
-    
-    const jsonChunk = chunks.find(chunk => chunk.chunkType === 0x4E4F534A); // 'JSON' in ASCII
+
+    const jsonChunk = chunks.find((chunk) => chunk.chunkType === 0x4e4f534a); // 'JSON' in ASCII
     if (!jsonChunk) {
       throw new Error("JSON chunk not found");
     }
 
-    const binChunk = chunks.find(chunk => chunk.chunkType === 0x4E4942); // 'BIN' in ASCII
-    
+    const binChunk = chunks.find((chunk) => chunk.chunkType === 0x4e4942); // 'BIN' in ASCII
+
     const gltfData = decodeJSONChunk(jsonChunk.chunkData);
     console.log("GLTF Data:", gltfData);
     const binaryBuffer = binChunk.chunkData;
@@ -1391,27 +1457,36 @@ async function parseGLB(gl, glbArrayBuffer) {
 
     let materials = await parseGLTFMaterials(gl, gltfData, "", binaryData);
     for (const mesh of gltfData.meshes) {
-      let data = {mesh: {geometries:[{data:{
-          positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.POSITION)),
-          normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.NORMAL)),
-          indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].indices)),
-        }}]},
-        material: materials[mesh.primitives[0].material]
-      };
-      if (mesh.primitives[0].attributes.TEXCOORD_0){
-        data.mesh.geometries[0].data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.TEXCOORD_0));
+      let data = {
+        mesh: {
+          geometries: [],
+        }
       }
-      if (mesh.primitives[0].attributes.JOINTS_0){
-        data.mesh.geometries[0].data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.JOINTS_0));
-        data.mesh.geometries[0].data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, mesh.primitives[0].attributes.WEIGHTS_0));
+      for(let primitive of mesh.primitives){
+        let primitiveData = {
+          data: {
+            positions: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.POSITION)),
+            normals: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.NORMAL)),
+            indices: extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.indices)),
+            material: materials[primitive.material],
+          },
+        }
+        if (primitive.attributes.TEXCOORD_0) {
+          primitiveData.data.texcoords = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.TEXCOORD_0));
+        }
+        if (primitive.attributes.JOINTS_0) {
+          primitiveData.data.joints = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.JOINTS_0));
+          primitiveData.data.weights = extractDataFromBuffer(binaryData, getAccessorData(gltfData, primitive.attributes.WEIGHTS_0));
+        }
+        data.mesh.geometries.push(primitiveData);
       }
       meshesAndMaterials.push(data);
     }
     //console.log(meshes);
-    let { nodes, rootNodes} = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
+    let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
     let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
     let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
-    for (let skeleton of skins){
+    for (let skeleton of skins) {
       scene.addSkeleton(skeleton);
     }
     setSkins(skins, nodes);
@@ -1436,7 +1511,7 @@ function parseGLBHeader(glbArrayBuffer) {
   const version = dataView.getUint32(4, true);
   const length = dataView.getUint32(8, true);
 
-  if (magic !== 0x46546C67) {
+  if (magic !== 0x46546c67) {
     throw new Error("Invalid GLB format");
   }
 

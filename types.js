@@ -1,11 +1,12 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, baryCoords, tangents = null, bitangents = null, indices = [], joints = null, weights = null) {
+  constructor(gl, vertices, normals, texcoords, baryCoords, material, tangents = null, bitangents = null, indices = [], joints = null, weights = null) {
     this.vertices = vertices;
     this.normals = normals;
     this.indices = indices;
     this.tangents = tangents;
     this.bitangents = bitangents;
     this.baryCoords = baryCoords;
+    this.material = material;
     this.gl = gl;
     this.shaderVariant = 0;
     // Create VAO
@@ -96,6 +97,70 @@ class Mesh {
   }
   drawElementsInternal(gl) {
     gl.drawElements(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_INT, 0);
+  }
+  bindTextures(gl, bindOffset, programInfo) {
+    let textureUnit = bindOffset;
+    let currentVariant = this.material.shaderVariant;
+    //base texture
+    gl.activeTexture(gl.TEXTURE0 + textureUnit);
+    gl.bindTexture(gl.TEXTURE_2D, this.material.texture);
+    gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
+    textureUnit += 1;
+
+    //if we have a normal map for this mesh
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
+      //normal map
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.normal);
+      gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
+      textureUnit += 1;
+    }
+    //ao texture
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.aoMap);
+      gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
+      textureUnit += 1;
+    }
+    //height texture
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.heightMap);
+      gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
+      textureUnit += 1;
+    }
+    //PBR metallic & roughness textures
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PBR) {
+      if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS) {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
+        gl.uniform1i(programInfo.uniformLocations.metallicRoughness, textureUnit);
+        textureUnit += 1;
+      } else {
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
+        gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
+        textureUnit += 1;
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.material.roughness);
+        gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
+        textureUnit += 1;
+      }
+    }
+    //Opacity texture, if object uses one
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.opacity);
+      gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
+      textureUnit += 1;
+    }
+
+    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.material.emissiveTexture);
+      gl.uniform1i(programInfo.uniformLocations.emissive, textureUnit);
+      textureUnit += 1;
+    }
   }
 }
 
@@ -475,9 +540,9 @@ class Material {
 }
 
 class RenderableObject extends SceneNode {
-  constructor(meshes = null, material = null, name = null) {
+  constructor(meshes = null, name = null) {
     super();
-    this.setData(meshes, material);
+    this.meshes = meshes;
     this.name = name;
     this.hasUnskinned = false;
     this.hasSkinned = false;
@@ -501,77 +566,6 @@ class RenderableObject extends SceneNode {
   setSkin(skeleton) {
     this.skeleton = skeleton;
     skeleton.userIDs.push(this.localID);
-  }
-  setMeshes(meshes) {
-    this.meshes = meshes;
-  }
-  setData(meshes, material) {
-    this.meshes = meshes;
-    this.material = material;
-  }
-  bindTextures(gl, bindOffset, programInfo) {
-    let textureUnit = bindOffset;
-    let currentVariant = this.material.shaderVariant;
-    //base texture
-    gl.activeTexture(gl.TEXTURE0 + textureUnit);
-    gl.bindTexture(gl.TEXTURE_2D, this.material.texture);
-    gl.uniform1i(programInfo.uniformLocations.objectTexture, textureUnit);
-    textureUnit += 1;
-
-    //if we have a normal map for this mesh
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP) {
-      //normal map
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, this.material.normal);
-      gl.uniform1i(programInfo.uniformLocations.normalTexture, textureUnit);
-      textureUnit += 1;
-    }
-    //ao texture
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_BAKED_AO) {
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, this.material.aoMap);
-      gl.uniform1i(programInfo.uniformLocations.aoTexture, textureUnit);
-      textureUnit += 1;
-    }
-    //height texture
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PARALLAX) {
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, this.material.heightMap);
-      gl.uniform1i(programInfo.uniformLocations.heightMap, textureUnit);
-      textureUnit += 1;
-    }
-    //PBR metallic & roughness textures
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_PBR) {
-      if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_COMBINED_METALLIC_ROUGHNESS) {
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
-        gl.uniform1i(programInfo.uniformLocations.metallicRoughness, textureUnit);
-        textureUnit += 1;
-      } else {
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, this.material.metallic);
-        gl.uniform1i(programInfo.uniformLocations.metallic, textureUnit);
-        textureUnit += 1;
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, this.material.roughness);
-        gl.uniform1i(programInfo.uniformLocations.roughness, textureUnit);
-        textureUnit += 1;
-      }
-    }
-    //Opacity texture, if object uses one
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_OPACITY_MAP) {
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, this.material.opacity);
-      gl.uniform1i(programInfo.uniformLocations.opacity, textureUnit);
-      textureUnit += 1;
-    }
-
-    if (currentVariant & SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
-      gl.activeTexture(gl.TEXTURE0 + textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, this.material.emissiveTexture);
-      gl.uniform1i(programInfo.uniformLocations.emissive, textureUnit);
-      textureUnit += 1;
-    }
   }
 }
 const LightType = {
@@ -813,15 +807,16 @@ class Scene {
       }
       this.objectsByName[object.name] = object;
     }
+    //TODO: support partially transparent meshes
     if (object.hasSkinned) {
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE) {
+      if (object.meshes[0].material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE) {
         this.skinnedOpaqueObjects[object.localID] = object;
       } else {
         this.skinnedTransparentObjects[object.localID] = object;
       }
     }
     if (object.hasUnskinned) {
-      if (object.material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE) {
+      if (object.meshes[0].material.blendMode == BLEND_MODE.BLEND_MODE_OPAQUE) {
         this.unskinnedOpaqueObjects[object.localID] = object;
       } else {
         this.unskinnedTransparentObjects[object.localID] = object;
@@ -927,8 +922,8 @@ class Scene {
       this.animatedSkeletons.push(skeleton);
     }
   }
-  createRenderableObject(gl, mesh, material, name) {
-    let object = createRenderableObject(gl, mesh, material, name);
+  createRenderableObject(gl, mesh, name) {
+    let object = createRenderableObject(gl, mesh, name);
     this.addObject(object);
     return object;
   }

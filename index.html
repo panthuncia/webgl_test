@@ -601,13 +601,13 @@
             vec3 F0 = vec3(0.04); // Total hack, this should be specified per-material
             #ifdef USE_PBR
                 #ifndef PBR_MAPS
-                    metallic = u_metallicFactor;
-                    roughness = u_roughnessFactor;
+                    metallic = 1.0;//u_metallicFactor;
+                    roughness = 0.0;//u_roughnessFactor;
                 #else
                     #ifdef COMBINED_METALLIC_ROUGHNESS
                         vec2 metallicRoughness = texture(u_metallicRoughness, uv).gb; // GLTF spec
                         metallic = metallicRoughness.y*u_metallicFactor;
-                        roughness = metallicRoughness.x*u_metallicFactor;
+                        roughness = metallicRoughness.x*u_roughnessFactor;
                     #else
                         metallic = texture(u_metallic, uv).r;
                         roughness = texture(u_roughness, uv).r;
@@ -737,7 +737,9 @@
 </script>
 <body>
     <canvas id="webgl-canvas" width="800" height="800"></canvas>
-    <script src="gl-matrix-min.js"></script>
+    <script src="lib/face.js"></script>
+    <script src="lib/model.js"></script>
+    <script src="lib/gl-matrix-min.js"></script>
     <script type="text/javascript" src="models.js"></script>
     <script type="text/javascript" src="globals.js"></script>
     <script type="text/javascript" src="types.js"></script>

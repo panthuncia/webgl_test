@@ -1,7 +1,4 @@
 WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, projectionMatrix, skinned) {
-  if (object.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
-    return;
-  }
   const gl = this.gl;
   let programInfo = null;
   if (!skinned){
@@ -16,26 +13,13 @@ WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, project
   mat4.multiply(modelViewMatrix, viewMatrix, object.transform.modelMatrix);
   gl.uniformMatrix4fv(programInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
   for (const mesh of object.meshes) {
-    // gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
-    // gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 3, gl.FLOAT, false, 0, 0);
-    // gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-
-    // if (skinned){
-    //   gl.bindBuffer(gl.ARRAY_BUFFER, mesh.jointBuffer);
-    //   gl.vertexAttribPointer(programInfo.attribLocations.jointIndices, 4, gl.UNSIGNED_INT, false, 0, 0);
-    //   gl.enableVertexAttribArray(programInfo.attribLocations.jointIndices);
-
-    //   gl.bindBuffer(gl.ARRAY_BUFFER, mesh.weightBuffer);
-    //   gl.vertexAttribPointer(programInfo.attribLocations.jointWeights, 4, gl.FLOAT, false, 0, 0);
-    //   gl.enableVertexAttribArray(programInfo.attribLocations.jointWeights);
-
+    if (mesh.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
+      return;
+    }
     if (skinned){
        gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
        gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
     }
-    
-
-    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 
     // Draw mesh
     gl.bindVertexArray(mesh.vao);
@@ -54,10 +38,10 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix, projectionMatrix) {
     let object = this.currentScene.skinnedOpaqueObjects[key];
     this.drawObjectDepths(object, viewMatrix, projectionMatrix, true);
   }
-  for (const key in this.currentScene.unskinnedTransparentObjects) {
-    let object = this.currentScene.unskinnedTransparentObjects[key];
-    this.drawObjectDepths(object, viewMatrix, projectionMatrix ,false);
-  }
+  // for (const key in this.currentScene.unskinnedTransparentObjects) {
+  //   let object = this.currentScene.unskinnedTransparentObjects[key];
+  //   this.drawObjectDepths(object, viewMatrix, projectionMatrix ,false);
+  // }
   for (const key in this.currentScene.skinnedTransparentObjects) {
     let object = this.currentScene.skinnedTransparentObjects[key];
     this.drawObjectDepths(object, viewMatrix, projectionMatrix, true);
