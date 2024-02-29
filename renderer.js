@@ -28,7 +28,7 @@ class WebGLRenderer {
     let zFar = 1000.0;
     this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
     this.velocity = {forward: 0, right: 0};
-    this.speed = 0.1;
+    this.speed = 0.05;
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
@@ -765,14 +765,8 @@ class WebGLRenderer {
   }
 
   createObjectFromData(pointsArray, normalsArray, texcoords, indices = [], color = [128, 128, 128, 255], name = null, skipLighting = false, ambientStrength = 0.01){
+    
     const gl = this.gl;
-    let objectData = {
-      geometries: [{data: {positions: pointsArray, normals: normalsArray, texcoords: texcoords, indices: indices}}]
-    }
-    let shaderVariant = 0;
-    if (skipLighting){
-      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
-    }
     var texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -783,9 +777,16 @@ class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
     let material = new Material("", texture, null, false, null, null, null, null, false, null, null, [1, 1, 1, 1], null, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, 1.0, skipLighting, ambientStrength);
-    let renderable = createRenderable(gl, name, objectData, material);
+    let objectData = {
+      geometries: [{data: {positions: pointsArray, normals: normalsArray, texcoords: texcoords, indices: indices, material: material}}]
+    }
+    let shaderVariant = 0;
+    if (skipLighting){
+      shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING;
+    }
+
+    let renderable = createRenderable(gl, name, objectData);
     return renderable;
   }
 
