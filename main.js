@@ -27,11 +27,18 @@ async function main() {
   //let car = await parseGLBFromString(renderer.gl, carModelLowPoly.data);//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
   //car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
   //renderer.currentScene.appendScene(car);
-  let pavement = await loadAndParseGLB(renderer, "objects/gltf/street.glb");
-  //let normalImage = await loadTexture("textures/tile/vjqifhu_2K_Normal.jpg");
-  //let normalMap = createWebGLTexture(renderer.gl, normalImage, false, true);
-  //renderer.materialsByName["Grey..003"].setNormalMap(normalMap);
-  renderer.currentScene.appendScene(pavement);
+  let street = await loadAndParseGLB(renderer, "objects/gltf/street.glb");
+  
+  let tileHeightImage = await loadTexture("textures/tile/vjqifhu_2K_Displacement.jpg");
+  let tileHeightMap = createWebGLTexture(renderer.gl, tileHeightImage, false, true);
+  renderer.materialsByName["Tiles"].setHeightMap(tileHeightMap);
+
+  let asphaltHeightImage = await loadTexture("textures/asphalt/pebbled_asphalt_Height.png");
+  let asphaltHeightMap = createWebGLTexture(renderer.gl, asphaltHeightImage, false, true);
+  renderer.materialsByName["Asphalt"].setHeightMap(asphaltHeightMap);
+  renderer.materialsByName["Asphalt"].heightMapScale = 0.025;
+
+  renderer.currentScene.appendScene(street);
 
   let lamp = await loadAndParseGLB(renderer, "objects/gltf/lamp.glb");
   renderer.currentScene.appendScene(lamp);
@@ -102,11 +109,12 @@ async function main() {
     [5, 3, -5],
   ];
 
-  let light2 = new Light(LightType.POINT, [0, 3, 0], [1, 1, 1], 50.0, 1.0, 0.09, 0.032);
+  let light2 = new Light(LightType.POINT, [0, 3.05, 0], [0.64, 0.639, 0.416], 50.0, 1.0, 0.09, 0.032);
   //renderer.addLight(light2);
 
   let light2Object = renderer.createObjectFromData(sphereData.pointsArray, sphereData.normalsArray, sphereData.texCoordArray, [], [light2.color[0] * 255, light2.color[1] * 255, light2.color[2] * 255, 255], "light 2 object", true, 40.0);
-  light2Object.transform.setLocalScale([0.4, 0.4, 0.4]);
+  light2Object.transform.setLocalScale([0.07, 0.07, 0.07]);
+  light2Object.transform.setLocalPosition([0.0, -0.05, 0.0]);
   renderer.currentScene.addObject(light2Object);
   light2.addChild(light2Object);
   renderer.addLightToCurrentScene(light2);
@@ -117,7 +125,7 @@ async function main() {
   let light5 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 20.0, 0, 0, 0, [1, 1, 1]);
   let light6 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  renderer.addLightToCurrentScene(light5);
+  //renderer.addLightToCurrentScene(light5);
   //renderer.addLight(light6);
 
   //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);

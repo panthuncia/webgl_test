@@ -160,6 +160,7 @@ class WebGLRenderer {
     //create dummy program with all uniforms
     let shaderVariant = 0b00000;
     shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PBR;
+    shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
     let shaderProgram = this.getProgram(fsSource, vsSource, shaderVariant);
 
     this.buffers.perFrameUBOBindingLocation = 0;
@@ -203,7 +204,7 @@ class WebGLRenderer {
     // gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ones);
 
     const perFrameUniformNames = ["u_camPosWorldSpace","u_viewMatrixInverse"];
-    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength", "u_emissiveFactor", "u_textureScale", "u_metallicFactor", "u_roughnessFactor", "u_baseColorFactor"];
+    const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength", "u_emissiveFactor", "u_textureScale", "u_metallicFactor", "u_roughnessFactor", "u_baseColorFactor", "u_heightMapScale"];
     const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosWorldSpace", "u_lightDirWorldSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
 
     //get uniform offsets by name
@@ -476,7 +477,9 @@ class WebGLRenderer {
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_textureScale, mesh.material.textureScale, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_metallicFactor, mesh.material.metallicFactor, true);
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_roughnessFactor, mesh.material.roughnessFactor, true);
-      dataViewSetVec4(this.buffers.perMaterialDataView, mesh.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor)
+      dataViewSetVec4(this.buffers.perMaterialDataView, mesh.material.baseColorFactor, this.buffers.uniformLocations.perMaterialUniformLocations.u_baseColorFactor);
+      this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_heightMapScale, mesh.material.heightMapScale, true);
+
   
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perMaterialUBO);
       gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perMaterialBufferData);
@@ -500,7 +503,7 @@ class WebGLRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const currentScene = this.currentScene;
     if (this.showShadowBuffer){
-      drawFullscreenQuad(gl, this.shadowScene.shadowCascades, 1);
+      drawFullscreenQuad(gl, this.shadowScene.shadowCubemaps, 1);
       this.updateCamera();
       return;
     }

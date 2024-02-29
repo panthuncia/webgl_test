@@ -123,7 +123,15 @@
             uniform float u_metallicFactor;
             uniform float u_roughnessFactor;
             uniform vec4 u_baseColorFactor;
+        #else
+            uniform float pad1; //padding to keep u_heightmapScale in the same place in non-PBR variants
+            uniform float pad2;
+            uniform vec4 pad3;
         #endif
+        #ifdef USE_PARALLAX
+        uniform float u_heightMapScale;
+        #endif
+        
     };
 
     layout(std140) uniform LightInfo {
@@ -211,7 +219,7 @@
     float getParallaxShadow(vec2 uv, vec3 lightDir, vec3 viewDir, float sampleHeight){
         lightDir = m_TBNInverse*lightDir;
         int steps = 64;
-        float maxDistance = 0.1;
+        float maxDistance = u_heightMapScale*0.2;//0.1;
         float currentHeight = texture(u_heightMap, uv).r;
         vec2 lightDirUV = normalize(lightDir.xy);
         float heightStep = lightDir.z / float(steps);
@@ -238,7 +246,7 @@
         viewDir = m_TBNInverse*viewDir;
 
         //TODO: move to material definition
-        float maxHeight = 0.05;
+        float maxHeight = u_heightMapScale;//0.05;
         float minHeight = maxHeight*0.5;
 
         // Probably unecessarily high
