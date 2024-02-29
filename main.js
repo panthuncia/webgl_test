@@ -24,20 +24,27 @@ async function main() {
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
   //let car_lowpoly = await loadAndParseGLB(renderer.gl, "objects/gltf/car_lowpoly.glb");
   //let car = await parseGLBFromString(renderer.gl, carModel.data);
-  let car = await loadAndParseGLB(renderer.gl, "objects/gltf/car_lowpoly.glb");//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
-  let tiger = await parseGLBFromString(renderer.gl, tigerModel.data);
-  car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
+  //let car = await parseGLBFromString(renderer.gl, carModelLowPoly.data);//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
+  //car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
+  //renderer.currentScene.appendScene(car);
+  let pavement = await loadAndParseGLB(renderer, "objects/gltf/street.glb");
+  let normalImage = await loadTexture("textures/tile/vjqifhu_2K_Normal.jpg");
+  let normalMap = createWebGLTexture(renderer.gl, normalImage, false, true);
+  renderer.materialsByName["Grey..003"].setNormalMap(normalMap);
+  renderer.currentScene.appendScene(pavement);
+  // let base = await loadAndParseGLB(renderer.gl, "objects/gltf/base.glb");
+  // renderer.currentScene.appendScene(base);
+  let tiger = await parseGLBFromString(renderer, tigerModel.data);
 
   tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);
-  let scene = await parseGLBFromString(renderer.gl, dragonModel.data);
+  let scene = await parseGLBFromString(renderer, dragonModel.data);
   scene.sceneRoot.transform.setLocalScale([10, 10, 10]);
   console.log(scene);
-  renderer.currentScene.appendScene(car);
   scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
   //renderer.currentScene.appendScene(scene);
   tiger.sceneRoot.transform.setLocalPosition([0, 10, 0]);
   
-  //renderer.currentScene.appendScene(tiger);
+  renderer.currentScene.appendScene(tiger);
   // renderer.currentScene = scene;
   // let lookAt = vec3.fromValues(0, 0, 0);
   // let up = vec3.fromValues(0, 1, 0);

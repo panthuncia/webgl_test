@@ -160,25 +160,25 @@ function calculateTangentsBitangents(positions, normals, uvs) {
     let v1 = { x: positions[i + 3], y: positions[i + 4], z: positions[i + 5] };
     let v2 = { x: positions[i + 6], y: positions[i + 7], z: positions[i + 8] };
 
-    //uvs
+    // uvs
     let uv0 = { u: uvs[j], v: uvs[j + 1] };
     let uv1 = { u: uvs[j + 2], v: uvs[j + 3] };
     let uv2 = { u: uvs[j + 4], v: uvs[j + 5] };
 
-    //deltas
+    // deltas
     let deltaPos1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
     let deltaPos2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
     let deltaUV1 = { u: uv1.u - uv0.u, v: uv1.v - uv0.v };
     let deltaUV2 = { u: uv2.u - uv0.u, v: uv2.v - uv0.v };
 
-    //tangent
+    // tangent
     let r = 1.0 / (deltaUV1.u * deltaUV2.v - deltaUV1.v * deltaUV2.u);
     let tangent = {
       x: (deltaPos1.x * deltaUV2.v - deltaPos2.x * deltaUV1.v) * r,
       y: (deltaPos1.y * deltaUV2.v - deltaPos2.y * deltaUV1.v) * r,
       z: (deltaPos1.z * deltaUV2.v - deltaPos2.z * deltaUV1.v) * r,
     };
-    //bitangent
+    // bitangent
     let bitangent = {
       x: (deltaPos2.x * deltaUV1.u - deltaPos1.x * deltaUV2.u) * r,
       y: (deltaPos2.y * deltaUV1.u - deltaPos1.y * deltaUV2.u) * r,
@@ -195,6 +195,66 @@ function calculateTangentsBitangents(positions, normals, uvs) {
   }
 
   return { tangents: tangents, bitangents: bitangents };
+}
+
+function calculateTangentsBitangentsIndexed(positions, normals, uvs, indices) {
+  let tangents = new Array(positions.length).fill(0);
+  let bitangents = new Array(positions.length).fill(0);
+
+  for (let i = 0; i < indices.length; i += 3) {
+    // Indices
+    const i0 = indices[i] * 3;
+    const i1 = indices[i + 1] * 3;
+    const i2 = indices[i + 2] * 3;
+
+    const uvIndex0 = indices[i] * 2;
+    const uvIndex1 = indices[i + 1] * 2;
+    const uvIndex2 = indices[i + 2] * 2;
+
+    // vertices
+    const v0 = { x: positions[i0], y: positions[i0 + 1], z: positions[i0 + 2] };
+    const v1 = { x: positions[i1], y: positions[i1 + 1], z: positions[i1 + 2] };
+    const v2 = { x: positions[i2], y: positions[i2 + 1], z: positions[i2 + 2] };
+
+    // uvs
+    const uv0 = { u: uvs[uvIndex0], v: uvs[uvIndex0 + 1] };
+    const uv1 = { u: uvs[uvIndex1], v: uvs[uvIndex1 + 1] };
+    const uv2 = { u: uvs[uvIndex2], v: uvs[uvIndex2 + 1] };
+
+    // deltas
+    const deltaPos1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
+    const deltaPos2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
+    const deltaUV1 = { u: uv1.u - uv0.u, v: uv1.v - uv0.v };
+    const deltaUV2 = { u: uv2.u - uv0.u, v: uv2.v - uv0.v };
+
+    // tangent
+    const r = 1.0 / (deltaUV1.u * deltaUV2.v - deltaUV1.v * deltaUV2.u);
+    const tangent = {
+      x: (deltaPos1.x * deltaUV2.v - deltaPos2.x * deltaUV1.v) * r,
+      y: (deltaPos1.y * deltaUV2.v - deltaPos2.y * deltaUV1.v) * r,
+      z: (deltaPos1.z * deltaUV2.v - deltaPos2.z * deltaUV1.v) * r,
+    };
+
+    // bitangent
+    const bitangent = {
+      x: (deltaPos2.x * deltaUV1.u - deltaPos1.x * deltaUV2.u) * r,
+      y: (deltaPos2.y * deltaUV1.u - deltaPos1.y * deltaUV2.u) * r,
+      z: (deltaPos2.z * deltaUV1.u - deltaPos1.z * deltaUV2.u) * r,
+    };
+
+    // A vertex can belong to multiple triangles
+    for (let j of [i0, i1, i2]) {
+      tangents[j] += tangent.x;
+      tangents[j + 1] += tangent.y;
+      tangents[j + 2] += tangent.z;
+
+      bitangents[j] += bitangent.x;
+      bitangents[j + 1] += bitangent.y;
+      bitangents[j + 2] += bitangent.z;
+    }
+  }
+
+  return { tangents, bitangents };
 }
 
 function compileShader(gl, shaderSource, shaderType) {
@@ -244,7 +304,11 @@ function createRenderableObject(gl, data, material, name) {
   for (const geometry of data.geometries) {
     let tanbit = null;
     if (geometry.data.texcoords) {
-      tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+      if (geometry.data.indices){
+        tanbit = calculateTangentsBitangentsIndexed(geometry.data.positions, geometry.data.normals, geometry.data.texcoords, geometry.data.indices);
+      } else {
+        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+      }
     }
     let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
     meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit == null ? null : tanbit.tangents, tanbit == null ? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights));
@@ -257,8 +321,14 @@ function createRenderableObject(gl, data, material, name) {
 function prepareObjectData(gl, data) {
   meshes = [];
   for (const geometry of data.geometries) {
-    let tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
-    let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
+    let tanbit = null;
+    if (geometry.data.texcoords) {
+      if (geometry.data.indices){
+        tanbit = calculateTangentsBitangentsIndexed(geometry.data.positions, geometry.data.normals, geometry.data.texcoords, geometry.data.indices);
+      } else {
+        tanbit = calculateTangentsBitangents(geometry.data.positions, geometry.data.normals, geometry.data.texcoords);
+      }
+    }    let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
     meshes.push(new Mesh(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit.tangents, tanbit.bitangents, geometry.data.indices));
   }
   return { meshes };
@@ -1203,7 +1273,7 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
       blendMode = BLEND_MODE.BLEND_MODE_MASK;
     }
 
-    const material = new Material(texture, normal, true, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity, blendMode, emissiveTexture, emissiveFactor);
+    const material = new Material(gltfMaterial.name, texture, normal, true, aoMap, heightMap, metallicRoughness, metallicRoughness, true, metallicFactor, roughnessFactor, baseColorFactor, opacity, blendMode, emissiveTexture, emissiveFactor);
     materials.push(material);
   });
   return materials;
@@ -1306,7 +1376,8 @@ function parseGLTFAnimations(gltfData, binaryData, nodes) {
   return animations;
 }
 
-async function loadAndParseGLTF(gl, dir, filename) {
+async function loadAndParseGLTF(renderer, dir, filename) {
+  const gl = renderer.gl;
   let meshesAndMaterials = [];
   let scene = new Scene();
   try {
@@ -1333,6 +1404,11 @@ async function loadAndParseGLTF(gl, dir, filename) {
     );
 
     let materials = await parseGLTFMaterials(gl, gltfData, dir);
+    for(let material of materials){
+      if(material.name & material.name != ""){
+        renderer.materialsByName[material.name] = material;
+      }
+    }
 
     const binaryData = binBuffers[0]; // One .bin file for now
     for (const mesh of gltfData.meshes) {
@@ -1415,19 +1491,20 @@ function setDownload(dataString) {
   });
 }
 
-async function loadAndParseGLB(gl, url) {
+async function loadAndParseGLB(renderer, url) {
   const glbArrayBuffer = await fetchGLB(url);
   setDownload(arrayBufferToBase64(glbArrayBuffer));
-  return parseGLB(gl, glbArrayBuffer);
+  return parseGLB(renderer, glbArrayBuffer);
 }
 
-async function parseGLBFromString(gl, string) {
+async function parseGLBFromString(renderer, string) {
   const glbArrayBuffer = Base64ToArrayBuffer(string);
-  return parseGLB(gl, glbArrayBuffer);
+  return parseGLB(renderer, glbArrayBuffer);
 }
 
 //https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
-async function parseGLB(gl, glbArrayBuffer) {
+async function parseGLB(renderer, glbArrayBuffer) {
+  const gl = renderer.gl;
   let meshesAndMaterials = [];
   let scene = new Scene();
   try {
@@ -1456,6 +1533,11 @@ async function parseGLB(gl, glbArrayBuffer) {
     subsetUint8Array.set(new Uint8Array(fullArrayBuffer, byteOffset, byteLength));
 
     let materials = await parseGLTFMaterials(gl, gltfData, "", binaryData);
+    for(let material of materials){
+      if(material.name && material.name != ""){
+        renderer.materialsByName[material.name] = material;
+      }
+    }
     for (const mesh of gltfData.meshes) {
       let data = {
         mesh: {

@@ -97,6 +97,8 @@ class WebGLRenderer {
     
     //time, for animations
     this.lastTime = new Date().getTime() / 1000;
+
+    this.materialsByName = {};
   }
 
   //Get a variant of the main shaders with a given variant ID
@@ -319,6 +321,11 @@ class WebGLRenderer {
     this.initLightVectors();
     this.updateCascades();
   }
+
+  getMaterialByName(name){
+    return this.materialsByName[name];
+  }
+
   // Update the scene graph from root
   updateScene() {
     //update animations
@@ -771,7 +778,7 @@ class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    let material = new Material(texture, null, false, null, null, null, null, false, null, null, [1, 1, 1, 1], null, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, 1.0, skipLighting, ambientStrength);
+    let material = new Material("", texture, null, false, null, null, null, null, false, null, null, [1, 1, 1, 1], null, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, 1.0, skipLighting, ambientStrength);
     let renderable = createRenderable(gl, name, objectData, material);
     return renderable;
   }
@@ -893,7 +900,7 @@ class WebGLRenderer {
     let objectData = await getObj("objects/" + modelDescription.model);
     console.log(objectData);
 
-    let material = new Material(texture, normalMap, invertNormalMap, aoMap, heightMap, metallic, roughness, false, metallicFactor, roughnessFactor, baseColorFactor, opacity, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, textureScale, false, 0.1, 1.0); //TODO: handle opaqueness on non-gltf models
+    let material = new Material("", texture, normalMap, invertNormalMap, aoMap, heightMap, metallic, roughness, false, metallicFactor, roughnessFactor, baseColorFactor, opacity, BLEND_MODE.BLEND_MODE_OPAQUE, null, null, textureScale, false, 0.1, 1.0); //TODO: handle opaqueness on non-gltf models
     return createRenderable(gl, name, objectData, material);
   }
   printRestrictions() {
