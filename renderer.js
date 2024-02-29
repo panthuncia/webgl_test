@@ -34,8 +34,7 @@ class WebGLRenderer {
     vec3.normalize(this.defaultDirection, this.defaultDirection);
 
     // Shadow setup
-    this.SHADOW_WIDTH = 2048; //8192;
-    this.SHADOW_HEIGHT = 2048; //8192;
+    this.SHADOW_RESOLUTION = 2048; //8192;
     this.SHADOW_CASCADE_DISTANCE = 100;
 
     this.NUM_SHADOW_CASCADES = 4;
@@ -163,32 +162,44 @@ class WebGLRenderer {
     shaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_PARALLAX;
     let shaderProgram = this.getProgram(fsSource, vsSource, shaderVariant);
 
-    this.buffers.perFrameUBOBindingLocation = 0;
-    this.buffers.perMaterialUBOBindingLocation = 1;
-    this.buffers.lightUBOBindingLocation = 2;
+    this.buffers.perProgramUBOBindingLocation = 0;
+    this.buffers.perFrameUBOBindingLocation = 1;
+    this.buffers.perMaterialUBOBindingLocation = 2;
+    this.buffers.lightUBOBindingLocation = 3;
 
     //get uniform block info
+    const perProgramBlockName = "PerProgram";
     const perFrameBlockName = "PerFrame";
     const perMaterialBlockName = "PerMaterial";
     const lightBlockName = "LightInfo";
+
+    const perProgramBlockIndex = gl.getUniformBlockIndex(shaderProgram, perProgramBlockName);
     const perFrameBlockIndex = gl.getUniformBlockIndex(shaderProgram, perFrameBlockName);
     const perMaterialBlockIndex = gl.getUniformBlockIndex(shaderProgram, perMaterialBlockName);
     const lightBlockIndex = gl.getUniformBlockIndex(shaderProgram, lightBlockName);
+
+    const perProgramBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, perProgramBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
     const perFrameBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, perFrameBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
     const perMaterialBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, perMaterialBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
     const lightBlockSize = gl.getActiveUniformBlockParameter(shaderProgram, lightBlockIndex, gl.UNIFORM_BLOCK_DATA_SIZE);
 
-    //create CPU-side buffers
+    // Create CPU-side buffers
+    this.buffers.perProgramBufferData = new ArrayBuffer(perProgramBlockSize);
     this.buffers.perFrameBufferData = new ArrayBuffer(perFrameBlockSize);
     this.buffers.perMaterialBufferData = new ArrayBuffer(perMaterialBlockSize);
     this.buffers.lightBufferData = new ArrayBuffer(lightBlockSize);
 
-    //create data views for accessing CPU-side buffers
+    // Create data views for accessing CPU-side buffers
+    this.buffers.perProgramDataView = new DataView(this.buffers.perProgramBufferData);
     this.buffers.perFrameDataView = new DataView(this.buffers.perFrameBufferData);
     this.buffers.perMaterialDataView = new DataView(this.buffers.perMaterialBufferData);
     this.buffers.lightDataView = new DataView(this.buffers.lightBufferData);
 
     //create GPU-side buffers
+    this.buffers.perProgramUBO = gl.createBuffer();
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perProgramUBO);
+    gl.bufferData(gl.UNIFORM_BUFFER, perProgramBlockSize, gl.DYNAMIC_DRAW);
+
     this.buffers.perFrameUBO = gl.createBuffer();
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
     gl.bufferData(gl.UNIFORM_BUFFER, perFrameBlockSize, gl.DYNAMIC_DRAW);
@@ -200,14 +211,16 @@ class WebGLRenderer {
     this.buffers.lightUBO = gl.createBuffer();
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
     gl.bufferData(gl.UNIFORM_BUFFER, lightBlockSize, gl.DYNAMIC_DRAW);
-    // const ones = new Float32Array(lightBlockSize).fill(1);
-    // gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ones);
 
+    const perProgramUniformNames = ["u_cascadeSplits", "u_shadowMapResolution"];
     const perFrameUniformNames = ["u_camPosWorldSpace","u_viewMatrixInverse"];
     const perMaterialUniformNames = ["u_ambientStrength", "u_specularStrength", "u_emissiveFactor", "u_textureScale", "u_metallicFactor", "u_roughnessFactor", "u_baseColorFactor", "u_heightMapScale"];
     const lightUniformNames = ["u_lightProperties", "u_numLights", "u_lightPosWorldSpace", "u_lightDirWorldSpace", "u_lightAttenuation", "u_lightColor", "u_lightSpaceMatrices", "u_lightCascadeMatrices", "u_lightCubemapMatrices", "u_cascadeSplits"];
 
     //get uniform offsets by name
+    gl.uniformBlockBinding(shaderProgram, perProgramBlockIndex, this.buffers.perProgramUBOBindingLocation);
+    const perProgramUniformIndices = gl.getUniformIndices(shaderProgram, perProgramUniformNames);
+    const perProgramUniformOffsets = gl.getActiveUniforms(shaderProgram, perProgramUniformIndices, gl.UNIFORM_OFFSET);
     gl.uniformBlockBinding(shaderProgram, perFrameBlockIndex, this.buffers.perFrameUBOBindingLocation);
     const perFrameUniformIndices = gl.getUniformIndices(shaderProgram, perFrameUniformNames);
     const perFrameUniformOffsets = gl.getActiveUniforms(shaderProgram, perFrameUniformIndices, gl.UNIFORM_OFFSET);
@@ -218,9 +231,13 @@ class WebGLRenderer {
     const lightUniformIndices = gl.getUniformIndices(shaderProgram, lightUniformNames);
     const lightUniformOffsets = gl.getActiveUniforms(shaderProgram, lightUniformIndices, gl.UNIFORM_OFFSET);
 
+    this.buffers.uniformLocations.perProgramUniformLocations = {};
     this.buffers.uniformLocations.perFrameUniformLocations = {};
     this.buffers.uniformLocations.perMaterialUniformLocations = {};
     this.buffers.uniformLocations.lightUniformLocations = {};
+    for (let i = 0; i < perProgramUniformNames.length; i++) {
+      this.buffers.uniformLocations.perProgramUniformLocations[perProgramUniformNames[i]] = perProgramUniformOffsets[i];
+    }
     for (let i = 0; i < perFrameUniformNames.length; i++) {
       this.buffers.uniformLocations.perFrameUniformLocations[perFrameUniformNames[i]] = perFrameUniformOffsets[i];
     }
@@ -231,8 +248,12 @@ class WebGLRenderer {
       this.buffers.uniformLocations.lightUniformLocations[lightUniformNames[i]] = lightUniformOffsets[i];
     }
 
-    //set constant cascade splits. TODO: Move these to a PerProgram buffer?
-    dataViewSetFloatArray(this.buffers.lightDataView, this.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
+    // Set constant cascade splits and shadow resolution
+    dataViewSetFloatArray(this.buffers.perProgramDataView, this.shadowScene.cascadeSplits, this.buffers.uniformLocations.lightUniformLocations.u_cascadeSplits);
+    this.buffers.perProgramDataView.setFloat32(this.buffers.uniformLocations.perProgramUniformLocations.u_shadowMapResolution, this.SHADOW_RESOLUTION, true);
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perProgramUBO);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perProgramBufferData);
+
     console.log("created UBOs");
   }
 
@@ -246,6 +267,10 @@ class WebGLRenderer {
       let shaderProgram = this.getProgram(fsSource, vsSource, variantID);
 
       //bind UBOs
+      let perProgramIndex = gl.getUniformBlockIndex(shaderProgram, "PerProgram");
+      gl.uniformBlockBinding(shaderProgram, perProgramIndex, this.buffers.perProgramUBOBindingLocation);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perProgramUBOBindingLocation, this.buffers.perProgramUBO);
+
       let perFrameIndex = gl.getUniformBlockIndex(shaderProgram, "PerFrame");
       gl.uniformBlockBinding(shaderProgram, perFrameIndex, this.buffers.perFrameUBOBindingLocation);
       gl.bindBufferBase(gl.UNIFORM_BUFFER, this.buffers.perFrameUBOBindingLocation, this.buffers.perFrameUBO);

@@ -51,7 +51,7 @@ WebGLRenderer.prototype.drawDepths = function (viewMatrix, projectionMatrix) {
 WebGLRenderer.prototype.shadowPass = function () {
   const gl = this.gl;
 
-  gl.viewport(0, 0, this.SHADOW_WIDTH, this.SHADOW_HEIGHT);
+  gl.viewport(0, 0, this.SHADOW_RESOLUTION, this.SHADOW_RESOLUTION);
 
   let directionalLightNum = 0;
   let spotLightNum = 0;
@@ -130,7 +130,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
   //     numPointLights++;
   //   }
   // }
-  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(numCascades * this.MAX_DIRECTIONAL_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_RESOLUTION, this.SHADOW_RESOLUTION, Math.max(numCascades * this.MAX_DIRECTIONAL_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
 
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -155,7 +155,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
   this.shadowScene.shadowMaps = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowMaps);
 
-  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(this.MAX_SPOT_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_RESOLUTION, this.SHADOW_RESOLUTION, Math.max(this.MAX_SPOT_LIGHTS, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
 
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -180,7 +180,7 @@ WebGLRenderer.prototype.initShadowScene = async function () {
   this.shadowScene.shadowCubemaps = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCubemaps);
 
-  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_WIDTH, this.SHADOW_HEIGHT, Math.max(this.MAX_POINT_LIGHTS * 6, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
+  gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.DEPTH_COMPONENT32F, this.SHADOW_RESOLUTION, this.SHADOW_RESOLUTION, Math.max(this.MAX_POINT_LIGHTS * 6, 1), 0, gl.DEPTH_COMPONENT, gl.FLOAT, null);
 
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
