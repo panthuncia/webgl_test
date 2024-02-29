@@ -392,25 +392,9 @@ class WebGLRenderer {
         this.drawObject(this.debugCube, false, true);
       }
   }
-  // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
-  // This enhancement should be paired with batch rendering
-  drawObject(object, skinned, wireframe){
+
+  bindObjectInfo(object, programInfo, skinned){
     const gl = this.gl;
-    const currentScene = this.currentScene;
-
-    let currentShaderVariant = object.meshes[0].material.shaderVariant;
-      if(wireframe){
-        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
-      }
-      if (skinned == true){
-        currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
-      }
-      if (!this.shaderProgramVariants[currentShaderVariant]) {
-        this.createProgramVariants([currentShaderVariant]);
-      }
-      let programInfo = this.shaderProgramVariants[currentShaderVariant];
-      gl.useProgram(programInfo.program);
-
     gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, this.currentScene.camera.projectionMatrix);
 
     //bind shadow maps
@@ -427,7 +411,6 @@ class WebGLRenderer {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.shadowScene.shadowCubemaps);
     gl.uniform1i(programInfo.uniformLocations.shadowCubemaps, 2);
 
-    let textureUnitAfterShadowMaps = 3;
     let modelViewMatrix = mat4.create();
     mat4.multiply(modelViewMatrix, this.currentScene.camera.viewMatrix, object.transform.modelMatrix);
 
@@ -441,8 +424,30 @@ class WebGLRenderer {
       gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
       gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
     }
+  }
 
-    let textureUnit = textureUnitAfterShadowMaps;
+  // TODO: This function is very long, but I haven't figured out function composition, which would allow calling draw() as a member function with no ifs
+  // This enhancement should be paired with batch rendering
+  drawObject(object, skinned, wireframe){
+    const gl = this.gl;
+    const currentScene = this.currentScene;
+
+    let currentShaderVariant = object.meshes[0].material.shaderVariant;
+    if(wireframe){
+      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_WIREFRAME;
+    }
+    if (skinned == true){
+      currentShaderVariant |= this.SHADER_VARIANTS.SHADER_VARIANT_SKINNED;
+    }
+    if (!this.shaderProgramVariants[currentShaderVariant]) {
+      this.createProgramVariants([currentShaderVariant]);
+    }
+    let programInfo = this.shaderProgramVariants[currentShaderVariant];
+    gl.useProgram(programInfo.program);
+
+    this.bindObjectInfo(object, programInfo, skinned);
+
+    let textureUnit = 3 // After shadow maps;
 
     let i = 0;
     for (const mesh of object.meshes) {
@@ -457,9 +462,10 @@ class WebGLRenderer {
       }
       if (!this.shaderProgramVariants[currentShaderVariant]) {
         this.createProgramVariants([currentShaderVariant]);
+        programInfo = this.shaderProgramVariants[currentShaderVariant];
+        gl.useProgram(programInfo.program);
+        this.bindObjectInfo(object, programInfo, skinned);
       }
-      programInfo = this.shaderProgramVariants[currentShaderVariant];
-      gl.useProgram(programInfo.program);
 
       mesh.bindTextures(gl, textureUnit, programInfo);
 

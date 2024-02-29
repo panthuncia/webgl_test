@@ -28,10 +28,15 @@ async function main() {
   //car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
   //renderer.currentScene.appendScene(car);
   let pavement = await loadAndParseGLB(renderer, "objects/gltf/street.glb");
-  let normalImage = await loadTexture("textures/tile/vjqifhu_2K_Normal.jpg");
-  let normalMap = createWebGLTexture(renderer.gl, normalImage, false, true);
-  renderer.materialsByName["Grey..003"].setNormalMap(normalMap);
+  //let normalImage = await loadTexture("textures/tile/vjqifhu_2K_Normal.jpg");
+  //let normalMap = createWebGLTexture(renderer.gl, normalImage, false, true);
+  //renderer.materialsByName["Grey..003"].setNormalMap(normalMap);
   renderer.currentScene.appendScene(pavement);
+
+  let lamp = await loadAndParseGLB(renderer, "objects/gltf/lamp.glb");
+  renderer.currentScene.appendScene(lamp);
+
+
   // let base = await loadAndParseGLB(renderer.gl, "objects/gltf/base.glb");
   // renderer.currentScene.appendScene(base);
   let tiger = await parseGLBFromString(renderer, tigerModel.data);

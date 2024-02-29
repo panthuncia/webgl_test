@@ -551,17 +551,6 @@
     }
     void main() {
 
-        #ifdef WIREFRAME
-        // OGL doesn't have a wireframe rasterizer fill mode like DX, so we'll use barycentric coords instead
-        float edgeWidth = 0.005;
-        if( v_baryCoord.x < edgeWidth||v_baryCoord.y < edgeWidth||v_baryCoord.z < edgeWidth){
-            fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
-            return;
-        }
-        else
-            discard;
-        #endif
-
         // We're doing light calculations in world space
         vec3 viewDir = normalize(u_camPosWorldSpace.xyz - v_fragPos.xyz); // world-space
 
