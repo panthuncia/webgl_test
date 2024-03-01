@@ -23,7 +23,7 @@ class WebGLRenderer {
     this.speed = 0.05;
 
     this.currentScene = new Scene();
-    let lookAt = vec3.fromValues(0, 0, -1);
+    let lookAt = vec3.fromValues(0, 0, 0);
     let up = vec3.fromValues(0, 1, 0);
     let fov = (80 * Math.PI) / 180; // in radians
     let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
@@ -31,6 +31,7 @@ class WebGLRenderer {
     let zFar = 1000.0;
     this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
     this.currentScene.camera.transform.setLocalPosition([5, 5, 5]);
+    this.currentScene.camera.transform.setLocalRotationFromQuaternion(quat.fromValues(-0.3351, 0.3959, 0.1579, 0.8401));
     this.currentScene.camera.update();
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
@@ -89,8 +90,8 @@ class WebGLRenderer {
     this.lastMouseX = null;
     this.lastMouseY = null;
 
-    this.horizontalAngle = Math.PI / 2;
-    this.verticalAngle = Math.PI / 2;
+    this.horizontalAngle = 0;
+    this.verticalAngle = 0;
     this.distanceFromOrigin = 25;
     this.createCallbacks();
 
@@ -98,6 +99,7 @@ class WebGLRenderer {
     this.initShadowScene();
     this.initLineRenderer();
     this.initSkyboxRenderer();
+    this.showSkybox = true;
 
     let debugCubeData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0, false);
     this.debugCube = this.createObjectFromData(debugCubeData.pointsArray, debugCubeData.normalsArray, debugCubeData.texCoordArray, [], [255, 255, 255, 255], null, true, 40.0);
@@ -558,7 +560,9 @@ class WebGLRenderer {
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    this.drawSkybox();
+    if(this.showSkybox){
+      this.drawSkybox();
+    }
 
     const currentScene = this.currentScene;
     if (this.showShadowBuffer){

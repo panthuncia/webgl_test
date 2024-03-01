@@ -9,145 +9,6 @@ function calculateNormalMatrix(modelViewMatrix) {
   return normalMatrix;
 }
 
-//https://webglfundamentals.org/webgl/lessons/webgl-load-obj.html
-function parseOBJ(text) {
-  // because indices are base 1 let's just fill in the 0th data
-  const objPositions = [[0, 0, 0]];
-  const objTexcoords = [[0, 0]];
-  const objNormals = [[0, 0, 0]];
-
-  // same order as `f` indices
-  const objVertexData = [objPositions, objTexcoords, objNormals];
-
-  // same order as `f` indices
-  let webglVertexData = [
-    [], // positions
-    [], // texcoords
-    [], // normals
-  ];
-
-  const materialLibs = [];
-  const geometries = [];
-  let geometry;
-  let groups = ["default"];
-  let material = "default";
-  let object = "default";
-
-  const noop = () => {};
-
-  function newGeometry() {
-    // If there is an existing geometry and it's
-    // not empty then start a new one.
-    if (geometry && geometry.data.positions.length) {
-      geometry = undefined;
-    }
-  }
-
-  function setGeometry() {
-    if (!geometry) {
-      const positions = [];
-      const texcoords = [];
-      const normals = [];
-      webglVertexData = [positions, texcoords, normals];
-      geometry = {
-        object,
-        groups,
-        material,
-        data: {
-          positions,
-          texcoords,
-          normals,
-        },
-      };
-      geometries.push(geometry);
-    }
-  }
-
-  function addVertex(vert) {
-    const ptn = vert.split("/");
-    ptn.forEach((objIndexStr, i) => {
-      if (!objIndexStr) {
-        return;
-      }
-      const objIndex = parseInt(objIndexStr);
-      const index = objIndex + (objIndex >= 0 ? 0 : objVertexData[i].length);
-      webglVertexData[i].push(...objVertexData[i][index]);
-    });
-  }
-
-  const keywords = {
-    v(parts) {
-      objPositions.push(parts.map(parseFloat));
-    },
-    vn(parts) {
-      objNormals.push(parts.map(parseFloat));
-    },
-    vt(parts) {
-      // should check for missing v and extra w?
-      const [u, v] = parts.map(parseFloat);
-      objTexcoords.push([u, 1 - v]);
-    },
-    f(parts) {
-      setGeometry();
-      const numTriangles = parts.length - 2;
-      for (let tri = 0; tri < numTriangles; ++tri) {
-        addVertex(parts[0]);
-        addVertex(parts[tri + 1]);
-        addVertex(parts[tri + 2]);
-      }
-    },
-    s: noop, // smoothing group
-    mtllib(parts, unparsedArgs) {
-      // the spec says there can be multiple filenames here
-      // but many exist with spaces in a single filename
-      materialLibs.push(unparsedArgs);
-    },
-    usemtl(parts, unparsedArgs) {
-      material = unparsedArgs;
-      newGeometry();
-    },
-    g(parts) {
-      groups = parts;
-      newGeometry();
-    },
-    o(parts, unparsedArgs) {
-      object = unparsedArgs;
-      newGeometry();
-    },
-  };
-
-  const keywordRE = /(\w*)(?: )*(.*)/;
-  const lines = text.split("\n");
-  for (let lineNo = 0; lineNo < lines.length; ++lineNo) {
-    const line = lines[lineNo].trim();
-    if (line === "" || line.startsWith("#")) {
-      continue;
-    }
-    const m = keywordRE.exec(line);
-    if (!m) {
-      continue;
-    }
-    const [, keyword, unparsedArgs] = m;
-    const parts = line.split(/\s+/).slice(1);
-    const handler = keywords[keyword];
-    if (!handler) {
-      console.warn("unhandled keyword:", keyword); // eslint-disable-line no-console
-      continue;
-    }
-    handler(parts, unparsedArgs);
-  }
-
-  // remove any arrays that have no entries.
-  for (const geometry of geometries) {
-    geometry.data = Object.fromEntries(Object.entries(geometry.data).filter(([, array]) => array.length > 0));
-  }
-
-  return {
-    geometries,
-    materialLibs,
-  };
-}
-
 //calculates the tangents and bitangents for a list of positions on a mesh
 //used for tangent-space operations such as normal mapping and parallax
 function calculateTangentsBitangents(positions, normals, uvs) {
@@ -612,14 +473,16 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 async function createCubemap(gl) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+  const test = await loadTexture("textures/cubemap/skybox_negz.png");
+  setDownload(await imageBitmapToBase64(test));
 
   const faceInfo = [
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "textures/cubemap/skybox_posx.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "textures/cubemap/skybox_negx.png" },
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "textures/cubemap/skybox_posy.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: "textures/cubemap/skybox_negy.png" },
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: "textures/cubemap/skybox_posz.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "textures/cubemap/skybox_negz.png" },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, img: skyboxPosXImage.data },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, img: skyboxNegXImage.data },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, img: skyboxPosYImage.data },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, img: skyboxNegYImage.data },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, img: skyboxPosZImage.data },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, img: skyboxNegZImage.data },
     // { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "textures/cubemap/Daylight Box_Right.bmp" },
     // { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "textures/cubemap/Daylight Box_Left.bmp" },
     // { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "textures/cubemap/Daylight Box_Top.bmp" },
@@ -628,8 +491,8 @@ async function createCubemap(gl) {
     // { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "textures/cubemap/Daylight Box_Back.bmp" },
   ];
   for (let face of faceInfo){ 
-    const { target, url } = face;
-    const image = await loadTexture(url);
+    const { target, img } = face;
+    const image = await base64ToImageBitmap(img);
     gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
@@ -1746,4 +1609,70 @@ function getEuler(out, quat) {
   }
   // TODO: Return them as degrees and not as radians
   return out;
+}
+
+function alignQuaternionWithUp(quaternion, defaultDirection, globalUp) {
+  // Convert quaternion to a rotation matrix
+  const rotationMatrix = mat3.create();
+  mat3.fromQuat(rotationMatrix, quaternion);
+
+  const forward = vec3.transformMat3(vec3.create(), defaultDirection, rotationMatrix);
+
+  const right = vec3.cross(vec3.create(), globalUp, forward);
+  vec3.normalize(right, right);
+
+  // Orthogonalize up vector
+  const orthogonalUp = vec3.cross(vec3.create(), forward, right);
+  vec3.normalize(orthogonalUp, orthogonalUp);
+
+  // Create a new rotation matrix from the orthogonal basis vectors
+  const adjustedMatrix = mat3.fromValues(
+    right[0], right[1], right[2],
+    orthogonalUp[0], orthogonalUp[1], orthogonalUp[2],
+    forward[0], forward[1], forward[2]
+  );
+
+  const adjustedQuat = quat.create();
+  quat.fromMat3(adjustedQuat, adjustedMatrix);
+
+  return adjustedQuat;
+}
+
+function quaternionLookAt(position, target, defaultDirection, globalUp = [0, 1, 0]) {
+  // Find rotation quaternion that rotates (position, defaultDirection) to face target
+  const directionVector = vec3.create();
+  vec3.subtract(directionVector, position, target);
+  vec3.normalize(directionVector, directionVector);
+
+  const rotationAxis = vec3.create();
+  vec3.cross(rotationAxis, defaultDirection, directionVector);
+  vec3.normalize(rotationAxis, rotationAxis);
+
+  const angle = Math.acos(vec3.dot(defaultDirection, directionVector));
+
+  const initialRotation = quat.create();
+  quat.setAxisAngle(initialRotation, rotationAxis, angle);
+
+  // Find "up" vector after rotation
+  const rotatedUp = vec3.create();
+  vec3.transformQuat(rotatedUp, globalUp, initialRotation);
+
+  // Find rotation quaternion to align the rotated "up" with the global "up"
+  const secondaryRotationAxis = directionVector;
+  const rotatedUpCrossGlobalUp = vec3.create();
+  vec3.cross(rotatedUpCrossGlobalUp, rotatedUp, globalUp);
+  const secondaryRotationAngle = Math.asin(vec3.length(rotatedUpCrossGlobalUp) / (vec3.length(rotatedUp) * vec3.length(globalUp)));
+
+  const secondaryRotation = quat.create();
+  if(vec3.dot(rotatedUp, globalUp) < 0){
+      quat.setAxisAngle(secondaryRotation, secondaryRotationAxis, Math.PI - secondaryRotationAngle);
+  } else {
+      quat.setAxisAngle(secondaryRotation, secondaryRotationAxis, secondaryRotationAngle);
+  }
+
+  // Combine the initial and secondary rotations
+  const finalRotation = quat.create();
+  quat.multiply(finalRotation, secondaryRotation, initialRotation);
+
+  return alignQuaternionWithUp(finalRotation, defaultDirection, globalUp);
 }

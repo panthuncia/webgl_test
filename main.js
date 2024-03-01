@@ -65,10 +65,10 @@ async function main() {
   renderer.currentScene.addNode(carCamera);
   carCameraNode.addChild(carCamera);
 
-  let rabbit = await loadAndParseGLB(renderer, "objects/gltf/bunny.glb");
+  let rabbit = await parseGLBFromString(renderer, bunnyModel.data);
   let rabbitRoot = renderer.currentScene.appendScene(rabbit);
   rabbitRoot.transform.setLocalScale([3, 3, 3]);
-  rabbitRoot.transform.setLocalPosition([0, 1.3, 2.4]);
+  rabbitRoot.transform.setLocalPosition([1.5, 0.5, 4.5]);
   carRoot.addChild(rabbitRoot);
 
   let sign = await parseGLBFromString(renderer, signModel.data);
@@ -76,18 +76,26 @@ async function main() {
   sign.sceneRoot.transform.setLocalRotationFromEuler([0, -Math.PI/2, 0]);
   renderer.currentScene.appendScene(sign);
 
+  let camera_positions = [
+    [7, 5, 7],
+    [7, 1, -7],
+    [-7, 5, -7],
+    [-7, 1, 7],
+    [7, 5, 7],
+    [7, 1, -7],
+  ];
+  lines[renderer.currentScene.camera.localID] = setChaikin(renderer.currentScene.camera, camera_positions, 8, 16, 1);
+
 
   let tiger = await parseGLBFromString(renderer, tigerModel.data);
-
   tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);
-  let scene = await parseGLBFromString(renderer, dragonModel.data);
-  scene.sceneRoot.transform.setLocalScale([10, 10, 10]);
-  console.log(scene);
-  scene.sceneRoot.transform.setLocalPosition([10, 0, 0]);
-  //renderer.currentScene.appendScene(scene);
-  tiger.sceneRoot.transform.setLocalPosition([0, 10, 0]);
-  
+  tiger.sceneRoot.transform.setLocalPosition([-4, 0, -4]);
   renderer.currentScene.appendScene(tiger);
+
+  let dragon = await parseGLBFromString(renderer, dragonModel.data);
+  dragon.sceneRoot.transform.setLocalScale([10, 10, 10]);
+  dragon.sceneRoot.transform.setLocalPosition([4, -3, 4]);
+  renderer.currentScene.appendScene(dragon);
 
   let cubemap = await createCubemap(renderer.gl);
   renderer.skyboxCubemap = cubemap;
@@ -117,36 +125,68 @@ async function main() {
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
-  let light5 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 20.0, 0, 0, 0, [1, 1, 1]);
+  let light5 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 10.0, 0, 0, 0, [1, 1, 0.2]);
   let light6 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
-  //renderer.addLightToCurrentScene(light5);
+  renderer.addLightToCurrentScene(light5);
   //renderer.addLight(light6);
 
   //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
   //animatedObjects.push(light1);
 
-  function setChaikin(object, points, amount, playTime){
+  function setChaikin(object, points, amount, playTime, mode = 0){
     let positions = chaikin(points, amount);
     let newAnimation = new AnimationClip();
     newAnimation.addPositionKeyframe(0, vec3.fromValues(...positions[0]));
     for (let i=1; i<positions.length-1; i++){
       newAnimation.addPositionKeyframe(i*(playTime/(positions.length-1)), vec3.fromValues(...positions[i]));
     }
-    //calculate rotation keyframes that always point to the next position keyframe
-    for (let i = 0; i < positions.length - 1; i++) {
-      let currentPos = positions[i];
-      let nextPos = positions[i + 1];
-      let direction = vec3.subtract(vec3.create(), vec3.fromValues(...currentPos), vec3.fromValues(...nextPos));
-      let rotationQuat = quaternionFromDirection(direction);
-      newAnimation.addRotationKeyframe(i * (playTime / (positions.length - 1)), rotationQuat);
-  }
+    switch (mode){
+      //calculate rotation keyframes that always point to the next position keyframe
+      case 0:
+        for (let i = 0; i < positions.length - 1; i++) {
+          let currentPos = positions[i];
+          let nextPos = positions[i + 1];
+          let direction = vec3.subtract(vec3.create(), vec3.fromValues(...currentPos), vec3.fromValues(...nextPos));
+          let rotationQuat = quaternionFromDirection(direction);
+          newAnimation.addRotationKeyframe(i * (playTime / (positions.length - 1)), rotationQuat);
+        }
+        break;
+      //calculate rotation keyframes that always point to the origin
+      case 1:
+        for (let i = 0; i < positions.length; i++) {
+          let position = positions[i];
+          let target = vec3.fromValues(0, 0, 0);
+          let rotationQuat = quaternionLookAt(position, target, defaultDirection);
+      
+          newAnimation.addRotationKeyframe(i * (playTime / (positions.length - 1)), rotationQuat);
+        }
+        break;
+    }
     object.animationController.setAnimationClip(newAnimation);
     return linesFromPositions(positions);
 }
 
+  let playing = true;
+  function toggleAnimation(){
+    if(!playing){
+      for (let anim of animatedObjects){
+        anim.animationController.unpause();
+      }
+      playing = true;
+    } else {
+      for (let anim of animatedObjects){
+        anim.animationController.pause();
+      }
+      playing = false;
+    }
+  }
+
   let mainCamera = renderer.currentScene.camera;
   let directedCamera = true;
+  let cameraPlaying = true;
+  let sunlight = true;
+  let sunColor = light5.color;
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "m") {
       renderer.forceWireframe = !renderer.forceWireframe;
@@ -157,12 +197,18 @@ async function main() {
     if (event.key.toLowerCase() === "f") {
       renderer.materialsByName["Bunny"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
       renderer.materialsByName["Bunny"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFRACT;
+
+      renderer.materialsByName["StingrayPBS1"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
+      renderer.materialsByName["StingrayPBS1"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFRACT;
     }
     if (event.key.toLowerCase() === "r") {
       renderer.materialsByName["clay"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
       renderer.materialsByName["clay"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFLECT;
+
+      renderer.materialsByName["Material_0"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
+      renderer.materialsByName["Material_0"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFLECT;
     }
-    if (event.key.toLowerCase() === "c") {
+    if (event.key.toLowerCase() === "d") {
       if (directedCamera){
         directedCamera = false;
         renderer.currentScene.camera = carCamera;
@@ -179,6 +225,30 @@ async function main() {
     if (event.key.toLowerCase() === "l") {
       renderer.lightScene = ! renderer.lightScene;
     }
+    if (event.key.toLowerCase() === "m") {
+      toggleAnimation();
+    }
+    if (event.key.toLowerCase() === "e") {
+      renderer.showSkybox = ! renderer.showSkybox;
+    }
+    if (event.key.toLowerCase() === "c") {
+      if(!cameraPlaying){
+        mainCamera.animationController.unpause();
+        cameraPlaying = true;
+      } else {
+        mainCamera.animationController.pause();
+        cameraPlaying = false;
+      }
+    }
+    if (event.key.toLowerCase() === "g") {
+      if(sunlight){
+        sunlight = false;
+        light5.color = [0, 0, 0];
+      } else {
+        sunlight = true;
+        light5.color = sunColor;
+      }
+    }
   });
 
   await createDebugQuad(renderer.gl);
@@ -191,10 +261,11 @@ async function main() {
     for (let anim of animatedObjects){
       anim.animationController.update(elapsed);
     }
+    mainCamera.animationController.update(elapsed);
     renderer.drawScene();
     for (let key in lines){
       let object = renderer.currentScene.getEntityById(key);
-      renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
+      //renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
     }
     requestAnimationFrame(drawScene);
   }
