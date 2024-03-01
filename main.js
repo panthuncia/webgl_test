@@ -53,7 +53,7 @@ async function main() {
   let carCameraNode = new SceneNode();
   renderer.currentScene.addNode(carCameraNode);
   carCameraNode.transform.setLocalPosition([0.8, 0.8, 3]);
-  carCameraNode.transform.setLocalRotationFromEuler([0, Math.PI, 0]);
+  carCameraNode.transform.setLocalRotationFromEuler([0, (5*Math.PI)/4, 0]);
   carRoot.addChild(carCameraNode);
   let lookAt = vec3.fromValues(0, 0, 1);
   let up = vec3.fromValues(0, 1, 0);
@@ -170,6 +170,14 @@ async function main() {
         directedCamera = true;
         renderer.currentScene.camera = mainCamera;
       }
+    }
+    if (event.key.toLowerCase() === "s") {
+      renderer.drawShadows = ! renderer.drawShadows;
+      renderer.clearShadows();
+    }
+    //hack, just sets all light colors to 0,0,0
+    if (event.key.toLowerCase() === "l") {
+      renderer.lightScene = ! renderer.lightScene;
     }
   });
 

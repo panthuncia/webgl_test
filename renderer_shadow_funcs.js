@@ -101,6 +101,53 @@ WebGLRenderer.prototype.shadowPass = function () {
   gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 };
 
+WebGLRenderer.prototype.clearShadows = function () {
+  const gl = this.gl;
+
+  gl.viewport(0, 0, this.SHADOW_RESOLUTION, this.SHADOW_RESOLUTION);
+
+  let directionalLightNum = 0;
+  let spotLightNum = 0;
+  let pointLightNum = 0;
+  let i = 0;
+  for (let key in this.currentScene.lights) {
+    let light = this.currentScene.lights[key];
+    if (light.type == LightType.DIRECTIONAL) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCascadeFramebuffer);
+      const cascadeInfo = light.cascades;
+      for (let j = 0; j < this.NUM_SHADOW_CASCADES; j++) {
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCascades, 0, directionalLightNum * this.NUM_SHADOW_CASCADES + j);
+
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+      }
+      directionalLightNum++;
+    } else if (light.type == LightType.SPOT) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowMapFramebuffer);
+
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowMaps, 0, spotLightNum);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+
+      spotLightNum++;
+    } else if (light.type == LightType.POINT) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCubemapFramebuffer);
+      for (let i = 0; i < 6; i++) {
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCubemaps, 0, pointLightNum * 6 + i);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+
+      }
+
+      pointLightNum++;
+    }
+    i++;
+  }
+
+  //reset frame buffer and viewport
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+};
+
+
+
 WebGLRenderer.prototype.initShadowScene = async function () {
   const gl = this.gl;
   const numCascades = this.NUM_SHADOW_CASCADES;

@@ -45,6 +45,7 @@ class WebGLRenderer {
     this.NUM_SHADOW_CASCADES = 4;
     this.shadowScene = {};
     this.shadowScene.cascadeSplits = calculateCascadeSplits(this.NUM_SHADOW_CASCADES, this.currentScene.camera.zNear, this.currentScene.camera.zFar, this.SHADOW_CASCADE_DISTANCE);
+    this.drawShadows = true;
     //for debug drawing
     this.showShadowBuffer = false;
 
@@ -52,6 +53,7 @@ class WebGLRenderer {
     this.MAX_SPOT_LIGHTS = 5;
     this.MAX_POINT_LIGHTS = 10;
     this.MAX_LIGHTS = this.MAX_DIRECTIONAL_LIGHTS + this.MAX_SPOT_LIGHTS + this.MAX_POINT_LIGHTS;
+    this.lightScene = true;
 
     this.standardHeader = `#version 300 es
     #define MAX_DIRECTIONAL_LIGHTS `+this.MAX_DIRECTIONAL_LIGHTS+`
@@ -549,7 +551,9 @@ class WebGLRenderer {
     this.updateScene();
     this.updateLights();
 
-    this.shadowPass();
+    if(this.drawShadows){
+      this.shadowPass();
+    }
 
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -565,7 +569,6 @@ class WebGLRenderer {
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.perFrameUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.perFrameBufferData);
 
-    
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.buffers.lightUBO);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.buffers.lightBufferData);
     
@@ -620,6 +623,11 @@ class WebGLRenderer {
       this.currentScene.lightColorsData[i * 4 + 1] = lightColor[1] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 2] = lightColor[2] * lightIntensity;
       this.currentScene.lightColorsData[i * 4 + 3] = 1.0;
+      if(!this.lightScene){
+        this.currentScene.lightColorsData[i * 4] = 0;
+        this.currentScene.lightColorsData[i * 4 + 1] = 0;
+        this.currentScene.lightColorsData[i * 4 + 2] = 0;
+      }
 
       let lightDirWorld = light.getLightDir();
       this.currentScene.lightDirectionsData[i * 4] = lightDirWorld[0];
