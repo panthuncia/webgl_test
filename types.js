@@ -161,6 +161,7 @@ class Mesh {
       gl.uniform1i(programInfo.uniformLocations.emissive, textureUnit);
       textureUnit += 1;
     }
+    return textureUnit;
   }
 }
 

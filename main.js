@@ -31,7 +31,7 @@ async function main() {
   renderer.currentScene.appendScene(lamp);
 
   //load and animate car
-  let car = await parseGLBFromString(renderer, carModel.data, true);
+  let car = await parseGLBFromString(renderer, carModel.data);
   carRoot = renderer.currentScene.appendScene(car);
   carRoot.transform.setLocalPosition([0, 0.4, 0]);
   carRoot.transform.setLocalScale([0.4, 0.4, 0.4]);
@@ -49,6 +49,27 @@ async function main() {
   ];
   lines[carPosNode.localID] = setChaikin(carPosNode, car_positions, 8, playTime);
   animatedObjects.push(carPosNode);
+
+  let carCameraNode = new SceneNode();
+  renderer.currentScene.addNode(carCameraNode);
+  carCameraNode.transform.setLocalPosition([0.8, 0.8, 3]);
+  carCameraNode.transform.setLocalRotationFromEuler([0, Math.PI, 0]);
+  carRoot.addChild(carCameraNode);
+  let lookAt = vec3.fromValues(0, 0, 1);
+  let up = vec3.fromValues(0, 1, 0);
+  let fov = (80 * Math.PI) / 180; // in radians
+  let aspect = renderer.gl.canvas.clientWidth / renderer.gl.canvas.clientHeight;
+  let zNear = 0.1;
+  let zFar = 1000.0;
+  let carCamera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
+  renderer.currentScene.addNode(carCamera);
+  carCameraNode.addChild(carCamera);
+
+  let rabbit = await loadAndParseGLB(renderer, "objects/gltf/bunny.glb");
+  let rabbitRoot = renderer.currentScene.appendScene(rabbit);
+  rabbitRoot.transform.setLocalScale([3, 3, 3]);
+  rabbitRoot.transform.setLocalPosition([0, 1.3, 2.4]);
+  carRoot.addChild(rabbitRoot);
 
   let sign = await parseGLBFromString(renderer, signModel.data);
   sign.sceneRoot.transform.setLocalPosition([4.5, 0, 2]);
@@ -92,7 +113,7 @@ async function main() {
   renderer.currentScene.addObject(light2Object);
   light2.addChild(light2Object);
   renderer.addLightToCurrentScene(light2);
-  //light2.addChild(renderer.currentScene.camera);
+
 
   let light3 = new Light(LightType.SPOT, [-3, 9, 0], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [1, 0, -0.02], Math.PI / 8, Math.PI / 6);
   let light4 = new Light(LightType.SPOT, [10, 18, -4], [1, 1, 1], 1.0, 1.0, 0.01, 0.0032, [0.01, -1, 0.01], Math.PI / 8, Math.PI / 6);
@@ -124,13 +145,31 @@ async function main() {
     return linesFromPositions(positions);
 }
 
-
+  let mainCamera = renderer.currentScene.camera;
+  let directedCamera = true;
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "m") {
       renderer.forceWireframe = !renderer.forceWireframe;
     }
     if (event.key.toLowerCase() === "z") {
       renderer.showShadowBuffer = !renderer.showShadowBuffer;
+    }
+    if (event.key.toLowerCase() === "f") {
+      renderer.materialsByName["Bunny"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
+      renderer.materialsByName["Bunny"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFRACT;
+    }
+    if (event.key.toLowerCase() === "r") {
+      renderer.materialsByName["clay"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP; //toggle env mapping
+      renderer.materialsByName["clay"].shaderVariant ^= SHADER_VARIANTS.SHADER_VARIANT_REFLECT;
+    }
+    if (event.key.toLowerCase() === "c") {
+      if (directedCamera){
+        directedCamera = false;
+        renderer.currentScene.camera = carCamera;
+      } else {
+        directedCamera = true;
+        renderer.currentScene.camera = mainCamera;
+      }
     }
   });
 

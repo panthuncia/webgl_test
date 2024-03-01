@@ -184,6 +184,9 @@
     #ifdef EMISSIVE_TEXTURE
         uniform sampler2D u_emissive;
     #endif
+    #ifdef ENVIRONMENT_MAP
+        uniform samplerCube u_environmentMap;
+    #endif
 
     out vec4 fragmentColor;
 
@@ -541,18 +544,25 @@
         float filterSize = 15.5; // Size of the PCF filter
         float total = 0.0;
         float shadow = 0.0;
+        //if(!isOutside) {
+        //    int layer = pointLightNum * 6 + faceIndex;
+        //    float bias = 0.0002;
+
+        //    for(int x = -2; x <= 2; x++) {
+        //        for(int y = -2; y <= 2; y++) {
+        //            float pcfDepth = texture(u_shadowCubemaps, vec3(uv.xy + vec2(x, y) * filterSize / u_shadowMapResolution, float(layer))).r;
+        //            total += uv.z - bias > pcfDepth ? 1.0 : 0.0;
+        //        }
+        //    }
+        //}
+        //shadow = total / float(samples);
         if(!isOutside) {
             int layer = pointLightNum * 6 + faceIndex;
+            float closestDepth = texture(u_shadowCubemaps, vec3(uv.xy, float(layer))).r;
+            float currentDepth = uv.z;
             float bias = 0.0002;
-
-            for(int x = -2; x <= 2; x++) {
-                for(int y = -2; y <= 2; y++) {
-                    float pcfDepth = texture(u_shadowCubemaps, vec3(uv.xy + vec2(x, y) * filterSize / u_shadowMapResolution, float(layer))).r;
-                    total += uv.z - bias > pcfDepth ? 1.0 : 0.0;
-                }
-            }
+            shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
         }
-        shadow = total / float(samples);
         return shadow;
     }
     float luminanceFromColor(vec3 color)
@@ -665,6 +675,19 @@
             float lighting = u_ambientStrength;
         #endif
         vec3 color = baseColor.xyz * lighting;
+
+        #ifdef ENVIRONMENT_MAP
+            #ifdef REFLECT
+                vec3 R = reflect(-viewDir, normal);
+                vec4 envColor = texture(u_environmentMap, R);
+                color = (0.05*color+0.95*envColor.xyz);
+            #endif
+            #ifdef REFRACT
+                vec3 R = refract(-viewDir, normal, 0.666);
+                vec4 envColor = texture(u_environmentMap, R);
+                color = (0.05*color+0.95*envColor.xyz);
+            #endif
+        #endif
 
                 //apply emissive factor
         #ifdef EMISSIVE_TEXTURE

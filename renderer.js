@@ -149,6 +149,15 @@ class WebGLRenderer {
     if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
       defines += "#define EMISSIVE_TEXTURE\n";
     }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP) {
+      defines += "#define ENVIRONMENT_MAP\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_REFRACT) {
+      defines += "#define REFRACT\n";
+    }
+    if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_REFLECT) {
+      defines += "#define REFLECT\n";
+    }
     let vertexShader = compileShader(gl, defines + vsSource, gl.VERTEX_SHADER);
     let fragmentShader = compileShader(gl, defines + fsSource, gl.FRAGMENT_SHADER);
 
@@ -337,6 +346,9 @@ class WebGLRenderer {
       if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_EMISSIVE_TEXTURE) {
         programInfo.uniformLocations.emissive = gl.getUniformLocation(shaderProgram, "u_emissive");
       }
+      if (variantID & this.SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP) {
+        programInfo.uniformLocations.environmentMap = gl.getUniformLocation(shaderProgram, "u_environmentMap");
+      }
       this.shaderProgramVariants[variantID] = programInfo;
     }
   }
@@ -501,7 +513,12 @@ class WebGLRenderer {
         this.bindObjectInfo(object, programInfo, skinned);
       }
 
-      mesh.bindTextures(gl, textureUnit, programInfo);
+      let nextTextureUnit = mesh.bindTextures(gl, textureUnit, programInfo);
+      if(mesh.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_ENVIRONMENT_MAP){
+        gl.activeTexture(gl.TEXTURE0+nextTextureUnit);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxCubemap);
+        gl.uniform1i(programInfo.uniformLocations.environmentMap, nextTextureUnit);
+      }
 
       // Update material TODO: batch rendering
       this.buffers.perMaterialDataView.setFloat32(this.buffers.uniformLocations.perMaterialUniformLocations.u_ambientStrength, mesh.material.ambientStrength, true);
