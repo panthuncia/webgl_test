@@ -1,12 +1,11 @@
 async function main() {
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
+  lines = {};
+  let animatedObjects = [];
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
   //let car_lowpoly = await loadAndParseGLB(renderer, "objects/gltf/car_lowpoly.glb");
-  //let car = await parseGLBFromString(renderer, carModel.data);
-  //let car = await parseGLBFromString(renderer, carModelLowPoly.data);//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
-  //car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
-  //renderer.currentScene.appendScene(car);
+
 
   // Load street and modify materials
   let street = await parseGLBFromString(renderer, streetModel.data);
@@ -31,12 +30,29 @@ async function main() {
   let lamp = await parseGLBFromString(renderer, lampModel.data);
   renderer.currentScene.appendScene(lamp);
 
+  //load and animate car
   let car = await parseGLBFromString(renderer, carModel.data, true);
-  car.sceneRoot.transform.setLocalPosition([3, 0.4, 0]);
-  car.sceneRoot.transform.setLocalScale([0.4, 0.4, 0.4]);
-  renderer.currentScene.appendScene(car);
+  carRoot = renderer.currentScene.appendScene(car);
+  carRoot.transform.setLocalPosition([0, 0.4, 0]);
+  carRoot.transform.setLocalScale([0.4, 0.4, 0.4]);
+  let carPosNode = new SceneNode();
+  renderer.currentScene.addNode(carPosNode);
+  carPosNode.addChild(carRoot);
+  let playTime = 10;
+  let car_positions = [
+    [3, 0, 3],
+    [3, 0, -3],
+    [-3, 0, -3],
+    [-3, 0, 3],
+    [3, 0, 3],
+    [3, 0, -3],
+  ];
+  lines[carPosNode.localID] = setChaikin(carPosNode, car_positions, 8, playTime);
+  animatedObjects.push(carPosNode);
 
-  let sign = await loadAndParseGLB(renderer, "objects/gltf/sign.glb");
+  let sign = await parseGLBFromString(renderer, signModel.data);
+  sign.sceneRoot.transform.setLocalPosition([4.5, 0, 2]);
+  sign.sceneRoot.transform.setLocalRotationFromEuler([0, -Math.PI/2, 0]);
   renderer.currentScene.appendScene(sign);
 
 
@@ -54,59 +70,18 @@ async function main() {
 
   let cubemap = await createCubemap(renderer.gl);
   renderer.skyboxCubemap = cubemap;
-  //console.log(cubemap);
 
-  // renderer.currentScene = scene;
-  // let lookAt = vec3.fromValues(0, 0, 0);
-  // let up = vec3.fromValues(0, 1, 0);
-  // let fov = (80 * Math.PI) / 180; // in radians
-  // let aspect = renderer.gl.canvas.clientWidth / renderer.gl.canvas.clientHeight;
-  // let zNear = 0.1;
-  // let zFar = 1000.0;
-  // renderer.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
-
-  //renderer.appendSceneToCurrentScene(scene);
-  //nodes[0].transform.setLocalPosition([0, 0, 0]);
-  // nodes[0].transform.setLocalRotationFromEuler([-Math.PI/2, 0, 0]);
-  // nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([0.01, 0.01, 0.01]);
-  //nodes[0].transform.setLocalScale([0.1, 0.1, 0.1]);
-  //nodes[0].transform.setLocalScale([0.5, 0.5, 0.5]);
-  //nodes[0].transform.setLocalScale([5, 5, 5]);
-  //nodes[0].transform.setLocalScale([100, 100, 100]);
-  //nodes[0].transform.setLocalScale([400, 400, 400]);
-  //renderer.removeObjectByName("Plane.035__0");
-
-  //let terrain = await renderer.loadModel(await loadJson("objects/descriptions/ground.json"));
-  //renderer.currentScene.addObject(terrain);
-
-  // let tiger = await loadAndParseGLB(renderer, "objects/gltf/tiger2.glb");
-  // tiger[0].transform.setLocalPosition([0, 0, 0]);
-  // tiger[0].transform.setLocalScale([0.5, 0.5, 0.5]);
 
   let addedObjects = [];
-  let animatedObjects = [];
   let currentSubdivisions = 0;
   let subdivisionData = cube(v0, v1, v2, v3, v4, v5, v6, v7, currentSubdivisions, false);
   let sphereData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 4, false);
+
 
   //let rock = await renderer.loadModel(await loadJson("objects/descriptions/rock_sphere.json"));
   //rock.transform.setLocalScale([5, 5, 5]);
   //rock.transform.setLocalRotation([0, 0, -Math.PI/2]);
   //renderer.currentScene.addObject(rock);
-
-  let chaikin_iterations = 0;
-  lines = {};
-  let playTime = 5;
-
-  let light_positions = [
-    [5, 3, 5],
-    [5, 3, -5],
-    [-5, 3, -5],
-    [-5, 3, 5],
-    [5, 3, 5],
-    [5, 3, -5],
-  ];
 
   let light2 = new Light(LightType.POINT, [0, 3.05, 0], [0.64, 0.639, 0.416], 50.0, 1.0, 0.09, 0.032);
   //renderer.addLight(light2);
@@ -130,6 +105,26 @@ async function main() {
   //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
   //animatedObjects.push(light1);
 
+  function setChaikin(object, points, amount, playTime){
+    let positions = chaikin(points, amount);
+    let newAnimation = new AnimationClip();
+    newAnimation.addPositionKeyframe(0, vec3.fromValues(...positions[0]));
+    for (let i=1; i<positions.length-1; i++){
+      newAnimation.addPositionKeyframe(i*(playTime/(positions.length-1)), vec3.fromValues(...positions[i]));
+    }
+    //calculate rotation keyframes that always point to the next position keyframe
+    for (let i = 0; i < positions.length - 1; i++) {
+      let currentPos = positions[i];
+      let nextPos = positions[i + 1];
+      let direction = vec3.subtract(vec3.create(), vec3.fromValues(...currentPos), vec3.fromValues(...nextPos));
+      let rotationQuat = quaternionFromDirection(direction);
+      newAnimation.addRotationKeyframe(i * (playTime / (positions.length - 1)), rotationQuat);
+  }
+    object.animationController.setAnimationClip(newAnimation);
+    return linesFromPositions(positions);
+}
+
+
   document.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() === "m") {
       renderer.forceWireframe = !renderer.forceWireframe;
@@ -140,8 +135,20 @@ async function main() {
   });
 
   await createDebugQuad(renderer.gl);
+
+  let lastTime = new Date().getTime() / 1000;
   async function drawScene() {
+    let currentTime = new Date().getTime() / 1000;
+    let elapsed = currentTime - lastTime;
+    lastTime = currentTime;
+    for (let anim of animatedObjects){
+      anim.animationController.update(elapsed);
+    }
     renderer.drawScene();
+    for (let key in lines){
+      let object = renderer.currentScene.getEntityById(key);
+      renderer.drawLines(lines[key], object.parent.transform.modelMatrix);
+    }
     requestAnimationFrame(drawScene);
   }
   requestAnimationFrame(drawScene);

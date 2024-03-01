@@ -524,6 +524,23 @@ function getPitchYawFromQuaternion(q) {
     return {pitch , yaw};
 }
 
+function quaternionFromDirection(direction, up = vec3.fromValues(0, 1, 0)) {
+  let forward = vec3.normalize(vec3.create(), direction);
+  let dot = vec3.dot(vec3.fromValues(0, 0, -1), forward);
+
+  if (Math.abs(dot + 1) < 0.000001) {
+      // Directly opposite
+      return quat.setAxisAngle(quat.create(), up, Math.PI);
+  } else if (Math.abs(dot - 1) < 0.000001) {
+      return quat.create();
+  }
+
+  let rotationAxis = vec3.cross(vec3.create(), vec3.fromValues(0, 0, -1), forward);
+  vec3.normalize(rotationAxis, rotationAxis);
+  let angle = Math.acos(dot);
+  return quat.setAxisAngle(quat.create(), rotationAxis, angle);
+}
+
 // Combination of linear and logarithmic shadow cascade falloff
 function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.9) {
   let splits = [];

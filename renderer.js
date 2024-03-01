@@ -730,9 +730,8 @@ class WebGLRenderer {
     dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices);
   }
   updateCamera() {
-    let currentRotation = this.currentScene.camera.transform.rot;
-    //this.currentScene.camera.transform.rotateEuler([this.verticalAngle, this.horizontalAngle, 0.0]);
     this.currentScene.camera.transform.rotatePitchYaw(this.verticalAngle, this.horizontalAngle);
+    
     // Update camera transforms
     this.currentScene.camera.update();
     

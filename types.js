@@ -223,22 +223,16 @@ class Transform {
     quat.fromEuler(newQuat, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     quat.multiply(this.rot, this.rot, newQuat);
   }
+  // Intended for cameras
   rotatePitchYaw(pitch, yaw){
     let yawQuat = quat.create();
     let pitchQuat = quat.create();
 
-    const maxPitchRad = 85 * Math.PI / 180;
-    let currentPitch = getPitchYawFromQuaternion(this.rot).pitch;
-
     quat.rotateY(yawQuat, quat.create(), yaw);
-    quat.multiply(this.rot, yawQuat, this.rot);
-    quat.rotateX(pitchQuat, quat.create(), pitch);
+    quat.multiply(this.rot, yawQuat, this.rot);    // Multiplication order is important. If this is reversed, you get a solidworks-style camera
 
-    if(((currentPitch+pitch)>maxPitchRad)||((currentPitch+pitch)<-maxPitchRad)){
-    } else {
-      quat.multiply(this.rot, this.rot, pitchQuat);
-    }
-    //quat.multiply(this.rot, this.rot, combinedQuat);
+    quat.rotateX(pitchQuat, quat.create(), pitch);
+    quat.multiply(this.rot, this.rot, pitchQuat);
   }
   setLocalRotationFromQuaternion(quat) {
     this.rot = quat;
