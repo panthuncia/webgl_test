@@ -473,9 +473,7 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 async function createCubemap(gl) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-  const test = await loadTexture("textures/cubemap/skybox_negz.png");
-  setDownload(await imageBitmapToBase64(test));
-
+  
   const faceInfo = [
     { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, img: skyboxPosXImage.data },
     { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, img: skyboxNegXImage.data },
