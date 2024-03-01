@@ -172,6 +172,8 @@ class Transform {
     this.scale = scale;
     this.isDirty = false;
     this.modelMatrix = mat4.create();
+    this.currentPitch;
+    this.currentYaw;
   }
   copy()  {
     let transform = new Transform();
@@ -215,6 +217,28 @@ class Transform {
     quat.fromEuler(this.rot, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
     //quat.fromEuler(this.rot, rot[0], rot[1], rot[2]);
     this.isDirty = true;
+  }
+  rotateEuler(rot) {
+    let newQuat = quat.create(); 
+    quat.fromEuler(newQuat, rot[0] * (180 / Math.PI), rot[1] * (180 / Math.PI), rot[2] * (180 / Math.PI));
+    quat.multiply(this.rot, this.rot, newQuat);
+  }
+  rotatePitchYaw(pitch, yaw){
+    let yawQuat = quat.create();
+    let pitchQuat = quat.create();
+
+    const maxPitchRad = 85 * Math.PI / 180;
+    let currentPitch = getPitchYawFromQuaternion(this.rot).pitch;
+
+    quat.rotateY(yawQuat, quat.create(), yaw);
+    quat.multiply(this.rot, yawQuat, this.rot);
+    quat.rotateX(pitchQuat, quat.create(), pitch);
+
+    if(((currentPitch+pitch)>maxPitchRad)||((currentPitch+pitch)<-maxPitchRad)){
+    } else {
+      quat.multiply(this.rot, this.rot, pitchQuat);
+    }
+    //quat.multiply(this.rot, this.rot, combinedQuat);
   }
   setLocalRotationFromQuaternion(quat) {
     this.rot = quat;
@@ -752,6 +776,8 @@ class Camera extends SceneNode {
     this.zFar = zFar;
 
     mat4.perspective(this.projectionMatrix, this.fieldOfView, this.aspect, this.zNear, this.zFar);
+    this.viewProjectionMatrix = mat4.create();
+    this.viewProjectionMatrixInverse = mat4.create();
   }
 
   update() {
@@ -768,7 +794,10 @@ class Camera extends SceneNode {
     } else {
       this.transform.computeLocalModelMatrix();
     }
-    mat4.lookAt(this.viewMatrix, this.transform.getGlobalPosition(), this.lookAt, this.up);
+    //mat4.lookAt(this.viewMatrix, this.transform.getGlobalPosition(), this.lookAt, this.up);
+    mat4.invert(this.viewMatrix, this.transform.modelMatrix);
+    mat4.multiply(this.viewProjectionMatrix, this.projectionMatrix, this.viewMatrix);
+    mat4.invert(this.viewProjectionMatrixInverse, this.viewProjectionMatrix);
     mat4.invert(this.viewMatrixInverse, this.viewMatrix);
     for (let childKey in this.children) {
       this.children[childKey].forceUpdate();

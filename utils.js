@@ -355,6 +355,35 @@ async function loadTexture(url) {
   return createImageBitmap(blob);
 }
 
+// Helper function for conversion
+async function imageBitmapToBase64(imageBitmap){
+  const canvas = document.createElement('canvas');
+  canvas.width = imageBitmap.width;
+  canvas.height = imageBitmap.height;
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imageBitmap, 0, 0);
+
+  const base64Image = canvas.toDataURL();
+
+  return base64Image;
+}
+
+async function base64ToImageBitmap(base64String) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      createImageBitmap(img).then(imageBitmap => {
+        resolve(imageBitmap);
+      });
+    };
+    img.onerror = (e) => {
+      reject(e);
+    };
+    img.src = base64String;
+  });
+}
+
 function createWebGLTexture(gl, image, srgb = false, repeated = false, mipmaps = false) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -456,6 +485,45 @@ function calculateForwardVector(cameraPosition, targetPosition) {
   return forwardVector;
 }
 
+function forwardVectorFromMatrix(matrix){
+  let forward = vec3.create();
+  forward[0] = -matrix[8];
+  forward[1] = -matrix[9];
+  forward[2] = -matrix[10];
+
+  vec3.normalize(forward, forward);
+
+  return forward;
+}
+
+function rightVectorFromMatrix(matrix) {
+  let right = vec3.create();
+  right[0] = matrix[0];
+  right[1] = matrix[1];
+  right[2] = matrix[2];
+
+  vec3.normalize(right, right);
+
+  return right;
+}
+
+function getPitchYawFromQuaternion(q) {
+    let matrix = mat4.create();
+    mat4.fromQuat(matrix, q);
+
+    const pitch = Math.asin(-matrix[8]); // -m21
+    let yaw;
+
+    // Check for gimbal lock
+    if (Math.abs(matrix[8]) < 0.99999) {
+        yaw = Math.atan2(matrix[4], matrix[0]); // m10 / m00
+    } else {
+        yaw = 0;
+    }
+
+    return {pitch , yaw};
+}
+
 // Combination of linear and logarithmic shadow cascade falloff
 function calculateCascadeSplits(numCascades, zNear, zFar, maxDist, lambda = 0.9) {
   let splits = [];
@@ -524,37 +592,40 @@ function setupCascades(numCascades, light, camera, cascadeSplits) {
 }
 
 // Create a cubemap texture from web resource
-function createCubemap(gl) {
+async function createCubemap(gl) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
 
-  const faceInfos = [
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posx.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negx.png" },
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posy.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negy.png" },
-    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_posz.png" },
-    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "https://web.cs.wpi.edu/~jmcuneo/cs4731/project3/skybox_negz.png" },
+  const faceInfo = [
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "textures/cubemap/skybox_posx.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "textures/cubemap/skybox_negx.png" },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "textures/cubemap/skybox_posy.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: "textures/cubemap/skybox_negy.png" },
+    { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: "textures/cubemap/skybox_posz.png" },
+    { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "textures/cubemap/skybox_negz.png" },
+    // { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: "textures/cubemap/Daylight Box_Right.bmp" },
+    // { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: "textures/cubemap/Daylight Box_Left.bmp" },
+    // { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: "textures/cubemap/Daylight Box_Top.bmp" },
+    // { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: "textures/cubemap/Daylight Box_Bottom.bmp" },
+    // { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: "textures/cubemap/Daylight Box_Front.bmp" },
+    // { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: "textures/cubemap/Daylight Box_Back.bmp" },
   ];
-  faceInfos.forEach((faceInfo) => {
-    const { target, url } = faceInfo;
+  for (let face of faceInfo){ 
+    const { target, url } = face;
+    const image = await loadTexture(url);
+    gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
-    gl.texImage2D(target, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
-
-    const image = new Image();
-    image.onload = function () {
-      gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-      gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-      gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
-    };
-    image.src = url;
-  });
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+    gl.texImage2D(target, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  };
+  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
   return texture;
 }
 
@@ -1151,7 +1222,7 @@ async function getGLTFImagesFromBinary(gltfData, binaryData) {
   return images;
 }
 
-async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
+async function parseGLTFMaterials(gl, gltfData, dir, linearBaseColor = false, binaryData = null) {
   let defaultTexture = createDefaultTexture(gl);
   let images = null;
   if (binaryData != null) {
@@ -1204,8 +1275,13 @@ async function parseGLTFMaterials(gl, gltfData, dir, binaryData = null) {
     if (gltfMaterial.pbrMetallicRoughness) {
       if (gltfMaterial.pbrMetallicRoughness.baseColorTexture) {
         if (srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]) {
-          texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
-          gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
+          if (linearBaseColor){
+            texture = linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+            gl.deleteTexture(srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
+          } else {
+            texture = srgbTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index];
+            gl.deleteTexture(linearTextures[gltfMaterial.pbrMetallicRoughness.baseColorTexture.index]);
+          }
         } else {
           texture = defaultTexture;
         }
@@ -1376,7 +1452,7 @@ function parseGLTFAnimations(gltfData, binaryData, nodes) {
   return animations;
 }
 
-async function loadAndParseGLTF(renderer, dir, filename) {
+async function loadAndParseGLTF(renderer, dir, filename, linearBaseColor = false) {
   const gl = renderer.gl;
   let meshesAndMaterials = [];
   let scene = new Scene();
@@ -1403,7 +1479,7 @@ async function loadAndParseGLTF(renderer, dir, filename) {
       })
     );
 
-    let materials = await parseGLTFMaterials(gl, gltfData, dir);
+    let materials = await parseGLTFMaterials(gl, gltfData, dir, linearBaseColor);
     for(let material of materials){
       if(material.name & material.name != ""){
         renderer.materialsByName[material.name] = material;
@@ -1491,19 +1567,19 @@ function setDownload(dataString) {
   });
 }
 
-async function loadAndParseGLB(renderer, url) {
+async function loadAndParseGLB(renderer, url, linearBaseColor = false) {
   const glbArrayBuffer = await fetchGLB(url);
   setDownload(arrayBufferToBase64(glbArrayBuffer));
-  return parseGLB(renderer, glbArrayBuffer);
+  return parseGLB(renderer, glbArrayBuffer, linearBaseColor);
 }
 
-async function parseGLBFromString(renderer, string) {
+async function parseGLBFromString(renderer, string, linearBaseColor = false) {
   const glbArrayBuffer = Base64ToArrayBuffer(string);
-  return parseGLB(renderer, glbArrayBuffer);
+  return parseGLB(renderer, glbArrayBuffer, linearBaseColor);
 }
 
 //https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
-async function parseGLB(renderer, glbArrayBuffer) {
+async function parseGLB(renderer, glbArrayBuffer, linearBaseColor) {
   const gl = renderer.gl;
   let meshesAndMaterials = [];
   let scene = new Scene();
@@ -1532,7 +1608,7 @@ async function parseGLB(renderer, glbArrayBuffer) {
     const subsetUint8Array = new Uint8Array(binaryData);
     subsetUint8Array.set(new Uint8Array(fullArrayBuffer, byteOffset, byteLength));
 
-    let materials = await parseGLTFMaterials(gl, gltfData, "", binaryData);
+    let materials = await parseGLTFMaterials(gl, gltfData, "", linearBaseColor, binaryData);
     for(let material of materials){
       if(material.name && material.name != ""){
         renderer.materialsByName[material.name] = material;
@@ -1621,4 +1697,36 @@ function decodeJSONChunk(chunkData) {
   const textDecoder = new TextDecoder("utf-8");
   const jsonText = textDecoder.decode(chunkData);
   return JSON.parse(jsonText);
+}
+
+// Missing from gl-matrix
+// https://github.com/toji/gl-matrix/issues/329
+function getEuler(out, quat) {
+  let x = quat[0],
+    y = quat[1],
+    z = quat[2],
+    w = quat[3],
+    x2 = x * x,
+    y2 = y * y,
+    z2 = z * z,
+    w2 = w * w;
+  let unit = x2 + y2 + z2 + w2;
+  let test = x * w - y * z;
+  if (test > 0.499995 * unit) { //TODO: Use glmatrix.EPSILON
+    // singularity at the north pole
+    out[0] = Math.PI / 2;
+    out[1] = 2 * Math.atan2(y, x);
+    out[2] = 0;
+  } else if (test < -0.499995 * unit) { //TODO: Use glmatrix.EPSILON
+    // singularity at the south pole
+    out[0] = -Math.PI / 2;
+    out[1] = 2 * Math.atan2(y, x);
+    out[2] = 0;
+  } else {
+    out[0] = Math.asin(2 * (x * z - w * y));
+    out[1] = Math.atan2(2 * (x * w + y * z), 1 - 2 * (z2 + w2));
+    out[2] = Math.atan2(2 * (x * y + z * w), 1 - 2 * (y2 + z2));
+  }
+  // TODO: Return them as degrees and not as radians
+  return out;
 }

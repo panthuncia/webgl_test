@@ -1,51 +1,45 @@
-/**
- * Project 2 by Matthew Gomes
- * Extra credit features:
- * 1. Camera movement (Orbital camera, drag on canvas and scroll to move)<br>
- * 2. Newell vertex calculation (press "n" to toggle)<br>
- * 3. Primary light orbits scene, path shown with lines<br>
- * 4. Second light orbiting the object, using scene graph for transform inheritance<br>
- * 5. Arbitrary number of lights (Press "z" to add a light! It will be spawned at a random location, in a random orientation, with a random color, and float around the scene)<br>
- * 6. Arbitrary number of objects on path (Press "x" to add an object! It will be spawned at the beginning of the path, with a random color and speed)
- */
-
-var v0 = normalize([-1.0, -1.0, 1.0, 1], true);
-var v1 = normalize([1.0, -1.0, 1.0, 1], true);
-var v2 = normalize([1.0, 1.0, 1.0, 1], true);
-var v3 = normalize([-1.0, 1.0, 1.0, 1], true);
-var v4 = normalize([-1.0, -1.0, -1.0, 1], true);
-var v5 = normalize([1.0, -1.0, -1.0, 1], true);
-var v6 = normalize([1.0, 1.0, -1.0, 1], true);
-var v7 = normalize([-1.0, 1.0, -1.0, 1], true);
-
 async function main() {
   //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
   //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
-  //let car_lowpoly = await loadAndParseGLB(renderer.gl, "objects/gltf/car_lowpoly.glb");
-  //let car = await parseGLBFromString(renderer.gl, carModel.data);
-  //let car = await parseGLBFromString(renderer.gl, carModelLowPoly.data);//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
+  //let car_lowpoly = await loadAndParseGLB(renderer, "objects/gltf/car_lowpoly.glb");
+  //let car = await parseGLBFromString(renderer, carModel.data);
+  //let car = await parseGLBFromString(renderer, carModelLowPoly.data);//await parseGLBFromString(renderer.gl, carModelLowPoly.data);
   //car.sceneRoot.transform.setLocalPosition([0, 3, 0]);
   //renderer.currentScene.appendScene(car);
-  let street = await loadAndParseGLB(renderer, "objects/gltf/street.glb");
+
+  // Load street and modify materials
+  let street = await parseGLBFromString(renderer, streetModel.data);
   
-  let tileHeightImage = await loadTexture("textures/tile/vjqifhu_2K_Displacement.jpg");
+  let tileHeightImage = await base64ToImageBitmap(tileHeightmapImage.data);
   let tileHeightMap = createWebGLTexture(renderer.gl, tileHeightImage, false, true);
   renderer.materialsByName["Tiles"].setHeightMap(tileHeightMap);
 
-  let asphaltHeightImage = await loadTexture("textures/asphalt/pebbled_asphalt_Height.png");
+  let asphaltHeightImage = await base64ToImageBitmap(asphaltHeightmapImage.data);
   let asphaltHeightMap = createWebGLTexture(renderer.gl, asphaltHeightImage, false, true);
   renderer.materialsByName["Asphalt"].setHeightMap(asphaltHeightMap);
   renderer.materialsByName["Asphalt"].heightMapScale = 0.025;
 
+  let paintHeightImage = await base64ToImageBitmap(paintHeightmapImage.data);
+  let paintHeightMap = createWebGLTexture(renderer.gl, paintHeightImage, false, true);
+  renderer.materialsByName["Paint"].setHeightMap(paintHeightMap);
+  renderer.materialsByName["Paint"].heightMapScale = 0.01;
+
   renderer.currentScene.appendScene(street);
 
-  let lamp = await loadAndParseGLB(renderer, "objects/gltf/lamp.glb");
+  // Load lamp
+  let lamp = await parseGLBFromString(renderer, lampModel.data);
   renderer.currentScene.appendScene(lamp);
 
+  let car = await parseGLBFromString(renderer, carModel.data, true);
+  car.sceneRoot.transform.setLocalPosition([3, 0.4, 0]);
+  car.sceneRoot.transform.setLocalScale([0.4, 0.4, 0.4]);
+  renderer.currentScene.appendScene(car);
 
-  // let base = await loadAndParseGLB(renderer.gl, "objects/gltf/base.glb");
-  // renderer.currentScene.appendScene(base);
+  let sign = await loadAndParseGLB(renderer, "objects/gltf/sign.glb");
+  renderer.currentScene.appendScene(sign);
+
+
   let tiger = await parseGLBFromString(renderer, tigerModel.data);
 
   tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);
@@ -57,6 +51,11 @@ async function main() {
   tiger.sceneRoot.transform.setLocalPosition([0, 10, 0]);
   
   renderer.currentScene.appendScene(tiger);
+
+  let cubemap = await createCubemap(renderer.gl);
+  renderer.skyboxCubemap = cubemap;
+  //console.log(cubemap);
+
   // renderer.currentScene = scene;
   // let lookAt = vec3.fromValues(0, 0, 0);
   // let up = vec3.fromValues(0, 1, 0);

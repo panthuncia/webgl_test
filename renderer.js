@@ -19,6 +19,9 @@ class WebGLRenderer {
     // gl.cullFace(gl.BACK);
     // gl.frontFace(gl.CCW);
 
+    this.velocity = {forward: 0, right: 0};
+    this.speed = 0.05;
+
     this.currentScene = new Scene();
     let lookAt = vec3.fromValues(0, 0, -1);
     let up = vec3.fromValues(0, 1, 0);
@@ -27,11 +30,13 @@ class WebGLRenderer {
     let zNear = 0.1;
     let zFar = 1000.0;
     this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
-    this.velocity = {forward: 0, right: 0};
-    this.speed = 0.05;
+    this.currentScene.camera.transform.setLocalPosition([5, 5, 5]);
+    this.currentScene.camera.update();
 
     this.defaultDirection = vec3.fromValues(0, 0, -1); // Default direction
     vec3.normalize(this.defaultDirection, this.defaultDirection);
+
+    this.skyboxCubemap = null;
 
     // Shadow setup
     this.SHADOW_RESOLUTION = 2048; //8192;
@@ -90,6 +95,7 @@ class WebGLRenderer {
     this.forceWireframe = false;
     this.initShadowScene();
     this.initLineRenderer();
+    this.initSkyboxRenderer();
 
     let debugCubeData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0, false);
     this.debugCube = this.createObjectFromData(debugCubeData.pointsArray, debugCubeData.normalsArray, debugCubeData.texCoordArray, [], [255, 255, 255, 255], null, true, 40.0);
@@ -98,6 +104,8 @@ class WebGLRenderer {
     this.lastTime = new Date().getTime() / 1000;
 
     this.materialsByName = {};
+
+    this.updateCamera();
   }
 
   //Get a variant of the main shaders with a given variant ID
@@ -520,12 +528,17 @@ class WebGLRenderer {
   // Draw the scene
   drawScene() {
     const gl = this.gl;
+
     this.updateScene();
     this.updateLights();
 
     this.shadowPass();
+
     gl.clearColor(0.0, 0.0, 1.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    this.drawSkybox();
+
     const currentScene = this.currentScene;
     if (this.showShadowBuffer){
       drawFullscreenQuad(gl, this.shadowScene.shadowCubemaps, 1);
@@ -558,6 +571,7 @@ class WebGLRenderer {
       this.drawObject(object, true, this.forceWireframe);
     }
     gl.disable(gl.BLEND);
+
     this.drawSkeletons();
     this.updateCamera();
   }
@@ -716,39 +730,9 @@ class WebGLRenderer {
     dataViewSetMatrixArray(this.buffers.lightDataView, lightSpaceMatrices, this.buffers.uniformLocations.lightUniformLocations.u_lightCascadeMatrices);
   }
   updateCamera() {
-    //this.verticalAngle = Math.max(0, Math.min(Math.PI, this.verticalAngle));
-    let currentPos = this.currentScene.camera.transform.getGlobalPosition();
-    // Calculate forward vector
-    let forward = [Math.cos(this.verticalAngle) * Math.sin(this.horizontalAngle), Math.sin(this.verticalAngle), Math.cos(this.verticalAngle) * Math.cos(this.horizontalAngle)];
-
-    // Calculate right vector
-    var rightX = -Math.sin(this.horizontalAngle + Math.PI / 2);
-    var rightY = 0;
-    var rightZ = -Math.cos(this.horizontalAngle + Math.PI / 2);
-
-    let moveX = forward[0] * this.velocity.forward + rightX * this.velocity.right;
-    let moveY = forward[1] * this.velocity.forward + rightY * this.velocity.right;
-    let moveZ = forward[2] * this.velocity.forward + rightZ * this.velocity.right;
-
-    let magnitude = Math.sqrt(moveX * moveX + moveY * moveY + moveZ * moveZ);
-
-    // Normalize the movement vector
-    if (magnitude !== 0) {
-        moveX /= magnitude;
-        moveY /= magnitude;
-        moveZ /= magnitude;
-    }
-
-    let x = currentPos[0]+moveX * this.speed;
-    let y = currentPos[1]+moveY * this.speed;
-    let z = currentPos[2]+moveZ * this.speed;
-
-    const lookAtX = x + forward[0];
-    const lookAtY = y + forward[1];
-    const lookAtZ = z + forward[2];
-
-    this.currentScene.camera.transform.setLocalPosition([x, y, z]);
-    this.currentScene.camera.lookAt = vec3.fromValues(lookAtX, lookAtY, lookAtZ);
+    let currentRotation = this.currentScene.camera.transform.rot;
+    //this.currentScene.camera.transform.rotateEuler([this.verticalAngle, this.horizontalAngle, 0.0]);
+    this.currentScene.camera.transform.rotatePitchYaw(this.verticalAngle, this.horizontalAngle);
     // Update camera transforms
     this.currentScene.camera.update();
     
@@ -757,6 +741,8 @@ class WebGLRenderer {
 
     // Update shadow cascades after camera moves
     this.updateCascades();
+    this.horizontalAngle = 0;
+    this.verticalAngle = 0;
   }
   createObjectFromDataWithTexture(pointsArray, normalsArray, texcoords, name, skipLighting = false, textures = [], normals = [], aoMaps = [], heightMaps = [], metallic = [], roughness = [], opacity = [], textureScale = 1.0){
     const gl = this.gl;
