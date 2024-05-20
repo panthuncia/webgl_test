@@ -1447,7 +1447,7 @@ function setDownload(dataString) {
 
 async function loadAndParseGLB(renderer, url, linearBaseColor = false) {
   const glbArrayBuffer = await fetchGLB(url);
-  setDownload(arrayBufferToBase64(glbArrayBuffer));
+  //setDownload(arrayBufferToBase64(glbArrayBuffer));
   return parseGLB(renderer, glbArrayBuffer, linearBaseColor);
 }
 

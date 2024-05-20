@@ -1,10 +1,18 @@
+/**
+ * 1. Physically-based rendering (PBR) https://github.com/KhronosGroup/glTF-Tutorials/blob/main/PBR/README.md
+ * 2. Contact-refinement parallax (textures have visible height) https://www.artstation.com/blogs/andreariccardi/3VPo/a-new-approach-for-parallax-mapping-presenting-the-contact-refinement-parallax-mapping-technique
+ * 3. glTF loading (robust scene graph, scene merging, materials system)
+ * 4. Skinned meshes & skeleton animations (the dragon and tiger)
+ * 5. Directional (sun) light. Press G to enable and disable
+ * 6. Shadow mapping (shadow maps for arbitrary, dynamic objects in scene) including for skinned meshes, for arbitrary point, directional and spot lights
+ * 7. Camera movement (When camera is not animated, drag on canvas to rotate)
+ * 8. Fully quaternion-based CPU-side rotations (no Euler angles, no singularities)
+ */
+
 async function main() {
-  //let meshes = await loadAndParseGLB("objects/gltf/car.glb");
   let renderer = new WebGLRenderer("webgl-canvas");
   lines = {};
   let animatedObjects = [];
-  //let nodes = await loadAndParseGLTF(renderer, "objects/gltf/tiger", "scene.gltf");
-  //let car_lowpoly = await loadAndParseGLB(renderer, "objects/gltf/car_lowpoly.glb");
 
 
   // Load street and modify materials
@@ -95,7 +103,17 @@ async function main() {
   let dragon = await parseGLBFromString(renderer, dragonModel.data);
   dragon.sceneRoot.transform.setLocalScale([10, 10, 10]);
   dragon.sceneRoot.transform.setLocalPosition([4, -3, 4]);
-  renderer.currentScene.appendScene(dragon);
+  dragonNode = renderer.currentScene.appendScene(dragon);
+  let dragon_positions = [
+    [4, -1, 4],
+    [4, -1, -4],
+    [-4, -1, -4],
+    [-4, -1, 4],
+    [4, -1, 4],
+    [4, -1, -4],
+  ];
+  lines[dragonNode.localID] = setChaikin(dragonNode, dragon_positions, 8, 12);
+  animatedObjects.push(dragonNode);
 
   let cubemap = await createCubemap(renderer.gl);
   renderer.skyboxCubemap = cubemap;
@@ -129,10 +147,6 @@ async function main() {
   let light6 = new Light(LightType.DIRECTIONAL, [0, 0, 0], [0.5, 0.5, 0.5], 30.0, 0, 0, 0, [-1.0001, 1, -1.0001]);
 
   renderer.addLightToCurrentScene(light5);
-  //renderer.addLight(light6);
-
-  //lines[light1.localID] = setChaikin(light1, light_positions, 8, 3);
-  //animatedObjects.push(light1);
 
   function setChaikin(object, points, amount, playTime, mode = 0){
     let positions = chaikin(points, amount);
@@ -248,6 +262,9 @@ async function main() {
         sunlight = true;
         light5.color = sunColor;
       }
+    }
+    if (event.key.toLowerCase() === "n") {
+      renderer.showNodes = ! renderer.showNodes;
     }
   });
 

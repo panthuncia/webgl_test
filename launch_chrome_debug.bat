@@ -1,1 +1,0 @@
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --no-sandbox --disable-gpu-watchdog --gpu-startup-dialog

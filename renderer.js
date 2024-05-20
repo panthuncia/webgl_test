@@ -30,7 +30,7 @@ class WebGLRenderer {
     let zNear = 0.1;
     let zFar = 1000.0;
     this.currentScene.setCamera(lookAt, up, fov, aspect, zNear, zFar);
-    this.currentScene.camera.transform.setLocalPosition([5, 5, 5]);
+    this.currentScene.camera.transform.setLocalPosition([5, 1.9, 5]);
     this.currentScene.camera.transform.setLocalRotationFromQuaternion(quat.fromValues(-0.3351, 0.3959, 0.1579, 0.8401));
     this.currentScene.camera.update();
 
@@ -103,7 +103,8 @@ class WebGLRenderer {
 
     let debugCubeData = cube(v0, v1, v2, v3, v4, v5, v6, v7, 0, false);
     this.debugCube = this.createObjectFromData(debugCubeData.pointsArray, debugCubeData.normalsArray, debugCubeData.texCoordArray, [], [255, 255, 255, 255], null, true, 40.0);
-    
+    this.showNodes = false;
+
     //time, for animations
     this.lastTime = new Date().getTime() / 1000;
 
@@ -419,7 +420,7 @@ class WebGLRenderer {
           
           let parentBoneMatrix = mat4.create();
           mat4.multiply(parentBoneMatrix, object.transform.modelMatrix, bone.parent.transform.modelMatrix);
-          //this.drawLines([...positionFromMatrix(parentBoneMatrix), ...positionFromMatrix(boneMatrix)], mat4.create());
+          this.drawLines([...positionFromMatrix(parentBoneMatrix), ...positionFromMatrix(boneMatrix)], mat4.create());
         }
       }
     }
@@ -596,7 +597,9 @@ class WebGLRenderer {
     }
     gl.disable(gl.BLEND);
 
-    this.drawSkeletons();
+    if(this.showNodes){
+      this.drawSkeletons();
+    }
     this.updateCamera();
   }
 

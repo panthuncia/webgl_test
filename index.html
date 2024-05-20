@@ -252,12 +252,10 @@
         // Get view direction in tangent space
         viewDir = m_TBNInverse*viewDir;
 
-        //TODO: move to material definition
         float maxHeight = u_heightMapScale;//0.05;
         float minHeight = maxHeight*0.5;
 
-        // Probably unecessarily high
-        int numSteps = 64;
+        int numSteps = 10;
         // Corrects for Z view angle
         float viewCorrection = (-viewDir.z) + 2.0;
         float stepSize = 1.0 / (float(numSteps) + 1.0);
@@ -447,8 +445,8 @@
         }
 
         #ifdef USE_PARALLAX
-            float parallaxShadow = getParallaxShadow(uv, lightDir, viewDir, height);
-            lighting *= parallaxShadow;
+            //float parallaxShadow = getParallaxShadow(uv, lightDir, viewDir, height);
+            //lighting *= parallaxShadow;
         #endif
 
         return lighting;
@@ -643,6 +641,11 @@
             int spotLightNum = 0;
             int pointLightNum = 0;
             for(int i = 0; i < u_numLights; i++) {
+                vec4 color = u_lightColor[i];
+                //early out for disabled lights. Hack.
+                if(color.x < 0.01 && color.y < 0.01 && color.z < 0.01){
+                    continue;
+                }
                 float shadow = 0.0;
                 int lightType = int(round(u_lightProperties[i].x));
                 switch (lightType){
@@ -785,6 +788,5 @@
     <script type="text/javascript" src="renderer_lines.js"></script>
     <script type="text/javascript" src="renderer_skybox.js"></script>
     <script type="text/javascript" src="main.js"></script>
-    <button id="downloadBtn">Download JSON</button>
 </body>
 </html>

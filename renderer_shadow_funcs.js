@@ -1,7 +1,7 @@
 WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, projectionMatrix, skinned) {
   const gl = this.gl;
   let programInfo = null;
-  if (!skinned){
+  if (!skinned) {
     gl.useProgram(this.shadowScene.shadowProgram);
     programInfo = this.shadowScene.programInfo;
   } else {
@@ -16,9 +16,9 @@ WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, project
     if (mesh.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
       return;
     }
-    if (skinned){
-       gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
-       gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
+    if (skinned) {
+      gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
     }
 
     // Draw mesh
@@ -60,37 +60,46 @@ WebGLRenderer.prototype.shadowPass = function () {
   for (let key in this.currentScene.lights) {
     let light = this.currentScene.lights[key];
     if (light.type == LightType.DIRECTIONAL) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCascadeFramebuffer);
-      const cascadeInfo = light.cascades;
-      for (let j = 0; j < this.NUM_SHADOW_CASCADES; j++) {
-        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCascades, 0, directionalLightNum * this.NUM_SHADOW_CASCADES + j);
+      if (!((light.color[0] < 0.01) && (light.color[1] < 0.01) && (light.color[2] < 0.01))) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCascadeFramebuffer);
+        const cascadeInfo = light.cascades;
+        for (let j = 0; j < this.NUM_SHADOW_CASCADES; j++) {
+          gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCascades, 0, directionalLightNum * this.NUM_SHADOW_CASCADES + j);
 
-        gl.clear(gl.DEPTH_BUFFER_BIT);
+          gl.clear(gl.DEPTH_BUFFER_BIT);
 
-        // Render the scene (depths only) for each cascade
-        this.drawDepths(cascadeInfo[j].viewMatrix, cascadeInfo[j].orthoMatrix);
+          // Render the scene (depths only) for each cascade
+          this.drawDepths(cascadeInfo[j].viewMatrix, cascadeInfo[j].orthoMatrix);
+        }
+      } else {
+        //console.log("Skipping shadows");
       }
       directionalLightNum++;
     } else if (light.type == LightType.SPOT) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowMapFramebuffer);
+      if (!((light.color[0] < 0.01) && (light.color[1] < 0.01) && (light.color[2] < 0.01))) {
 
-      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowMaps, 0, spotLightNum);
-      gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowMapFramebuffer);
 
-      let projectionMatrix = light.projectionMatrix;
-      let viewMatrix = light.viewMatrix;
-      this.drawDepths(viewMatrix, projectionMatrix);
-      spotLightNum++;
-    } else if (light.type == LightType.POINT) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCubemapFramebuffer);
-      for (let i = 0; i < 6; i++) {
-        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCubemaps, 0, pointLightNum * 6 + i);
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowMaps, 0, spotLightNum);
         gl.clear(gl.DEPTH_BUFFER_BIT);
+
         let projectionMatrix = light.projectionMatrix;
-        let viewMatrix = light.cubemapViewMatrices[i];
+        let viewMatrix = light.viewMatrix;
         this.drawDepths(viewMatrix, projectionMatrix);
       }
+      spotLightNum++;
+    } else if (light.type == LightType.POINT) {
+      if (!((light.color[0] < 0.01) && (light.color[1] < 0.01) && (light.color[2] < 0.01))) {
 
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowScene.shadowCubemapFramebuffer);
+        for (let i = 0; i < 6; i++) {
+          gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, this.shadowScene.shadowCubemaps, 0, pointLightNum * 6 + i);
+          gl.clear(gl.DEPTH_BUFFER_BIT);
+          let projectionMatrix = light.projectionMatrix;
+          let viewMatrix = light.cubemapViewMatrices[i];
+          this.drawDepths(viewMatrix, projectionMatrix);
+        }
+      }
       pointLightNum++;
     }
     i++;
@@ -250,15 +259,15 @@ WebGLRenderer.prototype.createShadowProgram = async function () {
   let fsSource = this.shadowFSSource;
   let vsSource = this.shadowVSSource;
   let standardHeader = `#version 300 es\n`;
-  let vertexShader = compileShader(gl, this.standardHeader+vsSource, gl.VERTEX_SHADER);
-  let fragmentShader = compileShader(gl, this.standardHeader+fsSource, gl.FRAGMENT_SHADER);
+  let vertexShader = compileShader(gl, this.standardHeader + vsSource, gl.VERTEX_SHADER);
+  let fragmentShader = compileShader(gl, this.standardHeader + fsSource, gl.FRAGMENT_SHADER);
   this.shadowScene.shadowProgram = gl.createProgram();
   gl.attachShader(this.shadowScene.shadowProgram, vertexShader);
   gl.attachShader(this.shadowScene.shadowProgram, fragmentShader);
   gl.linkProgram(this.shadowScene.shadowProgram);
 
-  let vertexShaderSkinned = compileShader(gl, this.standardHeader+"#define SKINNED \n"+vsSource, gl.VERTEX_SHADER);
-  let fragmentShaderSkinned = compileShader(gl, this.standardHeader+"#define SKINNED \n"+fsSource, gl.FRAGMENT_SHADER);
+  let vertexShaderSkinned = compileShader(gl, this.standardHeader + "#define SKINNED \n" + vsSource, gl.VERTEX_SHADER);
+  let fragmentShaderSkinned = compileShader(gl, this.standardHeader + "#define SKINNED \n" + fsSource, gl.FRAGMENT_SHADER);
   this.shadowScene.shadowProgramSkinned = gl.createProgram();
   gl.attachShader(this.shadowScene.shadowProgramSkinned, vertexShaderSkinned);
   gl.attachShader(this.shadowScene.shadowProgramSkinned, fragmentShaderSkinned);
