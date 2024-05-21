@@ -16,7 +16,7 @@ async function main() {
 
 
   // Load street and modify materials
-  let street = await parseGLBFromString(renderer, streetModel.data);
+  let street = await parseGLBFromString(renderer, streetModel.data, renderer.maxBonesPerMesh);
   
   let tileHeightImage = await base64ToImageBitmap(tileHeightmapImage.data);
   let tileHeightMap = createWebGLTexture(renderer.gl, tileHeightImage, false, true);
@@ -35,11 +35,11 @@ async function main() {
   renderer.currentScene.appendScene(street);
 
   // Load lamp
-  let lamp = await parseGLBFromString(renderer, lampModel.data);
+  let lamp = await parseGLBFromString(renderer, lampModel.data, renderer.maxBonesPerMesh);
   renderer.currentScene.appendScene(lamp);
 
   //load and animate car
-  let car = await parseGLBFromString(renderer, carModel.data);
+  let car = await parseGLBFromString(renderer, carModel.data, renderer.maxBonesPerMesh);
   carRoot = renderer.currentScene.appendScene(car);
   carRoot.transform.setLocalPosition([0, 0.4, 0]);
   carRoot.transform.setLocalScale([0.4, 0.4, 0.4]);
@@ -73,13 +73,13 @@ async function main() {
   renderer.currentScene.addNode(carCamera);
   carCameraNode.addChild(carCamera);
 
-  let rabbit = await parseGLBFromString(renderer, bunnyModel.data);
+  let rabbit = await parseGLBFromString(renderer, bunnyModel.data, renderer.maxBonesPerMesh);
   let rabbitRoot = renderer.currentScene.appendScene(rabbit);
   rabbitRoot.transform.setLocalScale([3, 3, 3]);
   rabbitRoot.transform.setLocalPosition([1.5, 0.5, 4.5]);
   carRoot.addChild(rabbitRoot);
 
-  let sign = await parseGLBFromString(renderer, signModel.data);
+  let sign = await parseGLBFromString(renderer, signModel.data, renderer.maxBonesPerMesh);
   sign.sceneRoot.transform.setLocalPosition([4.5, 0, 2]);
   sign.sceneRoot.transform.setLocalRotationFromEuler([0, -Math.PI/2, 0]);
   renderer.currentScene.appendScene(sign);
@@ -95,12 +95,12 @@ async function main() {
   lines[renderer.currentScene.camera.localID] = setChaikin(renderer.currentScene.camera, camera_positions, 8, 16, 1);
 
 
-  let tiger = await parseGLBFromString(renderer, tigerModel.data);
+  let tiger = await parseGLBFromString(renderer, tigerModel.data, renderer.maxBonesPerMesh);
   tiger.sceneRoot.transform.setLocalScale([0.1, 0.1, 0.1]);
   tiger.sceneRoot.transform.setLocalPosition([-4, 0, -4]);
   renderer.currentScene.appendScene(tiger);
 
-  let dragon = await parseGLBFromString(renderer, dragonModel.data);
+  let dragon = await parseGLBFromString(renderer, dragonModel.data, renderer.maxBonesPerMesh);
   dragon.sceneRoot.transform.setLocalScale([10, 10, 10]);
   dragon.sceneRoot.transform.setLocalPosition([4, -3, 4]);
   dragonNode = renderer.currentScene.appendScene(dragon);

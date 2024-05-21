@@ -1,5 +1,5 @@
 class Mesh {
-  constructor(gl, vertices, normals, texcoords, baryCoords, material, tangents = null, bitangents = null, indices = [], joints = null, weights = null) {
+  constructor(gl, vertices, normals, texcoords, baryCoords, material, tangents = null, bitangents = null, indices = [], joints = null, weights = null, jointMap = null) {
     this.vertices = vertices;
     this.normals = normals;
     this.indices = indices;
@@ -9,6 +9,11 @@ class Mesh {
     this.material = material;
     this.gl = gl;
     this.shaderVariant = 0;
+    this.jointMap = jointMap
+    if(jointMap != null){
+      this.inverseBindMatrices = new Float32Array(jointMap.size*16);
+      this.boneTransforms = new Float32Array(jointMap.size*16);
+    }
     // Create VAO
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -162,6 +167,17 @@ class Mesh {
       textureUnit += 1;
     }
     return textureUnit;
+  }
+  setInverseBindMatrices(inverseBindMatrices) {
+    for(let i=0; i<this.jointMap.size; i++){
+      let index = this.jointMap.get(i)*16
+      this.inverseBindMatrices.set(inverseBindMatrices.slice(index, index+16), i * 16);
+    }
+  }
+  updateTransforms(skeleton){
+    for(let i=0; i<this.jointMap.size; i++){
+      this.boneTransforms.set(skeleton.nodes[this.jointMap.get(i)].transform.modelMatrix, i * 16);
+    }
   }
 }
 
@@ -595,6 +611,9 @@ class RenderableObject extends SceneNode {
   setSkin(skeleton) {
     this.skeleton = skeleton;
     skeleton.userIDs.push(this.localID);
+    for(let mesh of this.meshes){
+      mesh.setInverseBindMatrices(skeleton.inverseBindMatrices);
+    }
   }
 }
 const LightType = {
@@ -820,7 +839,42 @@ class Scene {
     this.nodesByName = {};
     this.numObjects = 0;
     this.sceneRoot = new SceneNode();
+    this.lastUpdateTime = new Date().getTime() / 1000;
   }
+
+  // Update the scene graph from root
+  update() {
+    // Update animations
+    let currentTime = new Date().getTime() / 1000;
+    let elapsed = currentTime - this.lastUpdateTime;
+    this.lastUpdateTime = currentTime;
+    for(let skeleton of this.animatedSkeletons){
+      for (let node of skeleton.nodes){
+        node.animationController.update(elapsed);
+      }
+    }
+
+    // Update scene tree
+    this.sceneRoot.forceUpdate();
+
+    // Update bone transforms for each sub-mesh
+    for(let key in this.skinnedOpaqueObjects){
+      let object = this.skinnedOpaqueObjects[key];
+      for(let mesh of object.meshes){
+        mesh.updateTransforms(object.skeleton)
+      }
+    }
+    for(let key in this.skinnedTransparentObjects){
+      let object = this.skinnedTransparentObjects[key];
+      for(let mesh of object.meshes){
+        mesh.updateTransforms(object.skeleton)
+      }
+    }
+    // for(let skeleton of this.animatedSkeletons){
+    //   skeleton.updateTransforms();
+    // }
+  }
+  
   setCamera(lookAt, up, fov, aspect, zNear, zFar) {
     let camera = new Camera(lookAt, up, fov, aspect, zNear, zFar);
     this.addNode(camera);
@@ -956,8 +1010,8 @@ class Scene {
       this.animatedSkeletons.push(skeleton);
     }
   }
-  createRenderableObject(gl, mesh, name) {
-    let object = createRenderableObject(gl, mesh, name);
+  createRenderableObject(gl, mesh, name, maxBonesPerMesh) {
+    let object = createRenderableObject(gl, mesh, name, maxBonesPerMesh);
     this.addObject(object);
     return object;
   }

@@ -147,14 +147,14 @@ function extractDataFromBuffer(binaryData, accessorData) {
     return { accessor, bufferView };
   }
   
-  function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials) {
+  function parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials, maxBonesPerMesh) {
     const nodes = [];
     // create SceneNode instances for each GLTF node
     for (let gltfNode of gltfData.nodes) {
       let node = null;
       if (gltfNode.mesh != undefined) {
         let data = meshesAndMaterials[gltfNode.mesh];
-        node = scene.createRenderableObject(gl, data.mesh, gltfNode.name);
+        node = scene.createRenderableObject(gl, data.mesh, gltfNode.name, maxBonesPerMesh);
         if (gltfNode.skin != undefined) {
           console.log("found skinned mesh");
           node.skinInstance = gltfNode.skin; //hack for setting skins later
@@ -493,7 +493,7 @@ function extractDataFromBuffer(binaryData, accessorData) {
     return animations;
   }
   
-  async function loadAndParseGLTF(renderer, dir, filename, linearBaseColor = false) {
+  async function loadAndParseGLTF(renderer, dir, filename, maxBonesPerMesh, linearBaseColor = false) {
     const gl = renderer.gl;
     let meshesAndMaterials = [];
     let scene = new Scene();
@@ -556,7 +556,7 @@ function extractDataFromBuffer(binaryData, accessorData) {
         meshesAndMaterials.push(data);
       }
       //console.log(meshes);
-      let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
+      let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials, maxBonesPerMesh);
       let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
       let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
       for (let skeleton of skins) {
@@ -608,19 +608,19 @@ function extractDataFromBuffer(binaryData, accessorData) {
     });
   }
   
-  async function loadAndParseGLB(renderer, url, linearBaseColor = false) {
+  async function loadAndParseGLB(renderer, url, maxBonesPerMesh, linearBaseColor = false) {
     const glbArrayBuffer = await fetchGLB(url);
     //setDownload(arrayBufferToBase64(glbArrayBuffer));
-    return parseGLB(renderer, glbArrayBuffer, linearBaseColor);
+    return parseGLB(renderer, glbArrayBuffer, maxBonesPerMesh, linearBaseColor);
   }
   
-  async function parseGLBFromString(renderer, string, linearBaseColor = false) {
+  async function parseGLBFromString(renderer, string, maxBonesPerMesh, linearBaseColor = false) {
     const glbArrayBuffer = Base64ToArrayBuffer(string);
-    return parseGLB(renderer, glbArrayBuffer, linearBaseColor);
+    return parseGLB(renderer, glbArrayBuffer, maxBonesPerMesh, linearBaseColor);
   }
   
   //https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#binary-gltf-layout
-  async function parseGLB(renderer, glbArrayBuffer, linearBaseColor) {
+  async function parseGLB(renderer, glbArrayBuffer, maxBonesPerMesh, linearBaseColor) {
     const gl = renderer.gl;
     let meshesAndMaterials = [];
     let scene = new Scene();
@@ -682,7 +682,7 @@ function extractDataFromBuffer(binaryData, accessorData) {
         meshesAndMaterials.push(data);
       }
       //console.log(meshes);
-      let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials);
+      let { nodes, rootNodes } = parseGLTFNodeHierarchy(gl, scene, gltfData, meshesAndMaterials, maxBonesPerMesh);
       let animations = parseGLTFAnimations(gltfData, binaryData, nodes);
       let skins = parseGLTFSkins(gltfData, nodes, binaryData, animations);
       for (let skeleton of skins) {

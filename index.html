@@ -4,7 +4,6 @@
     <title>WebGL playground</title>
 </head>
 <script id="primaryVSSource" type="x-shader/x-vertex">
-    #define MAX_BONES 256
 
     in vec3 a_position;
     in vec3 a_normal;
@@ -716,7 +715,7 @@
 </script>
 <script id="shadowVSSource" type="x-shader/x-vertex">
     precision mediump float;
-    #define MAX_BONES 256
+
     in vec3 a_position;
 
     //TODO: USELESS ATTRIBUTES TO USE THE SAME VAO

@@ -16,9 +16,9 @@ WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, project
     if (mesh.material.shaderVariant & this.SHADER_VARIANTS.SHADER_VARIANT_SKIP_LIGHTING) {
       return;
     }
-    if (skinned) {
-      gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, object.skeleton.inverseBindMatrices);
-      gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, object.skeleton.boneTransforms);
+    if (skinned){
+      gl.uniformMatrix4fv(programInfo.uniformLocations.inverseBindMatrices, false, mesh.inverseBindMatrices);
+      gl.uniformMatrix4fv(programInfo.uniformLocations.boneTransforms, false, mesh.boneTransforms);
     }
 
     // Draw mesh
@@ -258,7 +258,6 @@ WebGLRenderer.prototype.createShadowProgram = async function () {
   const gl = this.gl;
   let fsSource = this.shadowFSSource;
   let vsSource = this.shadowVSSource;
-  let standardHeader = `#version 300 es\n`;
   let vertexShader = compileShader(gl, this.standardHeader + vsSource, gl.VERTEX_SHADER);
   let fragmentShader = compileShader(gl, this.standardHeader + fsSource, gl.FRAGMENT_SHADER);
   this.shadowScene.shadowProgram = gl.createProgram();

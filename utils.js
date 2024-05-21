@@ -33,7 +33,7 @@ async function getObj(filename) {
     });
 }
 
-function createRenderableObject(gl, data, material, name) {
+function createRenderableObject(gl, data, name, maxBonesPerMesh) {
   let meshes = [];
   for (const geometry of data.geometries) {
     let tanbit = null;
@@ -46,7 +46,7 @@ function createRenderableObject(gl, data, material, name) {
     }
     let baryCoords = getBarycentricCoordinates(geometry.data.positions.length);
     if(geometry.data.joints != undefined){
-      let subMeshes = createSubMeshes(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit == null ? null : tanbit.tangents, tanbit == null ? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights, 50);
+      let subMeshes = createSubMeshes(gl, geometry.data.positions, geometry.data.normals, geometry.data.texcoords, baryCoords, geometry.data.material, tanbit == null ? null : tanbit.tangents, tanbit == null ? null : tanbit.bitangents, geometry.data.indices, geometry.data.joints, geometry.data.weights, maxBonesPerMesh);
       meshes.push(...subMeshes);
     }
     else {
