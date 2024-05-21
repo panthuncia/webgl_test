@@ -47,22 +47,22 @@ class Mesh {
     gl.enableVertexAttribArray(3);
 
     let currentAttribIndex = 4;
-    // Tangents and bitangents (if present)
-    //if (tangents != null) {
-    this.tangentBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
-    gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(currentAttribIndex);
-    currentAttribIndex++;
+    // Tangents and bitangents (if present, and if we need them)
+    if (tangents != null && (material.shaderVariant & SHADER_VARIANTS.SHADER_VARIANT_NORMAL_MAP || material.shaderVariant & SHADER_VARIANTS.SHADER_VARIANT_PARALLAX)) {
+      this.tangentBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tangentBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tangents), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
 
-    this.bitangentBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
-    gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(currentAttribIndex);
-    currentAttribIndex++;
-    //}
+      this.bitangentBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.bitangentBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bitangents), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(currentAttribIndex, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
+    }
 
     //joints and weights (if present)
     if (joints && weights) {

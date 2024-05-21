@@ -9,10 +9,10 @@
     in vec3 a_normal;
     in vec2 a_texCoord;
     in vec3 a_baryCoord;
-    //#if defined USE_NORMAL_MAP || defined USE_PARALLAX
-    in vec3 a_tangent;
-    in vec3 a_bitangent;
-    //#endif
+    #if defined USE_NORMAL_MAP || defined USE_PARALLAX
+        in vec3 a_tangent;
+        in vec3 a_bitangent;
+    #endif
     #if defined SKINNED
         in uvec4 a_jointIndices;
         in vec4 a_jointWeights;
