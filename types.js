@@ -96,6 +96,37 @@ class Mesh {
 
     // Unbind VAO
     gl.bindVertexArray(null);
+
+    // Create shadow VAO
+    this.shadowVao = gl.createVertexArray();
+    gl.bindVertexArray(this.shadowVao);
+
+    // Vertex buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+
+    currentAttribIndex = 1;
+
+    //joints and weights (if present)
+    if (joints && weights) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.jointBuffer);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      gl.vertexAttribIPointer(currentAttribIndex, 4, gl.UNSIGNED_INT, 0, 0);
+      currentAttribIndex++;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.weightBuffer);
+      gl.vertexAttribPointer(currentAttribIndex, 4, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(currentAttribIndex);
+      currentAttribIndex++;
+    }
+
+    if (indices.length > 0) {
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+    }
+    // Unbind shadow VAO
+    gl.bindVertexArray(null);
+
   }
   drawArraysInternal(gl) {
     gl.drawArrays(gl.TRIANGLES, 0, this.vertices.length / 3);

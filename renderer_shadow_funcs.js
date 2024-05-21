@@ -22,7 +22,7 @@ WebGLRenderer.prototype.drawObjectDepths = function (object, viewMatrix, project
     }
 
     // Draw mesh
-    gl.bindVertexArray(mesh.vao);
+    gl.bindVertexArray(mesh.shadowVao);
     mesh.draw(gl);
     gl.bindVertexArray(null);
   }
